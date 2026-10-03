@@ -6,8 +6,43 @@ Senador, Deputados), por recorte geográfico (Brasil → UF → município → z
 local de votação/"colégio" → seção) e por momento da apuração (replay /
 "máquina do tempo"). Os painéis são montados pelo próprio usuário.
 
-> **Status:** fase de especificação do **sistema completo**. Ainda não existe
-> código, só os documentos abaixo.
+## Como rodar
+
+Pré-requisito: Docker com Docker Compose.
+
+```bash
+make up            # sobe tudo contra o MOCK do TSE (primeira vez: copia .env.example para .env)
+```
+
+| O quê | Onde |
+|---|---|
+| Dashboard | http://localhost:8080 |
+| API (Swagger) | http://localhost:8000/api/docs |
+| Mock do TSE (estado do relógio) | http://localhost:8089/_fake/estado |
+
+O mock simula a noite da eleição: começa às 16:58 e a divulgação abre às 17h (horário de Brasília). Por
+padrão o relógio anda 5× mais rápido. Para controlar:
+
+```bash
+make fake-velocidade v=20   # acelera
+make fake-ir h=19:30        # pula para 19h30
+make fake-reiniciar         # volta para 16:58
+```
+
+O relógio também pode ser controlado pela página **Admin** do dashboard. O primeiro usuário cadastrado vira
+admin.
+
+Outros comandos:
+
+```bash
+make test          # testes do backend em containers (ruff + pytest com cobertura >= 85%)
+make dev           # desenvolvimento: reload no backend + Vite com HMR em http://localhost:5173
+make up-oficial    # TSE real (dia da eleição) — revise o .env antes (doc 10, seção 10.7)
+make reset         # apaga banco, filas e arquivos coletados
+```
+
+Os dados do mock são **fictícios** (candidatos, partidos e votos), sobre a geografia real dos 5.563
+municípios.
 
 ## Stack
 
