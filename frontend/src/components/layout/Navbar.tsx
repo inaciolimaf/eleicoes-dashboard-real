@@ -21,6 +21,7 @@ import { useUi } from "../../store/ui";
 import { linkRecorte } from "../../lib/recortes";
 import { usePaineis } from "../../paineis/repo";
 import { NovoPainelModal } from "../../paineis/NovoPainelModal";
+import { SeletorCargo, SeletorEleicao } from "./Header";
 
 export function Navbar() {
   const loc = useLocation();
@@ -46,6 +47,10 @@ export function Navbar() {
     <>
       <ScrollArea h="100%" type="scroll" className="scroll-fino">
         <Stack gap={2} p="xs">
+          <Stack gap="xs" hiddenFrom="sm" pb="sm" mb={4} style={{ borderBottom: "1px solid var(--mantine-color-default-border)" }}>
+            <SeletorEleicao largura="100%" />
+            <SeletorCargo soSelect />
+          </Stack>
           <Group justify="space-between" px={6} pt={4}>
             <Text size="xs" fw={700} c="dimmed" tt="uppercase">
               Painéis

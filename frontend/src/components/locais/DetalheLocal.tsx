@@ -51,7 +51,7 @@ export function DetalheLocal({ localId, mapa = true, alturaLista }: { localId: s
           · <span className="num">{fmtInt(l.eleitores_aptos)}</span> eleitores aptos
         </Text>
       </Stack>
-      <SimpleGrid cols={{ base: 1, sm: mapa ? 2 : 1 }} spacing="sm">
+      <SimpleGrid cols={{ base: 1, xl: mapa ? 2 : 1 }} spacing="sm">
         {mapa && (
           <Box h={220} style={{ borderRadius: 12, overflow: "hidden", border: "1px solid var(--mantine-color-default-border)" }}>
             <MapaEleitoral tipo="locais" nivel="local" id={l.id} legenda={false} altura={220} />
@@ -66,8 +66,8 @@ export function DetalheLocal({ localId, mapa = true, alturaLista }: { localId: s
               {apuradas} de {l.secoes.length} apuradas
             </Text>
           </Group>
-          <ScrollArea.Autosize mah={alturaLista ?? 260} className="scroll-fino">
-            <Table verticalSpacing={4} highlightOnHover fz="sm">
+          <ScrollArea.Autosize mah={alturaLista ?? 260} className="scroll-fino" type="auto">
+            <Table verticalSpacing={4} highlightOnHover fz="sm" miw={380}>
               <Table.Thead>
                 <Table.Tr>
                   <Table.Th>Seção</Table.Th>
@@ -88,7 +88,12 @@ export function DetalheLocal({ localId, mapa = true, alturaLista }: { localId: s
                         </Anchor>
                       </Table.Td>
                       <Table.Td>
-                        <BadgeStatus s={s.status} />
+                        <Group gap={6} wrap="nowrap">
+                          <Box w={8} h={8} style={{ borderRadius: 8, background: COR_STATUS[s.status], flexShrink: 0 }} />
+                          <Text size="xs" style={{ whiteSpace: "nowrap" }}>
+                            {ROTULO_STATUS[s.status]}
+                          </Text>
+                        </Group>
                       </Table.Td>
                       <Table.Td ta="right" className="num">
                         {fmtInt(s.eleitores_aptos)}

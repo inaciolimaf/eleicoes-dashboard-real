@@ -1,4 +1,4 @@
-import { Badge, Group, Stack, Text, Tooltip, UnstyledButton } from "@mantine/core";
+import { Group, Stack, Text, Tooltip, UnstyledButton } from "@mantine/core";
 import { useEffect, useState } from "react";
 import { useStatus } from "../../api/hooks";
 import { useLive } from "../../realtime/useLive";
@@ -8,7 +8,7 @@ import { useUi } from "../../store/ui";
 import { fmtDataCurta, fmtHora, minutosDesde } from "../../lib/time";
 import { fmtPct } from "../../lib/format";
 
-const AMBIENTE: Record<string, string> = { fake: "Simulação local", simulado: "Simulado TSE", oficial: "Oficial", historico: "Histórico", replay: "Replay" };
+export const AMBIENTE: Record<string, string> = { fake: "Simulação local", simulado: "Simulado TSE", oficial: "Oficial", historico: "Histórico", replay: "Replay" };
 
 /** Indicador AO VIVO (status + ws), com "Desatualizado há X min" e modo replay. */
 export function LiveIndicator({ compacto }: { compacto?: boolean }) {
@@ -68,17 +68,12 @@ export function LiveIndicator({ compacto }: { compacto?: boolean }) {
             <Text size="xs" fw={800} c={cor === "gray" ? "dimmed" : `${cor}.5`} style={{ letterSpacing: 0.6, whiteSpace: "nowrap" }}>
               {rotulo}
             </Text>
-            {!compacto && !t && s?.ultima_totalizacao && (
+            {!t && s?.ultima_totalizacao && (
               <Text fz={10} c="dimmed" className="num" style={{ whiteSpace: "nowrap" }}>
-                {fmtHora(s.ultima_totalizacao)} BRT
+                {fmtHora(s.ultima_totalizacao, !compacto)} BRT
               </Text>
             )}
           </Stack>
-          {!compacto && s && s.ambiente !== "oficial" && (
-            <Badge size="xs" variant="outline" color="grape" visibleFrom="lg">
-              {AMBIENTE[s.ambiente] ?? s.ambiente}
-            </Badge>
-          )}
         </Group>
       </UnstyledButton>
     </Tooltip>

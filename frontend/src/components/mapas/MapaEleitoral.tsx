@@ -8,6 +8,7 @@ import { FillStyleExtension } from "@deck.gl/extensions";
 import type { Layer, PickingInfo } from "@deck.gl/core";
 import type { IControl } from "maplibre-gl";
 import { Badge, Box, Group, Loader, Paper, Select, Stack, Text, useComputedColorScheme } from "@mantine/core";
+import { useElementSize } from "@mantine/hooks";
 import type { FilhosResp, ItemFilho, LocalMapa, Nivel } from "../../api/types";
 import { useFilhos, useLocaisMapa } from "../../api/hooks";
 import { useFiltroEfetivo } from "../../lib/filtro-efetivo";
@@ -256,6 +257,7 @@ export default function MapaEleitoral(props: MapaEleitoralProps) {
   }, [usarUrl, urlBase]);
 
   const mapRef = useRef<MapRef | null>(null);
+  const { ref: caixaRef, width: larguraCaixa, height: alturaCaixa } = useElementSize();
   const [zoom, setZoom] = useState(3.4);
 
   // ---------------------------------------------------------------- enquadramento
@@ -267,6 +269,7 @@ export default function MapaEleitoral(props: MapaEleitoralProps) {
       if (nivel === "local") return l.id === id;
       return true;
     });
+    if ((nivel === "local" || nivel === "zona") && pts.length) return bboxPontos(pts);
     return features[0]?.bbox ?? bboxPontos(pts.length ? pts : locais.data?.itens ?? []);
   }, [modo, nivel, id, features, locais.data]);
   const alvoKey = alvo ? alvo.map((n) => n.toFixed(3)).join(",") : "";
@@ -484,7 +487,7 @@ export default function MapaEleitoral(props: MapaEleitoralProps) {
   const opcoesCand = (candsBase ?? []).map((c) => ({ value: c.sqcand, label: `${c.nome_urna} (${c.numero}) · ${c.partido_sigla}` }));
 
   return (
-    <Box className="mapa-container" style={{ height: altura, minHeight: 180 }} onMouseLeave={() => setHover(null)}>
+    <Box ref={caixaRef} className="mapa-container" style={{ height: altura, minHeight: 180 }} onMouseLeave={() => setHover(null)}>
       <MapGL
         ref={mapRef}
         initialViewState={{ bounds: [[BBOX_BRASIL[0], BBOX_BRASIL[1]], [BBOX_BRASIL[2], BBOX_BRASIL[3]]], fitBoundsOptions: { padding: 16 } }}
@@ -604,7 +607,7 @@ export default function MapaEleitoral(props: MapaEleitoralProps) {
         </Badge>
       )}
 
-      {hover && <TooltipMapa h={hover} tipo={tipo} efA={efA} efB={efB} corCand={corCand} />}
+      {hover && <TooltipMapa h={hover} tipo={tipo} efA={efA} efB={efB} corCand={corCand} caixa={[larguraCaixa, alturaCaixa]} />}
     </Box>
   );
 }
@@ -624,14 +627,20 @@ function TooltipMapa({
   efA,
   efB,
   corCand,
+  caixa,
 }: {
+  caixa: [number, number];
   h: Hover;
   tipo: TipoMapa;
   efA: string | null;
   efB: string | null;
   corCand: ReturnType<typeof useCorCandidato>;
 }) {
-  const style = { left: Math.max(4, h.x + 14), top: Math.max(4, h.y + 14) };
+  const [w, hh] = caixa;
+  const style = {
+    left: w && h.x + 14 + 280 > w ? Math.max(4, h.x - 14 - 280) : Math.max(4, h.x + 14),
+    top: hh && h.y + 14 + 190 > hh ? Math.max(4, h.y - 14 - 190) : Math.max(4, h.y + 14),
+  };
   let corpo: React.ReactNode;
   if (h.tipo === "hex") {
     corpo = (

@@ -1,4 +1,4 @@
-import { Box, Group, Paper, ScrollArea, Stack, Text, Tooltip, UnstyledButton, ActionIcon, Collapse } from "@mantine/core";
+import { ActionIcon, Box, Collapse, Group, Paper, ScrollArea, Stack, Text, Tooltip, UnstyledButton } from "@mantine/core";
 import { useDisclosure, useMediaQuery } from "@mantine/hooks";
 import { IconChevronDown, IconChevronUp } from "@tabler/icons-react";
 import { COR_STATUS, FAIXAS_MARGEM, ROTULO_STATUS, corSequencial, gradienteCss, corDivergente } from "../../lib/cores";
@@ -102,17 +102,18 @@ export function Legenda(p: Props) {
             );
           })}
         </Stack>
-        <Tooltip label="Opacidade proporcional à margem de vitória do líder">
-          <Group gap={3} wrap="nowrap">
-            {FAIXAS_MARGEM.map((f) => (
-              <Stack key={f.rotulo} gap={0} align="center" style={{ flex: 1 }}>
-                <Box h={8} w="100%" style={{ background: `rgba(140,150,175,${f.alpha})`, borderRadius: 2 }} />
-                <Text fz={9} c="dimmed" style={{ whiteSpace: "nowrap" }}>
-                  {f.rotulo}
-                </Text>
-              </Stack>
-            ))}
-          </Group>
+        <Tooltip label={`Opacidade proporcional à margem de vitória do líder: ${FAIXAS_MARGEM.map((f) => f.rotulo).join(" · ")}`}>
+          <Stack gap={2}>
+            <Group gap={3} wrap="nowrap">
+              {FAIXAS_MARGEM.map((f) => (
+                <Box key={f.rotulo} h={8} style={{ flex: 1, background: `rgba(140,150,175,${f.alpha})`, borderRadius: 2 }} />
+              ))}
+            </Group>
+            <Group justify="space-between">
+              <Text fz={10} c="dimmed">margem &lt; 2 p.p.</Text>
+              <Text fz={10} c="dimmed">≥ 20 p.p.</Text>
+            </Group>
+          </Stack>
         </Tooltip>
       </Stack>
     );
@@ -203,7 +204,7 @@ export function Legenda(p: Props) {
       shadow="md"
       p="xs"
       radius="md"
-      style={{ position: "absolute", left: 8, bottom: 8, zIndex: 5, width: 230, maxWidth: "calc(100% - 16px)", backdropFilter: "blur(6px)" }}
+      style={{ position: "absolute", left: 8, bottom: 8, zIndex: 5, width: "calc(240px * var(--mantine-scale))", maxWidth: "calc(100% - 16px)", backdropFilter: "blur(6px)" }}
     >
       <Group justify="space-between" gap={4} mb={aberta ? 4 : 0}>
         <Text size="xs" fw={700} tt="uppercase" c="dimmed">
@@ -214,7 +215,7 @@ export function Legenda(p: Props) {
         </ActionIcon>
       </Group>
       <Collapse in={aberta}>
-        <ScrollArea.Autosize mah={260} className="scroll-fino">
+        <ScrollArea.Autosize mah={260} className="scroll-fino" offsetScrollbars>
           {corpo}
         </ScrollArea.Autosize>
       </Collapse>

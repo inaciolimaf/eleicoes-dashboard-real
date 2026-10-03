@@ -2,7 +2,8 @@ import { ActionIcon, Anchor, Badge, Breadcrumbs, Group, ScrollArea, Text, Toolti
 import { IconChevronRight, IconClockHour4, IconSearch, IconStar, IconStarFilled, IconX } from "@tabler/icons-react";
 import { useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useResultados } from "../../api/hooks";
+import { useResultados, useStatus } from "../../api/hooks";
+import { AMBIENTE } from "./LiveIndicator";
 import type { BreadcrumbItem, Nivel } from "../../api/types";
 import { useFiltro } from "../../store/filtro";
 import { useTempo } from "../../store/tempo";
@@ -32,6 +33,7 @@ export function FilterBar() {
   const semBr = useCargoSemResultadoBr(f.cargo, f.nivel);
   const q = useResultados({ turno: f.turno, cargo: f.cargo, nivel: f.nivel, id: f.id, t }, !semBr && f.nivel !== "br");
   const { favoritos, eFavorito, alternar } = useFavoritos();
+  const status = useStatus();
   const crumbs = q.data?.recorte.breadcrumb?.length ? q.data.recorte.breadcrumb : breadcrumbPadrao(f.nivel, f.id, f.nome);
   const atual = crumbs[crumbs.length - 1];
 
@@ -83,6 +85,13 @@ export function FilterBar() {
           <Badge variant="light" color="gray" size="sm" style={{ flexShrink: 0 }}>
             {NOME_CARGO[f.cargo] ?? `Cargo ${f.cargo}`} · {f.turno}º turno
           </Badge>
+          {status.data && status.data.ambiente !== "oficial" && (
+            <Tooltip label="Ambiente de dados (não é o resultado oficial)">
+              <Badge variant="outline" color="grape" size="sm" style={{ flexShrink: 0 }}>
+                {AMBIENTE[status.data.ambiente] ?? status.data.ambiente}
+              </Badge>
+            </Tooltip>
+          )}
           {t && (
             <Badge
               color="yellow"

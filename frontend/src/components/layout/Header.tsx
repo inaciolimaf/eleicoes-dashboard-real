@@ -1,4 +1,5 @@
-import { ActionIcon, Burger, Group, SegmentedControl, Select, Text, Tooltip, useComputedColorScheme } from "@mantine/core";
+import { ActionIcon, Box, Burger, Group, SegmentedControl, Select, Text, Tooltip, useComputedColorScheme } from "@mantine/core";
+import { useMediaQuery } from "@mantine/hooks";
 import { IconChartBar, IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand, IconMoonStars, IconSun } from "@tabler/icons-react";
 import { useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
@@ -12,7 +13,7 @@ import { Busca } from "./Busca";
 import { LiveIndicator } from "./LiveIndicator";
 import { UserMenu } from "./UserMenu";
 
-function SeletorEleicao() {
+export function SeletorEleicao({ largura = 158 }: { largura?: number | string }) {
   const el = useEleicoes();
   const { ciclo, turno, setFiltro } = useFiltro();
   const opcoes = useMemo(() => {
@@ -32,7 +33,7 @@ function SeletorEleicao() {
   return (
     <Select
       size="sm"
-      w={150}
+      w={largura}
       data={opcoes}
       value={valor}
       onChange={(v) => {
@@ -47,7 +48,7 @@ function SeletorEleicao() {
   );
 }
 
-function SeletorCargo() {
+export function SeletorCargo({ soSelect }: { soSelect?: boolean }) {
   const el = useEleicoes();
   const { cargo, turno, ciclo, nivel, id, setFiltro } = useFiltro();
   const disponiveis = cargosDoTurno(el.data, turno, ciclo).map((c) => Number(c.cd));
@@ -71,20 +72,32 @@ function SeletorCargo() {
     if (uf === "zz" && novo !== 1) setFiltro({ cargo: novo, nivel: "br", id: "br", nome: "Brasil" });
     else setFiltro({ cargo: novo });
   };
+  if (soSelect)
+    return (
+      <Select
+        size="sm"
+        label="Cargo"
+        value={valorSegmento(cargo)}
+        onChange={(v) => v && trocar(v)}
+        data={opcoes}
+        allowDeselect={false}
+        comboboxProps={{ withinPortal: true }}
+      />
+    );
   return (
     <>
-      <SegmentedControl size="sm" value={valorSegmento(cargo)} onChange={trocar} data={opcoes} visibleFrom="lg" aria-label="Cargo" />
+      <SegmentedControl size="sm" value={valorSegmento(cargo)} onChange={trocar} data={opcoes} visibleFrom="xl" aria-label="Cargo" />
       <Select
         size="sm"
         w={170}
         value={valorSegmento(cargo)}
         onChange={(v) => v && trocar(v)}
         data={opcoes}
-        hiddenFrom="lg"
+        hiddenFrom="xl"
         allowDeselect={false}
         aria-label="Cargo"
         comboboxProps={{ withinPortal: true }}
-        visibleFrom="xs"
+        visibleFrom="sm"
       />
     </>
   );
@@ -97,6 +110,7 @@ export function Header() {
   const tema = usePrefs((s) => s.tema);
   const setPrefs = usePrefs((s) => s.set);
   const esquema = useComputedColorScheme("dark");
+  const celular = useMediaQuery("(max-width: 48em)");
   return (
     <Group h="100%" px={{ base: "xs", sm: "md" }} justify="space-between" wrap="nowrap" gap="xs">
       <Group gap="xs" wrap="nowrap">
@@ -112,12 +126,14 @@ export function Header() {
             Apuração<Text span c="eleicao.4" inherit> 2026</Text>
           </Text>
         </Group>
-        <SeletorEleicao />
+        <Box visibleFrom="sm">
+          <SeletorEleicao />
+        </Box>
         <SeletorCargo />
       </Group>
       <Group gap="xs" wrap="nowrap">
         <Busca />
-        <LiveIndicator />
+        <LiveIndicator compacto={celular} />
         <Tooltip label={esquema === "dark" ? "Tema claro" : "Tema escuro (noite da eleição)"}>
           <ActionIcon
             variant="default"

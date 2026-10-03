@@ -79,13 +79,13 @@ export function Busca() {
         leftSection={<IconSearch size={16} />}
         rightSection={<Kbd size="xs">Ctrl K</Kbd>}
         onClick={spotlight.open}
-        visibleFrom="md"
+        visibleFrom="lg"
         styles={{ inner: { justifyContent: "space-between" }, label: { fontWeight: 400, color: "var(--mantine-color-dimmed)" } }}
-        w={250}
+        w={170}
       >
         Buscar…
       </Button>
-      <Button variant="default" size="sm" px={8} onClick={spotlight.open} hiddenFrom="md" aria-label="Buscar">
+      <Button variant="default" size="sm" px={8} onClick={spotlight.open} hiddenFrom="lg" aria-label="Buscar">
         <IconSearch size={16} />
       </Button>
       <Spotlight

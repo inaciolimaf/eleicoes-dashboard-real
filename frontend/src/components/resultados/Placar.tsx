@@ -55,8 +55,8 @@ function LinhaCandidato({
       <Group gap="sm" wrap="nowrap" align="center">
         {mostrarFotos && <AvatarCandidato fotoUrl={c.foto_url} nome={c.nome_urna} cor={cor} size={40} />}
         <Stack gap={3} style={{ flex: 1, minWidth: 0 }}>
-          <Group gap={6} wrap="nowrap" justify="space-between">
-            <Group gap={6} wrap="nowrap" style={{ minWidth: 0 }}>
+          <Group gap={6} wrap="nowrap" justify="space-between" align="flex-start">
+            <Group gap={6} wrap="wrap" style={{ minWidth: 0, flex: 1, rowGap: 2 }}>
               <Badge variant="filled" size="sm" radius="sm" color={cor} className="num" styles={{ root: { flexShrink: 0, color: "#fff" } }}>
                 {c.numero}
               </Badge>

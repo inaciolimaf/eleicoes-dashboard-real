@@ -13,7 +13,7 @@ export const OPCOES_CARGO: OpcaoCargo[] = [
   { valor: "3", rotulo: "Governador", curto: "Gov.", cds: [3] },
   { valor: "5", rotulo: "Senador", curto: "Sen.", cds: [5] },
   { valor: "6", rotulo: "Dep. Federal", curto: "Dep. Fed.", cds: [6] },
-  { valor: "7", rotulo: "Dep. Estadual/Distrital", curto: "Dep. Est.", cds: [7, 8] },
+  { valor: "7", rotulo: "Dep. Est./Distrital", curto: "Dep. Est.", cds: [7, 8] },
 ];
 
 export const NOME_CARGO: Record<number, string> = {
