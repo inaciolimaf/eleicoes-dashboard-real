@@ -1,5 +1,11 @@
 # 8. Backend: FastAPI + SQLAlchemy + Alembic
 
+> **Implementação:** o código está em `backend/`. A estrutura real é a desta seção, com as simplificações
+> descritas no doc 05 (sem PostGIS/Timescale/MinIO/arq). O coletor está em `app/collector/coletor.py`, o
+> worker em `app/worker/jobs.py`, os payloads da API em `app/services/resultados.py` e o mock do TSE em
+> `backend/tse_fake/`. Os testes ficam em `backend/tests` (unit, integration, api), com 61 casos, incluindo um
+> fluxo completo mock → coletor → worker → banco → API.
+
 ## 8.1 Estrutura do projeto
 
 ```

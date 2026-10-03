@@ -1,5 +1,10 @@
 # 6. Modelo de dados
 
+> **Implementação:** os modelos reais estão em `backend/app/models`. Diferenças em relação ao esboço abaixo:
+> votos por candidato ficam em JSONB dentro de `snapshot_resultado`/`resultado_atual` (sem `snapshot_candidato`);
+> não há hypertables nem geometrias PostGIS; boletins guardam os votos por cargo em JSONB; o agregado do local
+> fica em `resultado_local`.
+
 As tabelas abaixo são implementadas como **modelos SQLAlchemy 2.0** e criadas
 por **migrações Alembic** (ver [doc 08](08-backend.md)). O SQL aqui é só
 notação de schema.

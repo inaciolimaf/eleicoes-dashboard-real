@@ -8,7 +8,7 @@ cada uma deixa o sistema rodando no Docker e a próxima constrói em cima.
 
 | Etapa | Entrega | Testes (backend) |
 |---|---|---|
-| **E0 – Captura imediata** | Antes das 17h de 04/10: o container `collector` em modo "só bruto" grava no MinIO todo EA11/EA20/EA14/EA15 coletado. Garante o histórico do 1º turno para a máquina do tempo | Rate limiter, ETag, URLs |
+| **E0 – Captura imediata** | Antes das 17h de 04/10: o container `collector` em modo "só bruto" grava no volume `brutos` todo EA11/EA20/EA14/EA15 coletado. Garante o histórico do 1º turno para a máquina do tempo | Rate limiter, ETag, URLs |
 | **E1 – Fundação** | Docker Compose completo, modelos SQLAlchemy, migrações Alembic, parsers TSE, verificação JWS, tse-fake | Unit de `app/tse`, migrações |
 | **E2 – Ingestão e domínio** | Worker: snapshots, situação/selos, votos válidos, vencedor, eventos. Seed de geodados e locais | Ingestão, tempo T, situação, eventos |
 | **E3 – API e tempo real** | Todos os endpoints REST, WebSocket com resume, export | API e WS |
@@ -46,7 +46,7 @@ turno, com os dados do 1º turno disponíveis para replay.
 | Risco | Impacto | Mitigação |
 |---|---|---|
 | Bloqueio de IP pelo TSE | Sistema cego por 10+ min | Token bucket com folga, sem URLs especulativas, circuit breaker, standby |
-| Formato muda entre simulado e oficial | Parser quebra na hora crítica | Parser tolerante, testes com fixtures reais, brutos no MinIO para reprocessar, alerta em erro de parse |
+| Formato muda entre simulado e oficial | Parser quebra na hora crítica | Parser tolerante, testes com fixtures reais, brutos no volume `brutos` para reprocessar, alerta em erro de parse |
 | Volume de seções vs. limite | Nível seção incompleto durante a noite | Coleta sob demanda + prioridade, cobertura visível ao usuário, completar com Dados Abertos depois |
 | Locais sem coordenada | Pontos faltando no mapa | Centróide do município + marcação "posição aproximada" |
 | Pico de acesso | Lentidão | Fan-out via Redis, cache curto, réplicas da API |

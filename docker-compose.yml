@@ -1,0 +1,98 @@
+# Sistema completo: `docker compose up -d --build` e abra http://localhost:8080
+# Por padrão roda contra o MOCK do TSE (tse-fake). Para o TSE real, veja .env.example (TSE_AMBIENTE=oficial).
+name: eleicoes
+
+x-backend: &backend
+  build: ./backend
+  image: eleicoes-backend:latest
+  env_file: [.env]
+  environment:
+    DATABASE_URL: postgresql+asyncpg://eleicoes:eleicoes@db:5432/eleicoes
+    REDIS_URL: redis://redis:6379/0
+  restart: unless-stopped
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: eleicoes
+      POSTGRES_PASSWORD: eleicoes
+      POSTGRES_DB: eleicoes
+    command: ["postgres", "-c", "shared_buffers=256MB", "-c", "max_connections=200", "-c", "synchronous_commit=off"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    ports: ["5432:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eleicoes"]
+      interval: 3s
+      retries: 30
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes: [redisdata:/data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      retries: 30
+    restart: unless-stopped
+
+  tse-fake:
+    <<: *backend
+    command: ["uvicorn", "tse_fake.main:app", "--host", "0.0.0.0", "--port", "8080", "--log-level", "warning"]
+    ports: ["8089:8080"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/saude')"]
+      interval: 3s
+      retries: 40
+
+  migrate:
+    <<: *backend
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+    depends_on:
+      db: {condition: service_healthy}
+
+  api:
+    <<: *backend
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--workers", "2"]
+    ports: ["8000:8000"]
+    volumes: [fotos:/data/fotos]
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      redis: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/saude')"]
+      interval: 5s
+      retries: 30
+
+  collector:
+    <<: *backend
+    command: ["python", "-m", "app.collector.main"]
+    volumes: [brutos:/data/brutos]
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      redis: {condition: service_healthy}
+
+  worker:
+    <<: *backend
+    command: ["python", "-m", "app.worker.main"]
+    deploy:
+      replicas: 2
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      redis: {condition: service_healthy}
+
+  web:
+    build: ./frontend
+    image: eleicoes-web:latest
+    ports: ["8080:80"]
+    depends_on:
+      api: {condition: service_healthy}
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  redisdata:
+  brutos:
+  fotos:

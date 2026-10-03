@@ -1,86 +1,94 @@
 # 10. Docker
 
-Todo o sistema sobe com Docker Compose. Nada precisa ser instalado na máquina
-além do Docker.
+Todo o sistema sobe com Docker Compose. Não é preciso instalar nada além do Docker.
 
-## 10.1 Serviços
+```bash
+make up          # = cp .env.example .env (1ª vez) + docker compose up -d --build
+# Dashboard:  http://localhost:8080
+# API (docs): http://localhost:8000/api/docs
+# Mock TSE:   http://localhost:8089/_fake/estado
+```
+
+## 10.1 Serviços (`docker-compose.yml`)
 
 | Serviço | Imagem / build | Função | Porta (host) |
 |---|---|---|---|
-| `db` | `timescale/timescaledb-ha:pg16` (já inclui PostGIS) | PostgreSQL + TimescaleDB + PostGIS | 5432 |
-| `redis` | `redis:7-alpine` | Cache, pub/sub, filas (arq), rate limiter | 6379 |
-| `minio` | `minio/minio` | Arquivos brutos do TSE e BUs | 9000 / 9001 (console) |
-| `minio-init` | `minio/mc` | Cria o bucket `tse-brutos` (roda uma vez) | — |
+| `db` | `postgres:16-alpine` | Banco (snapshots, estado atual, boletins, usuários e painéis) | 5432 |
+| `redis` | `redis:7-alpine` (AOF ligado) | Fila coletor → worker, pub/sub do tempo real, tópicos ativos, métricas | — |
+| `tse-fake` | `./backend` | **Mock do TSE**: mesmas URLs, JSON/JWS assinados, boletins de urna ASN.1, CSV de locais, relógio simulado | 8089 |
 | `migrate` | `./backend` | `alembic upgrade head` (roda uma vez) | — |
-| `seed` | `./backend` | `python -m app.cli seed` (malhas IBGE, locais de votação, partidos). Idempotente | — |
-| `api` | `./backend` | `uvicorn app.main:app` (REST + WebSocket) | 8000 |
-| `collector` | `./backend` | `python -m app.collector.main` | — |
-| `worker` | `./backend` | `arq app.worker.main.WorkerSettings` (escalável: `--scale worker=3`) | — |
-| `tse-fake` | `./backend` | `uvicorn tse_fake.main:app`: serve snapshots gravados com URLs iguais às do TSE | 8080 |
-| `web` | `./frontend` | Em dev: `vite` com HMR. Em prod: nginx servindo o build e fazendo proxy de `/api` e `/ws` | 5173 (dev) / 80 (prod) |
+| `api` | `./backend` | FastAPI (REST + WebSocket), 2 workers uvicorn | 8000 |
+| `collector` | `./backend` | Coletor (catálogo → resultados → acompanhamento → municípios → seções) | — |
+| `worker` | `./backend` (2 réplicas) | Ingestão, eventos, alertas e publicação em tempo real | — |
+| `web` | `./frontend` | Build do Vite servido por nginx, com proxy de `/api` e do WebSocket | 8080 |
 
-Ordem de subida com `depends_on` + `healthcheck`: `db`, `redis` e `minio`
-saudáveis → `migrate` e `minio-init` concluídos (`service_completed_successfully`)
-→ `seed` → `api`, `collector` e `worker` → `web`.
+Ordem de subida: `db` e `redis` saudáveis → `migrate` concluído → `api`, `collector` e `worker` → `web`.
+A mesma imagem do backend serve `api`, `collector`, `worker`, `migrate` e `tse-fake`. Só muda o `command`.
 
 ## 10.2 Arquivos
 
 ```
-docker-compose.yml          # base (todos os serviços)
-docker-compose.override.yml # dev: volumes com código, reload, vite dev server, TSE_AMBIENTE=fake
-docker-compose.prod.yml     # prod: web com nginx, sem volumes de código, restart: unless-stopped
-docker-compose.test.yml     # testes do backend: db-test (tmpfs), redis-test, api-test (pytest)
-.env.example                # todas as variáveis do doc 08 com valores padrão
+docker-compose.yml        # sistema completo (mock do TSE por padrão)
+docker-compose.dev.yml    # dev: código montado com reload e Vite com HMR em :5173
+docker-compose.test.yml   # testes do backend (db-test em tmpfs, redis-test, api-test)
+.env.example              # todas as variáveis (copiado para .env no primeiro `make up`)
 Makefile
-backend/Dockerfile          # multi-stage: builder (uv/pip wheels) → runtime python:3.12-slim
-frontend/Dockerfile         # multi-stage: node:20 (build) → nginx:alpine
-frontend/nginx.conf         # SPA fallback, gzip/brotli, cache longo de assets, proxy /api e /ws (upgrade)
+backend/Dockerfile        # python:3.12-slim, dependências em estágio separado
+frontend/Dockerfile       # node:20 (build) → nginx:alpine
+frontend/Dockerfile.dev   # Vite dev server
+frontend/nginx.conf       # SPA fallback, gzip, cache de assets, proxy /api e WebSocket
 ```
-
-O `backend/Dockerfile` gera uma única imagem, usada por `api`, `collector`,
-`worker`, `migrate`, `seed` e `tse-fake`. Muda só o `command`.
 
 ## 10.3 Comandos (Makefile)
 
 | Comando | O que faz |
 |---|---|
-| `make up` | `docker compose up -d --build` (dev, contra o tse-fake) |
-| `make up-oficial` | Sobe com `TSE_AMBIENTE=oficial` (dia da eleição) |
-| `make up-simulado` | Sobe contra o simulado do TSE |
-| `make prod` | `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build` |
+| `make up` | Sobe tudo contra o mock do TSE |
+| `make up-oficial` | Sobe contra o TSE real (`TSE_AMBIENTE=oficial`, 60 req/s), sem o mock |
+| `make dev` | Modo desenvolvimento (reload no backend, Vite em http://localhost:5173) |
+| `make test` | **Testes do backend** (ruff + pytest com cobertura mínima de 85%) em containers |
 | `make logs s=collector` | Logs de um serviço |
+| `make fake-status` | Estado do relógio simulado (horário, % de seções, velocidade) |
+| `make fake-velocidade v=20` | Acelera/desacelera a apuração simulada |
+| `make fake-ir h=19:30` | Pula o relógio simulado para um horário |
+| `make fake-reiniciar` | Volta para 16:58 |
 | `make migrate` / `make revision m="msg"` | Alembic upgrade / nova revisão autogerada |
-| `make seed` | Carrega geodados, locais de votação e partidos |
-| `make replay arquivo=... velocidade=60` | O tse-fake reproduz uma noite gravada |
-| `make test` | Sobe `docker-compose.test.yml` e roda `pytest --cov` (só backend) |
-| `make lint` | ruff + mypy (backend), eslint + tsc (frontend) |
-| `make types` | Gera os tipos TS a partir do OpenAPI da api |
-| `make down` / `make reset` | Para tudo / para e apaga volumes |
+| `make down` / `make reset` | Para tudo / para e apaga volumes (banco, filas, brutos) |
 
-## 10.4 Volumes e dados
+O relógio do mock também pode ser controlado pela página **Admin** do dashboard. O primeiro usuário
+registrado vira admin.
 
-- `pgdata` (banco), `redisdata` (AOF ligado, para não perder filas),
-  `miniodata` (brutos), `seedcache` (downloads de IBGE e Dados Abertos).
-- **Backup dos brutos**: o MinIO guarda todo arquivo coletado. Com ele, é
-  possível reconstruir o banco inteiro (`python -m app.cli reprocessar`).
+## 10.4 O mock do TSE (`tse-fake`)
 
-## 10.5 Testes em container
+- Usa os **5.563 municípios reais** (nomes, códigos IBGE, posição) e gera cerca de 57 mil seções, 12,7 mil locais
+  de votação, candidatos e partidos **fictícios** e votos com tendências regionais. Por exemplo, um candidato
+  a presidente forte no Nordeste e outro no Sul/Sudeste, com regiões apurando em ritmos diferentes, o que
+  produz **viradas** durante a noite.
+- Serve exatamente os caminhos do TSE: `comum/config/ele-c.json|jws`, `mun-…-cm`, `…-ab` (acompanhamento),
+  `…-u` (resultado unificado por Brasil/UF/município/zona), `…-e` (eleitos), fotos, `…-cs` (seções),
+  `…-aux` (auxiliar de seção) e os **boletins de urna `.bu` em ASN.1** conforme a especificação do TSE.
+- Os `.jws` são assinados com Ed25519, com uma chave de desenvolvimento determinística. O coletor verifica a
+  assinatura como faria com o TSE real.
+- Respeita ETag/`If-None-Match` (304) e gera arquivos em **rodadas de totalização** de 30 s simulados.
+- Ao final, calcula eleitos (maioria absoluta ou 2º turno, Senado com 2 vagas, proporcional por D'Hondt)
+  e marca "matematicamente eleito" quando a vantagem não pode mais ser revertida.
+- Variáveis: `FAKE_VELOCIDADE` (padrão 5×), `FAKE_INICIO_MIN` (-2 = 16:58), `FAKE_SEMENTE`, `FAKE_ESCALA`.
 
-`docker-compose.test.yml`:
-- `db-test`: mesma imagem do `db`, com dados em `tmpfs` (rápido e
-  descartável).
-- `redis-test`: Redis efêmero.
-- `api-test`: imagem do backend com dependências de dev. Roda
-  `alembic upgrade head` e depois `pytest -q --cov=app --cov-fail-under=85`.
-- A CI (GitHub Actions) executa `make test` em cada push.
+## 10.5 Volumes
 
-## 10.6 Produção (noite da eleição)
+`pgdata` (banco), `redisdata` (fila e pub/sub), `brutos` (todos os arquivos originais coletados, um por
+geração `idg`, para auditoria e reprocessamento) e `fotos` (cache das fotos de candidatos).
 
-- 1 `collector` (líder) + 1 standby com outro IP, se a política do TSE
-  permitir. O lock fica no Redis.
-- `api` com `--workers` ajustado e réplicas atrás do nginx. O WebSocket
-  escala horizontalmente porque o fan-out é feito via Redis pub/sub.
-- `worker` com 2–4 réplicas.
-- Healthchecks e `restart: unless-stopped` em todos os serviços.
-- `/metrics` exposto para Prometheus/Grafana (opcional, profile
-  `observabilidade` no compose).
+## 10.6 Testes em container
+
+`docker-compose.test.yml` sobe `db-test` (Postgres em tmpfs) e `redis-test`, e roda no `api-test`:
+`ruff check` + `pytest --cov=app --cov-fail-under=85`. O frontend não tem testes automatizados (decisão do
+projeto).
+
+## 10.7 Dia da eleição (TSE real)
+
+1. Em `.env`: `TSE_AMBIENTE=oficial`, `TSE_BASE_URL=https://resultados.tse.jus.br/oficial`, `TSE_MAX_RPS=60`
+   (nunca acima de 100) e `LOCAIS_VOTACAO_URL` com o CSV/ZIP de locais de votação de 2026 dos Dados Abertos.
+2. `make up-oficial`.
+3. Acompanhe a página Admin (req/s, 304/404, falhas de JWS, filas). Se algo der errado no formato, os brutos
+   ficam no volume `brutos` para reprocessar.

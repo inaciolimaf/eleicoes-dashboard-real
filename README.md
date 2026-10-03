@@ -12,7 +12,7 @@ local de votação/"colégio" → seção) e por momento da apuração (replay /
 ## Stack
 
 - **Backend:** Python 3.12, FastAPI, SQLAlchemy 2.0 (async), Alembic,
-  PostgreSQL 16 + TimescaleDB + PostGIS, Redis, MinIO. Testes com pytest
+  PostgreSQL 16, Redis. Testes com pytest
   (testes automatizados **só no backend**).
 - **Frontend:** React 18, TypeScript, Vite, Mantine (componentes prontos),
   Apache ECharts (gráficos), MapLibre GL + deck.gl (mapas),

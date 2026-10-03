@@ -1,0 +1,21 @@
+# Desenvolvimento: código montado com reload e Vite com HMR em http://localhost:5173
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+services:
+  api:
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    volumes: [./backend:/app, fotos:/data/fotos]
+  collector:
+    volumes: [./backend:/app, brutos:/data/brutos]
+  worker:
+    volumes: [./backend:/app]
+  tse-fake:
+    volumes: [./backend:/app]
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    image: eleicoes-web-dev:latest
+    environment:
+      VITE_API_PROXY: http://api:8000
+    ports: ["5173:5173"]
+    volumes: [./frontend:/app, /app/node_modules]

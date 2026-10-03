@@ -6,15 +6,22 @@
 |---|---|
 | Backend / API | **Python 3.12 + FastAPI** (Pydantic v2), Uvicorn |
 | ORM e migrações | **SQLAlchemy 2.0** (modelos declarativos tipados, queries montadas com a API do SQLAlchemy, async com `asyncpg`) + **Alembic** |
-| Banco | **PostgreSQL 16 + TimescaleDB** (séries temporais) + **PostGIS** (geometrias de UF/município e pontos dos locais) |
+| Banco | **PostgreSQL 16** (snapshots com índices por recorte/tempo; `pg_trgm` + `unaccent` para a busca) |
 | Cache / pub-sub / filas | **Redis 7** |
-| Armazenamento bruto | **MinIO** (compatível com S3) para JSON/JWS/BU originais |
-| Coletor e workers | Python (mesma base de código do backend): `httpx` async, `cryptography` (Ed25519), `asn1tools` (BU) e **arq** (fila de jobs sobre Redis) |
+| Armazenamento bruto | Volume Docker `brutos` com todo JSON/JWS/BU original (um arquivo por geração `idg`) |
+| Coletor e workers | Python (mesma base de código do backend): `httpx` async, `cryptography` (Ed25519), `asn1tools` (BU) e fila em lista do Redis (`fila:arquivos`) |
 | Tempo real | WebSocket do FastAPI + Redis pub/sub |
 | Frontend | **React 18 + TypeScript + Vite**, com bibliotecas de componentes prontos (detalhes no [doc 09](09-frontend.md)) |
 | Mapas | MapLibre GL + deck.gl, com malhas do IBGE |
 | Infra | **Docker + Docker Compose** ([doc 10](10-docker.md)) |
 | Testes | **Somente backend**: pytest ([doc 08](08-backend.md)) |
+
+> **Notas de implementação (o que mudou em relação ao rascunho):** TimescaleDB e PostGIS ficaram de fora.
+> O volume de snapshots de uma noite cabe bem em PostgreSQL puro com índices, e os mapas usam malhas
+> GeoJSON simplificadas servidas pelo frontend (`frontend/public/geo`), cruzadas pelo código IBGE. Os
+> pontos dos locais usam colunas `lat`/`lon` com índice. O MinIO virou um volume Docker. A fila do worker é
+> uma lista do Redis, sem biblioteca extra. Votos por candidato ficam em JSONB dentro do snapshot (uma linha
+> por arquivo do TSE), o que deixa a ingestão rápida.
 
 ## 5.2 Visão geral
 
@@ -73,7 +80,7 @@ estrutura de URL do TSE, para desenvolvimento, replay e testes.
    circuit breaker.
 6. **Verificação JWS** (Ed25519, `kid` esperado do ambiente). Se falhar, o
    snapshot é descartado e é gerado um alerta.
-7. Grava o bruto no MinIO (`ambiente/ciclo/eleicao/arquivo/idg`) e enfileira
+7. Grava o bruto no volume `brutos` (`ambiente/caminho/arquivo.idg`) e enfileira
    o job `processar_arquivo`.
 8. Só uma instância lidera (lock no Redis), para não dobrar o tráfego ao TSE.
 
@@ -132,7 +139,7 @@ WebSocket `/ws`:
 ## 5.6 Geodados para os mapas
 
 - **Malhas do IBGE** (UF e municípios), da API de malhas
-  `servicodados.ibge.gov.br/api/v3/malhas`, carregadas no PostGIS por um
+  `servicodados.ibge.gov.br/api/v3/malhas` (aqui, a partir do projeto aberto `tbrugz/geodata-br`), simplificadas e versionadas em `frontend/public/geo`, em vez de carregadas no PostGIS por um
   comando de seed. Versões simplificadas (com `ST_SimplifyPreserveTopology`)
   em 3 níveis de detalhe e servidas como TopoJSON com cache longo.
 - **Correspondência TSE ↔ IBGE** de municípios: vem do EA12.
