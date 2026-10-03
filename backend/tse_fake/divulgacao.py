@@ -310,7 +310,7 @@ class Divulgacao:
         else:
             for m in c.municipios:
                 if m.uf == uf:
-                    itens.append(self._item_ab("mu", f"{m.cd:05d}", m.a, m.b, self._t_mun[m.idx], t))
+                    itens.append(self._item_ab("mun", f"{m.cd:05d}", m.a, m.b, self._t_mun[m.idx], t))
         return idg, {"ele": str(eleicao), "t": "1", "f": "o", "dg": dg, "hg": hg, "idg": idg, "abr": itens}
 
     def _item_ab(self, tipo: str, cod: str, a: int, b: int, tempos: np.ndarray, t: float) -> dict:

@@ -134,3 +134,22 @@ def test_parse_acompanhamento_auxiliar_secoes_municipios():
     mus = parse_municipios({"abr": [{"cd": "AC", "mu": [{"cd": "01120", "cdi": "1200013", "nm": "ACRELÂNDIA", "c": "N",
                                                           "z": ["0008", "0009"]}]}]})
     assert mus[0].uf == "ac" and mus[0].cd == 1120 and mus[0].cd_ibge == 1200013 and mus[0].zonas == [8, 9]
+
+
+def test_ler_csv_locais_zip_oficial_usa_o_csv_do_brasil():
+    import io
+    import zipfile
+
+    from app.services.ingestao import ler_csv_locais
+
+    cab = "SG_UF;CD_MUNICIPIO;NR_ZONA;NR_SECAO;NR_LOCAL_VOTACAO;NM_LOCAL_VOTACAO\n"
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("eleitorado_local_votacao_2026_BA.csv", (cab + "BA;34576;79;197;1236;ESCOLA A\n").encode("latin-1"))
+        z.writestr("eleitorado_local_votacao_2026_BRASIL.csv",
+                   (cab + "BA;34576;79;197;1236;ESCOLA A\nCE;13811;12;42;1015;COLÉGIO B\n").encode("latin-1"))
+        z.writestr("leiame.pdf", b"%PDF")
+    linhas = list(ler_csv_locais(buf.getvalue()))
+    assert [ln["SG_UF"] for ln in linhas] == ["BA", "CE"]
+    assert linhas[1]["NM_LOCAL_VOTACAO"] == "COLÉGIO B"
+    assert list(ler_csv_locais((cab + "AP;06050;2;10;1;ESCOLA C\n").encode("latin-1")))[0]["NR_SECAO"] == "10"

@@ -10,7 +10,7 @@ from app.collector.fetcher import Fetcher
 from app.core.config import get_settings
 from app.core.db import get_sessionmaker
 from app.main import app
-from app.models import Boletim, Candidato, Evento, LocalVotacao, Municipio, ResultadoAtual, Snapshot
+from app.models import Boletim, Candidato, Evento, LocalVotacao, Municipio, ResultadoAtual, Secao, Snapshot
 from app.services import resultados
 from app.services.recortes import parse
 from app.worker import fila
@@ -64,6 +64,7 @@ async def ambiente(engine, redis_cliente):
     cliente = httpx.AsyncClient(transport=httpx.ASGITransport(app=fake.app))
     s = get_settings()
     s.intervalo_min_municipio = 0
+    s.modo_secoes = "todas"  # o fluxo completo varre as seções; o modo sob demanda tem teste próprio
     coletor = Coletor(s, get_sessionmaker(), redis_cliente, Fetcher(10000, 16, cliente=cliente))
     proc = Processador(get_sessionmaker(), redis_cliente)
     assert await coletor.atualizar_catalogo()
@@ -140,6 +141,61 @@ async def test_local_de_votacao_e_secao_por_boletim(ambiente):
         assert any(i["status"] in ("parcial", "apurado") for i in mapa["itens"])
         detalhe = await resultados.detalhe_local(s, 1, b.local_id)
         assert any(sec["status"] == "apurado" for sec in detalhe["secoes"])
+
+
+def _secoes_na_fila(coletor: Coletor) -> set[str]:
+    itens = []
+    while not coletor.fila_sec.empty():
+        itens.append(coletor.fila_sec.get_nowait())
+    for item in itens:
+        coletor.fila_sec.put_nowait(item)
+    return {f"{uf}{mun:05d}-z{zona:04d}-s{sec:04d}" for _, _, _, uf, mun, zona, sec in itens}
+
+
+async def test_secoes_sob_demanda(ambiente, api, redis_cliente):
+    coletor, proc = ambiente
+    s = get_settings()
+    s.modo_secoes = "sob_demanda"
+    try:
+        while not coletor.fila_sec.empty():
+            coletor.fila_sec.get_nowait()
+        coletor.pendentes_sec.clear()
+        coletor.secoes_feitas.clear()
+        coletor.tentativa_sec.clear()
+        async with get_sessionmaker()() as sess:
+            feito = (await sess.execute(select(Boletim).where(Boletim.local_id.is_not(None)).limit(1))).scalar_one()
+            do_local = set((await sess.execute(select(Secao.id).where(Secao.local_id == feito.local_id))).scalars())
+            com_bu = set((await sess.execute(select(Boletim.secao_id).where(Boletim.secao_id.in_(do_local)))).scalars())
+
+        # abrir só o município não baixa seção nenhuma
+        await api.get("/api/v1/resultados", params={"cargo": 1, "nivel": "municipio", "id": feito.municipio_id})
+        await coletor.ciclo_sob_demanda()
+        assert coletor.fila_sec.empty()
+
+        # abrir o local baixa só as seções dele que ainda não têm boletim no banco
+        assert (await api.get(f"/api/v1/locais/{feito.local_id}")).status_code == 200
+        await coletor.ciclo_sob_demanda()
+        assert _secoes_na_fila(coletor) == do_local - com_bu
+        assert feito.secao_id not in _secoes_na_fila(coletor)
+
+        # abrir uma seção avulsa (sem boletim) também enfileira; repetir o ciclo não duplica
+        async with get_sessionmaker()() as sess:
+            avulsa = (await sess.execute(select(Secao.id).where(
+                Secao.id.not_in(select(Boletim.secao_id)), Secao.municipio_id != feito.municipio_id).limit(1))).scalar_one()
+        await api.get(f"/api/v1/secoes/{avulsa}")
+        await coletor.ciclo_sob_demanda()
+        antes = coletor.fila_sec.qsize()
+        await coletor.ciclo_sob_demanda()
+        assert avulsa in _secoes_na_fila(coletor) and coletor.fila_sec.qsize() == antes
+
+        while not coletor.fila_sec.empty():
+            _, _, turno, uf, mun, zona, sec = coletor.fila_sec.get_nowait()
+            coletor.pendentes_sec.discard(f"{uf}{mun:05d}-z{zona:04d}-s{sec:04d}")
+            await coletor.processar_secao(turno, uf, mun, zona, sec)
+        await drenar_fila(redis_cliente, proc)
+    finally:
+        s.modo_secoes = "todas"
+        await redis_cliente.delete("secoes:demanda")
 
 
 async def test_filhos_para_mapas(ambiente):

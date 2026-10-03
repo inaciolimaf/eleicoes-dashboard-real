@@ -140,15 +140,21 @@ async def ingerir_secoes(session: AsyncSession, lista: list[SecaoTSE]) -> int:
 
 
 def ler_csv_locais(conteudo: bytes) -> Iterable[dict]:
-    """CSV do Portal de Dados Abertos (separador ';', latin-1). Aceita também um .zip com o CSV dentro."""
-    if conteudo[:2] == b"PK":
-        import zipfile
+    """CSV do Portal de Dados Abertos (separador ';', latin-1). Aceita também um .zip com o CSV dentro.
 
-        with zipfile.ZipFile(io.BytesIO(conteudo)) as z:
-            nome = next(n for n in z.namelist() if n.lower().endswith(".csv"))
-            conteudo = z.read(nome)
-    texto = conteudo.decode("latin-1")
-    return csv.DictReader(io.StringIO(texto), delimiter=";")
+    O zip oficial traz um CSV por UF e um "_BRASIL" com todas: usa o do Brasil (ou, sem ele, todos os CSVs).
+    """
+    if conteudo[:2] != b"PK":
+        yield from csv.DictReader(io.StringIO(conteudo.decode("latin-1")), delimiter=";")
+        return
+    import zipfile
+
+    with zipfile.ZipFile(io.BytesIO(conteudo)) as z:
+        nomes = [n for n in z.namelist() if n.lower().endswith(".csv")]
+        brasil = [n for n in nomes if "brasil" in n.lower()]
+        for nome in brasil or nomes:
+            with z.open(nome) as f:
+                yield from csv.DictReader(io.TextIOWrapper(f, encoding="latin-1", newline=""), delimiter=";")
 
 
 def _coord(valor: str | None) -> float | None:
@@ -157,6 +163,12 @@ def _coord(valor: str | None) -> float | None:
     except (TypeError, ValueError):
         return None
     return None if v in (-1.0, 0.0) else v
+
+
+async def _gravar_secoes(session: AsyncSession, secoes: list[dict]) -> None:
+    stmt = insert(Secao).values(secoes)
+    await session.execute(stmt.on_conflict_do_update(index_elements=["id"], set_={
+        "local_id": stmt.excluded.local_id, "eleitores_aptos": stmt.excluded.eleitores_aptos}))
 
 
 async def importar_locais(session: AsyncSession, linhas: Iterable[dict]) -> int:
@@ -200,6 +212,11 @@ async def importar_locais(session: AsyncSession, linhas: Iterable[dict]) -> int:
         loc["qtd_secoes"] += 1
         secoes.append({"id": secao_id(uf, cd_mun, zona, secao), "municipio_id": mid, "zona_id": zid, "local_id": lid,
                        "uf": uf, "numero": secao, "eleitores_aptos": aptos})
+        if len(secoes) >= 3000:  # o arquivo do Brasil tem ~500 mil seções: grava em blocos
+            await _gravar_secoes(session, secoes)
+            secoes = []
+    if secoes:
+        await _gravar_secoes(session, secoes)
     zl = list(zonas.values())
     for i in range(0, len(zl), 2000):
         await session.execute(insert(Zona).values(zl[i:i + 2000]).on_conflict_do_nothing())
@@ -209,10 +226,6 @@ async def importar_locais(session: AsyncSession, linhas: Iterable[dict]) -> int:
         await session.execute(stmt.on_conflict_do_update(index_elements=["id"], set_={
             c: getattr(stmt.excluded, c) for c in ("nome", "endereco", "bairro", "cep", "lat", "lon", "aproximado",
                                                    "eleitores_aptos", "qtd_secoes")}))
-    for i in range(0, len(secoes), 3000):
-        stmt = insert(Secao).values(secoes[i:i + 3000])
-        await session.execute(stmt.on_conflict_do_update(index_elements=["id"], set_={
-            "local_id": stmt.excluded.local_id, "eleitores_aptos": stmt.excluded.eleitores_aptos}))
     await session.commit()
     return len(lista)
 

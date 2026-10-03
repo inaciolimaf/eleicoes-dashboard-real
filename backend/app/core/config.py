@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     intervalo_acompanhamento: float = 10.0
     intervalo_min_municipio: float = 30.0
     coletar_secoes: bool = True
+    # sob_demanda: só baixa boletins de urna dos locais/seções que alguém abriu (ou com alerta ativo)
+    # todas: varre todas as seções de cada município que mudou (~500 mil seções no Brasil, horas de coleta)
+    modo_secoes: Literal["sob_demanda", "todas"] = "sob_demanda"
     coletar_zonas: bool = True
     # Chave pública Ed25519 (base64url) para o ambiente "fake" (o mock publica a dele)
     tse_fake_kid: str = "fake-eleicoes-dashboard"

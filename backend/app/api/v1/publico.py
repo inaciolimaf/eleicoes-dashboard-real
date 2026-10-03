@@ -14,11 +14,19 @@ from app.api.deps import RecorteDep, SessaoDep, TempoDep, parse_t
 from app.core.config import get_settings
 from app.core.redis import get_redis
 from app.models import Candidato, Eleicao
-from app.services import resultados
+from app.services import demanda, resultados
 from app.services.recortes import RecorteInvalido, parse
 from app.tse.urls import MontadorUrls
 
 router = APIRouter()
+
+
+async def _pedir_secoes(turno: int, nivel: str, rid: str) -> None:
+    """Abriu um local ou seção: avisa o coletor para baixar esses boletins (modo sob demanda)."""
+    try:
+        await demanda.registrar(get_redis(), turno, nivel, rid)
+    except Exception:  # o pedido é só um sinal; nunca derruba a leitura
+        pass
 
 
 @router.get("/status")
@@ -52,6 +60,7 @@ async def eleicoes(session: SessaoDep) -> list[dict]:
 
 @router.get("/resultados")
 async def obter_resultados(session: SessaoDep, r: RecorteDep, t: TempoDep, cargo: int = 1, turno: int = 1) -> dict:
+    await _pedir_secoes(turno, r.nivel, r.id)
     return await resultados.montar_resultado(session, turno, cargo, r, t)
 
 
@@ -67,6 +76,7 @@ async def filhos(session: SessaoDep, r: RecorteDep, t: TempoDep, cargo: int = 1,
     lista = [c for c in (candidatos or "").split(",") if c]
     if filhos and filhos not in ("uf", "municipio", "zona", "local", "secao"):
         raise HTTPException(422, "filhos inválido")
+    await _pedir_secoes(turno, r.nivel, r.id)
     return await resultados.filhos(session, turno, cargo, r, t, filhos, lista or None)
 
 
@@ -91,6 +101,7 @@ async def mapa_locais(session: SessaoDep, t: TempoDep, cargo: int = 1, turno: in
 
 @router.get("/locais/{local_id}")
 async def local(session: SessaoDep, local_id: str, turno: int = 1) -> dict:
+    await _pedir_secoes(turno, "local", local_id.strip().lower())
     d = await resultados.detalhe_local(session, turno, local_id)
     if d is None:
         raise HTTPException(404, "local não encontrado")
@@ -99,6 +110,7 @@ async def local(session: SessaoDep, local_id: str, turno: int = 1) -> dict:
 
 @router.get("/secoes/{secao_id}")
 async def secao(session: SessaoDep, secao_id: str, turno: int = 1) -> dict:
+    await _pedir_secoes(turno, "secao", secao_id.strip().lower())
     try:
         d = await resultados.detalhe_secao(session, turno, secao_id)
     except RecorteInvalido as exc:
