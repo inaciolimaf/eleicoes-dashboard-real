@@ -1,5 +1,9 @@
 # 6. Modelo de dados
 
+As tabelas abaixo são implementadas como **modelos SQLAlchemy 2.0** e criadas
+por **migrações Alembic** (ver [doc 08](08-backend.md)). O SQL aqui é só
+notação de schema.
+
 ## 6.1 Dimensões
 
 ```sql
@@ -27,14 +31,18 @@ cargo (
 eleicao_cargo (eleicao_id, cd_cargo, pk(eleicao_id, cd_cargo))
 
 -- Geografia
-uf          (sigla char(2) pk, nome text)
+uf          (sigla char(2) pk, nome text, regiao text,
+             geom geometry(MultiPolygon,4326), geom_simpl geometry(MultiPolygon,4326))
 municipio   (cd_tse int, uf char(2), nome text, cd_ibge int null, capital bool,
+             regiao text, eleitorado int,
+             geom geometry(MultiPolygon,4326), geom_simpl geometry(MultiPolygon,4326),
              pk(cd_tse))
 zona        (uf char(2), cd_zona int, pk(uf, cd_zona))
 local_votacao (
   id serial pk, uf, cd_municipio, cd_zona, nr_local int,
   nome text, endereco text, bairro text, cep text,
-  lat numeric null, lon numeric null, eleitores_aptos int,
+  geom geometry(Point,4326) null, posicao_aproximada bool,
+  eleitores_aptos int, qtd_secoes int,
   unique (uf, cd_municipio, cd_zona, nr_local)
 )
 secao (
@@ -134,6 +142,34 @@ order by recorte_id, totalizado_em desc, idg desc;
 Usar `totalizado_em` (horário oficial da totalização) como eixo do tempo, e
 não `capturado_em`. Assim o replay fica fiel ao TSE mesmo se o coletor
 atrasar.
+
+## 6.4b Usuários e personalização
+
+```sql
+usuario      (id uuid pk, email citext unique, senha_hash text, nome text, criado_em, is_admin bool)
+preferencia  (usuario_id pk, tema text, densidade text, animacoes bool,
+              cores_candidatos jsonb, notificacoes jsonb)
+painel       (id uuid pk, usuario_id, nome text, ordem int, padrao bool,
+              schema_version int, config jsonb,          -- ver 6.5
+              criado_em, atualizado_em)
+compartilhamento (token text pk, painel_id, modo text,   -- 'ao_vivo' | 'congelado'
+              tempo_congelado timestamptz null, criado_em, expira_em null)
+favorito     (usuario_id, tipo text, ref text, pk(usuario_id, tipo, ref))   -- candidato | recorte | local
+alerta       (id uuid pk, usuario_id, tipo text, params jsonb, canais text[],
+              ativo bool, disparado_em timestamptz null)
+push_subscription (id, usuario_id, endpoint text, chaves jsonb)
+```
+
+## 6.4c Estado de apuração do local de votação (para o mapa de locais)
+
+`resultado_local_votacao` (tabela atualizada pelo worker a cada BU):
+`(local_id, eleicao_id, cd_cargo, secoes_total, secoes_apuradas,
+status ['nao_recebido'|'parcial'|'apurado'], votos_validos, brancos, nulos,
+comparecimento, vencedor_sqcand, margem_pp, atualizado_em)`, mais
+`resultado_local_candidato (local_id, eleicao_id, cd_cargo, sqcand, votos)`.
+
+O endpoint `/mapas/locais` lê dessa tabela com filtro espacial
+(`ST_Intersects(geom, bbox)`).
 
 ## 6.5 Configuração de painel (frontend)
 

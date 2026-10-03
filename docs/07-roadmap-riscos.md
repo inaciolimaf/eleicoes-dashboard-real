@@ -1,55 +1,68 @@
-# 7. Roadmap, riscos e questões em aberto
+# 7. Plano de entrega, riscos e questões em aberto
 
-## 7.1 Fases
+## 7.1 Escopo
 
-**Contexto de prazo:** hoje é 03/10/2026 e o 1º turno é amanhã (04/10). Um
-sistema completo não fica pronto a tempo do 1º turno. A proposta é:
+A entrega é o **sistema completo** descrito nos docs 04 a 10. Não há MVP com
+corte de funcionalidades. As etapas abaixo são só a **ordem de construção**:
+cada uma deixa o sistema rodando no Docker e a próxima constrói em cima.
 
-| Fase | Objetivo | Entregáveis |
+| Etapa | Entrega | Testes (backend) |
 |---|---|---|
-| **0 – Captura (urgente, antes de 17h de 04/10)** | Não perder o histórico do 1º turno | Script coletor mínimo que baixa catálogo, EA20 BR/UF de todos os cargos e EA14/EA15, respeitando ETag e o teto de req/s, e grava **os arquivos brutos com timestamp**. Sem UI. Esses dados alimentam o replay e a "máquina do tempo" depois |
-| **1 – MVP (até o 2º turno, 25/10)** | Dashboard em tempo real BR/UF/município | Coletor completo, normalizador, Postgres/Timescale, API, WebSocket, frontend com placar, mapa, evolução, slider de tempo e painéis salvos localmente |
-| **2 – Zona, local e seção** | Drill-down profundo | EA16/EA18 + decodificação de BU, base de locais de votação (Dados Abertos), widget de local/seção, reconciliação |
-| **3 – Personalização avançada** | Produto "seu" | Contas, painéis no servidor, alertas, modo TV, templates, exportações |
-| **4 – Pós-eleição** | Análise | Carga dos CSVs dos Dados Abertos e comparativos 2022 × 2026 |
+| **E0 – Captura imediata** | Antes das 17h de 04/10: o container `collector` em modo "só bruto" grava no MinIO todo EA11/EA20/EA14/EA15 coletado. Garante o histórico do 1º turno para a máquina do tempo | Rate limiter, ETag, URLs |
+| **E1 – Fundação** | Docker Compose completo, modelos SQLAlchemy, migrações Alembic, parsers TSE, verificação JWS, tse-fake | Unit de `app/tse`, migrações |
+| **E2 – Ingestão e domínio** | Worker: snapshots, situação/selos, votos válidos, vencedor, eventos. Seed de geodados e locais | Ingestão, tempo T, situação, eventos |
+| **E3 – API e tempo real** | Todos os endpoints REST, WebSocket com resume, export | API e WS |
+| **E4 – Frontend base** | AppShell, tema, placar + bloco de totais com selos, explorar por nível, busca, slider de tempo e replay, tempo real | — |
+| **E5 – Mapas** | Os 7 tipos de mapa, drill-down por clique, legenda interativa, mapa de locais apurados | Endpoints de mapa |
+| **E6 – Granularidade fina** | EA16/EA18 + decodificação do BU, local de votação, seção, reconciliação, coleta sob demanda | BU, local, reconciliação |
+| **E7 – Personalização** | Contas, painéis com grade editável, catálogo de widgets, templates, compartilhamento, favoritos, alertas, modo TV, import/export | Painéis, auth, alertas |
+| **E8 – Pós-eleição e admin** | Import dos Dados Abertos, comparativo 2022 × 2026, página admin, observabilidade | Import e reconciliação |
+| **E9 – Prova de carga** | Replay de uma noite completa no tse-fake em 60×, com 10 mil conexões WS simuladas | e2e de replay |
 
-## 7.2 Validações pendentes (fazer assim que o ambiente oficial abrir)
+Datas de referência: 1º turno em **04/10/2026** (só a E0 cabe até lá) e
+2º turno em **25/10/2026**. A meta é ter o sistema completo rodando no 2º
+turno, com os dados do 1º turno disponíveis para replay.
+
+## 7.2 Validações pendentes (assim que o ambiente oficial abrir)
 
 1. Confirmar a base oficial `https://resultados.tse.jus.br/oficial` e o
    ciclo `ele2026` no catálogo.
 2. Confirmar os códigos de eleição oficiais (fontes citam **6257** federal e
-   **6259** estadual, pleito **3220**). O código só deve ser lido do
-   catálogo.
-3. Confirmar se o arquivo **por zona** (`<uf><mun>-z<zona>-c..-u`) existe no
-   oficial e com que frequência é atualizado.
-4. Confirmar as **chaves públicas JWS** diretamente no "Manual de verificação
-   dos arquivos JWS" do TSE e testar a chave oficial contra um arquivo real.
-5. Baixar as especificações oficiais (PDF/MD) de EA11, EA12, EA14, EA15,
-   EA16, EA18 e EA20 e completar o dicionário de campos (`md`, `tf`, `and`,
-   `agr.tp`, `vb`, `vn`).
-6. Confirmar o caminho de `arquivo-urna` em 2026 (template `aux` do catálogo),
-   o formato do EA16 e a versão 2026 do `bu.asn1`.
-7. Confirmar a política de acesso: o limite de 100 req/s é **por IP**? É
-   permitido usar múltiplos IPs? Ler os termos nas "Instruções para download".
-8. Verificar se o conjunto "Eleitorado – local de votação 2026" já está
-   publicado nos Dados Abertos.
+   **6259** estadual, pleito **3220**). O sistema só lê do catálogo.
+3. Confirmar se existe o arquivo **por zona** (`<uf><mun>-z<zona>-c..-u`). Se
+   não existir, a zona vem da soma de BUs.
+4. Confirmar as **chaves públicas JWS** no "Manual de verificação dos arquivos
+   JWS" e testar a chave oficial contra um arquivo real.
+5. Completar o dicionário de campos com as specs oficiais (`md`, `tf`, `and`,
+   `agr.tp`, `vb`, `vn`, `e`, `st` no formato 2026).
+6. Confirmar o caminho de `arquivo-urna` em 2026, o formato do EA16 e a versão
+   2026 do `bu.asn1`.
+7. Confirmar a política de acesso (100 req/s por IP, uso de múltiplos IPs).
+8. Verificar se o conjunto "Eleitorado – local de votação 2026" (com lat/long)
+   já está nos Dados Abertos.
 
 ## 7.3 Riscos
 
 | Risco | Impacto | Mitigação |
 |---|---|---|
-| Bloqueio de IP pelo TSE (excesso de req/s ou de 404) | Sistema cego por 10+ min | Token bucket com folga, sem URLs especulativas, circuit breaker, standby em outro IP |
-| Formato muda entre simulado e oficial ou entre turnos | Parser quebra na hora crítica | Parser tolerante (campos opcionais), testes de contrato, armazenamento bruto para reprocessar, alarme em erro de parse |
-| Volume de seções inviável dentro do limite | Nível seção incompleto durante a noite | Coleta sob demanda + prioridade, comunicar a cobertura ao usuário, completar com Dados Abertos depois |
-| Pico de acesso no próprio sistema | Lentidão | Fan-out via WebSocket/SSE, CDN com cache de 2–5 s, estado em Redis |
-| Interpretação errada (ex.: % sobre válidos × total) | Informação incorreta | Usar sempre os percentuais do TSE (`pvapn`) e rotular claramente |
-| Projeções confundidas com resultado | Desinformação | Projeções desligadas por padrão e rotuladas como "estimativa" |
-| Prazo (eleição amanhã) | Perder os dados do 1º turno | Fase 0 imediata: só capturar e guardar |
+| Bloqueio de IP pelo TSE | Sistema cego por 10+ min | Token bucket com folga, sem URLs especulativas, circuit breaker, standby |
+| Formato muda entre simulado e oficial | Parser quebra na hora crítica | Parser tolerante, testes com fixtures reais, brutos no MinIO para reprocessar, alerta em erro de parse |
+| Volume de seções vs. limite | Nível seção incompleto durante a noite | Coleta sob demanda + prioridade, cobertura visível ao usuário, completar com Dados Abertos depois |
+| Locais sem coordenada | Pontos faltando no mapa | Centróide do município + marcação "posição aproximada" |
+| Pico de acesso | Lentidão | Fan-out via Redis, cache curto, réplicas da API |
+| Interpretação errada (válidos × total, eleito) | Informação incorreta | Usar os percentuais e a situação do TSE e rotular claramente; "Liderando" separado de "Eleito" |
+| Frontend sem testes automatizados | Regressões visuais | TypeScript strict, tipos gerados do OpenAPI, lint, checklist manual de release com o tse-fake |
 
-## 7.4 Decisões que dependem do dono do projeto
+## 7.4 Decisões tomadas
 
-- Rodar só para uso pessoal ou abrir ao público? Isso muda escala, custo e
-  cuidados legais.
-- Nível seção "ao vivo" é obrigatório na v1 ou pode entrar depois?
-- Hospedagem: VPS única (mais simples) ou cloud gerenciada?
-- Stack: TypeScript ponta a ponta (sugerido) ou backend em Python/Go?
+- Stack: **FastAPI + SQLAlchemy 2.0 + Alembic** no backend, **React + Vite +
+  Mantine + ECharts + MapLibre/deck.gl** no frontend.
+- Execução: **Docker Compose** para dev, testes e produção.
+- Testes automatizados **apenas no backend**.
+- Entrega do **sistema completo** (todas as funcionalidades dos docs 04 a 10).
+
+## 7.5 Decisões ainda em aberto
+
+- Uso pessoal ou aberto ao público? Isso muda hospedagem, custo e cuidados
+  legais.
+- Onde hospedar (VPS única com Docker é o padrão sugerido).

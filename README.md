@@ -6,8 +6,18 @@ Senador, Deputados), por recorte geográfico (Brasil → UF → município → z
 local de votação/"colégio" → seção) e por momento da apuração (replay /
 "máquina do tempo"). Os painéis são montados pelo próprio usuário.
 
-> **Status:** fase de especificação. Ainda não existe código, só os documentos
-> abaixo.
+> **Status:** fase de especificação do **sistema completo**. Ainda não existe
+> código, só os documentos abaixo.
+
+## Stack
+
+- **Backend:** Python 3.12, FastAPI, SQLAlchemy 2.0 (async), Alembic,
+  PostgreSQL 16 + TimescaleDB + PostGIS, Redis, MinIO. Testes com pytest
+  (testes automatizados **só no backend**).
+- **Frontend:** React 18, TypeScript, Vite, Mantine (componentes prontos),
+  Apache ECharts (gráficos), MapLibre GL + deck.gl (mapas),
+  react-grid-layout (dashboard personalizável), TanStack Query, Zustand.
+- **Execução:** tudo via **Docker Compose** (`make up`).
 
 ## Documentos
 
@@ -16,10 +26,13 @@ local de votação/"colégio" → seção) e por momento da apuração (replay /
 | 1 | [Como funciona a eleição no Brasil](docs/01-sistema-eleitoral.md) | Cargos, turnos, regras majoritária e proporcional, hierarquia geográfica, fluxo da urna até a totalização, calendário de 2026 |
 | 2 | [Fontes de dados do TSE](docs/02-fontes-de-dados-tse.md) | Existe API? Arquivos JSON/JWS de divulgação, catálogo, padrões de URL, dicionário de campos, limites, assinatura, Dados Abertos |
 | 3 | [Dados por zona, local de votação e seção](docs/03-granularidade-secao.md) | Como chegar ao nível de seção em tempo real (boletins de urna) e como montar a visão por "colégio" |
-| 4 | [Requisitos do produto](docs/04-requisitos.md) | Funcionalidades, filtros, dashboard personalizável, linha do tempo, critérios de aceite |
-| 5 | [Arquitetura](docs/05-arquitetura.md) | Coletor, normalização, armazenamento de séries temporais, API, tempo real, frontend e stack sugerida |
+| 4 | [Requisitos do produto](docs/04-requisitos.md) | Votos válidos e situação de eleito, granularidade, mapas, tempo real, linha do tempo, personalização, critérios de aceite |
+| 5 | [Arquitetura](docs/05-arquitetura.md) | Stack, coletor, worker, API REST e WebSocket, geodados |
 | 6 | [Modelo de dados](docs/06-modelo-de-dados.md) | Entidades, tabelas, snapshots e agregações |
-| 7 | [Roadmap, riscos e questões em aberto](docs/07-roadmap-riscos.md) | Fases, o que precisa estar pronto antes da eleição, o que ainda falta validar |
+| 7 | [Plano de entrega e riscos](docs/07-roadmap-riscos.md) | Ordem de construção do sistema completo, validações pendentes, riscos |
+| 8 | [Backend](docs/08-backend.md) | FastAPI, modelos SQLAlchemy, migrações Alembic, regras de domínio, **testes** |
+| 9 | [Frontend](docs/09-frontend.md) | Bibliotecas, visual, telas, placar com votos válidos e eleito, **mapas**, personalização, tempo real |
+| 10 | [Docker](docs/10-docker.md) | Serviços do Compose, Dockerfiles, Makefile, testes e produção |
 
 ## Resumo da pesquisa
 
