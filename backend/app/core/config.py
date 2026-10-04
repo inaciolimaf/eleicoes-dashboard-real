@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     tse_ambiente: Literal["oficial", "simulado", "fake"] = "fake"
     # Base já com o ambiente embutido (ex.: https://resultados.tse.jus.br/oficial)
     tse_base_url: str = "http://tse-fake:8080/oficial"
-    tse_max_rps: float = 90.0
+    tse_max_rps: float = 210.0
     tse_concorrencia: int = 16
     tse_verificar_jws: bool = True
     tse_usar_jws: bool = True
