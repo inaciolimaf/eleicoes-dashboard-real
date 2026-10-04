@@ -62,6 +62,8 @@ services:
       test: ["CMD", "redis-cli", "ping"]
       interval: 3s
       retries: 30
+      # Carregar o AOF do disco pode levar minutos (o ping responde LOADING); sem isso o resto não sobe
+      start_period: 600s
     restart: unless-stopped
 
   # A API roda as migrações antes de subir (evita um container "migrate" parado, que o Coolify marca como unhealthy)
