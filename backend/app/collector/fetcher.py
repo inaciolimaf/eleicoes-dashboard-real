@@ -15,7 +15,9 @@ class TokenBucket:
 
     def __init__(self, taxa: float, capacidade: float | None = None):
         self.taxa = taxa
-        self.capacidade = capacidade if capacidade is not None else max(1.0, taxa)
+        # Burst curto (10% da taxa): sem isso, um balde cheio + a taxa sustentada passariam de
+        # 100 req num mesmo segundo, o que faz o TSE bloquear o IP.
+        self.capacidade = capacidade if capacidade is not None else max(1.0, taxa * 0.1)
         self.tokens = self.capacidade
         self.ultimo = time.monotonic()
         self._lock = asyncio.Lock()

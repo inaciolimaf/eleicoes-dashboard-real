@@ -13,8 +13,8 @@ x-backend: &backend
     TSE_AMBIENTE: oficial
     TSE_BASE_URL: https://resultados.tse.jus.br/oficial
     # o TSE bloqueia o IP por 10 min acima de 100 req/s
-    TSE_MAX_RPS: "60"
-    TSE_CONCORRENCIA: "32"
+    TSE_MAX_RPS: "90"
+    TSE_CONCORRENCIA: "48"
     TSE_VERIFICAR_JWS: "true"
     COLETAR_SECOES: "true"
     MODO_SECOES: sob_demanda
