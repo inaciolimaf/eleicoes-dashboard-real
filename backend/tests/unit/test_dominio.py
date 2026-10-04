@@ -86,5 +86,17 @@ def test_eventos_eleito_e_segundo_turno():
 
 
 def test_cores_estaveis():
-    assert cores.cores_por_numero([22, 13, 13]) == {13: cores.PALETA[0], 22: cores.PALETA[1]}
+    assert cores.cores_por_numero([22, 13, 13]) == {13: cores.cor_partido(13), 22: cores.cor_partido(22)}
     assert cores.cor_texto("Federação Aurora") == cores.cor_texto("Federação Aurora")
+
+
+def test_cores_por_partido():
+    vermelho_pt = cores.PARTIDOS[13][1]
+    assert cores.cor_partido(13) == vermelho_pt
+    assert cores.cor_partido(13123) == vermelho_pt  # candidato a vereador do PT
+    assert cores.cor_candidato(13, None, None) == vermelho_pt
+    assert cores.cor_candidato(99, 13, None) == vermelho_pt
+    assert cores.cor_candidato(99, None, "pt") == vermelho_pt
+    assert cores.cor_agremiacao("Federação Brasil da Esperança - FE BRASIL (PT/PC do B/PV)") in {
+        vermelho_pt, cores.PARTIDOS[65][1], cores.PARTIDOS[43][1]}
+    assert cores.cor_agremiacao("PT/PCdoB/PV") == vermelho_pt

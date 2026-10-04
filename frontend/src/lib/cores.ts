@@ -7,7 +7,21 @@ export const PALETA = [
 ];
 
 export const corPorIndice = (i: number) => PALETA[((i % PALETA.length) + PALETA.length) % PALETA.length];
-export const corPorNumero = (n: number) => corPorIndice(Math.abs(Math.floor(n)) % PALETA.length);
+/** Cor tradicional de cada partido, pelo número (mesma tabela do backend). */
+export const COR_PARTIDO: Record<number, string> = {
+  10: "#1F6FB2", 11: "#5DA9E9", 12: "#E4572E", 13: "#D7191C", 14: "#2E7D32", 15: "#2E9E48", 16: "#B71C1C",
+  18: "#F28C28", 19: "#22B14C", 20: "#1B7F3A", 21: "#C62828", 22: "#0B3D91", 23: "#E6007E", 25: "#1E4FA0",
+  27: "#7CB342", 28: "#00897B", 29: "#8E0000", 30: "#F26522", 33: "#C0392B", 35: "#AD1457", 36: "#4A90E2",
+  40: "#F2C200", 43: "#00A651", 44: "#2A4D9B", 45: "#0A84D6", 50: "#8E24AA", 55: "#F5A623", 65: "#A50F15",
+  70: "#00A3AD", 77: "#FF8C00", 80: "#7B1F1F", 90: "#F57C00",
+};
+
+/** Cor pelo número do partido ou do candidato (os 2 primeiros dígitos são o partido). */
+export const corPorNumero = (n: number) => {
+  let p = Math.abs(Math.floor(n));
+  while (p >= 100) p = Math.floor(p / 10);
+  return COR_PARTIDO[p] ?? corPorIndice(p);
+};
 
 export const COR_STATUS: Record<StatusApuracao, string> = {
   nao_recebido: "#64748B",

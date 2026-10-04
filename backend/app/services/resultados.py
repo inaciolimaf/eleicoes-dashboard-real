@@ -231,7 +231,7 @@ async def meta_candidatos(session: AsyncSession, sqs: list[str]) -> dict[str, Ca
 def cand_curto(c: Candidato | None, sq: str | None, votos: int = 0, p: float = 0.0) -> dict | None:
     if sq is None:
         return None
-    return {"sqcand": sq, "nome_urna": c.nome_urna if c else sq, "cor": c.cor if c else "#888888",
+    return {"sqcand": sq, "nome_urna": c.nome_urna if c else sq, "cor": cores.cor_de(c),
             "numero": c.numero if c else None, "partido_sigla": c.partido_sigla if c else "", "votos": votos,
             "pct": round(p, 4)}
 
@@ -266,7 +266,7 @@ async def montar_resultado(session: AsyncSession, turno: int, cd: int, r: Recort
             "sqcand": c["sq"], "numero": m.numero if m else c.get("num"), "nome": m.nome if m else c["sq"],
             "nome_urna": m.nome_urna if m else str(c.get("num", c["sq"])), "partido_sigla": m.partido_sigla if m else "",
             "partido_numero": m.partido_numero if m else None, "agremiacao": m.agremiacao if m else "",
-            "cor": m.cor if m else "#888888", "foto_url": foto_url(c["sq"]), "votos": int(c["v"]),
+            "cor": cores.cor_de(m) if m else cores.cor_partido(c["num"]) if c.get("num") else "#888888", "foto_url": foto_url(c["sq"]), "votos": int(c["v"]),
             "pct_validos": float(c.get("p") or 0), "posicao": pos, "situacao": sit.get(c["sq"], situacao.EM_APURACAO),
             "situacao_geral": m.situacao_geral if m else situacao.EM_APURACAO, "eleito": bool(m.eleito) if m else False,
             "destinacao": c.get("d") or "Válido", "vices": m.vices if m else [],
@@ -275,7 +275,7 @@ async def montar_resultado(session: AsyncSession, turno: int, cd: int, r: Recort
     if sistema == "proporcional":
         for a in linha.get("agremiacoes") or []:
             agrs.append({"nome": a["nome"], "partidos": a.get("partidos", []), "votos": a.get("v", 0), "vagas": a.get("vag"),
-                         "cor": cores.cor_texto(a["nome"])})
+                         "cor": cores.cor_agremiacao(a["nome"])})
     lider = linha.get("lider_sqcand")
     cobertura = None
     if linha.get("fonte") == "soma_bu":
@@ -322,7 +322,7 @@ async def serie(session: AsyncSession, turno: int, cd: int, r: Recorte, de: date
         pontos.append({"t": iso(t), "pct_secoes": p, "votos_validos": vv,
                        "candidatos": {sq: {"votos": mapa[sq]["v"], "pct": mapa[sq]["p"]} for sq in top if sq in mapa}})
     candidatos = [{"sqcand": sq, "nome_urna": meta[sq].nome_urna if sq in meta else sq,
-                   "cor": meta[sq].cor if sq in meta else "#888", "numero": meta[sq].numero if sq in meta else None,
+                   "cor": cores.cor_de(meta.get(sq)), "numero": meta[sq].numero if sq in meta else None,
                    "partido_sigla": meta[sq].partido_sigla if sq in meta else ""} for sq in top]
     eventos = await listar_eventos(session, turno, None, 200, None, cd, r.nivel, r.id)
     return {"candidatos": candidatos, "pontos": pontos, "eventos": eventos}
@@ -367,7 +367,7 @@ def montar_item(nivel_f: str, d: dict, ln: dict | None, meta: dict, candidatos: 
         "margem_pp": ln.get("margem_pp") or 0.0,
     })
     if ln.get("partido_lider"):
-        item["partido_lider"] = {"sigla": ln["partido_lider"], "cor": cores.cor_texto(ln["partido_lider"])}
+        item["partido_lider"] = {"sigla": ln["partido_lider"], "cor": cores.cor_agremiacao(ln["partido_lider"])}
     if candidatos and ln.get("candidatos") is not None:
         mapa = {c["sq"]: c.get("p", 0) for c in ln["candidatos"]}
         item["valores"] = {sq: mapa.get(sq, 0.0) for sq in candidatos}
@@ -436,7 +436,7 @@ async def filhos(session: AsyncSession, turno: int, cd: int, r: Recorte, t: date
     lista_cands = []
     for sq in set(list(vitorias) + (candidatos or [])):
         m = meta.get(sq)
-        lista_cands.append({"sqcand": sq, "nome_urna": m.nome_urna if m else sq, "cor": m.cor if m else "#888",
+        lista_cands.append({"sqcand": sq, "nome_urna": m.nome_urna if m else sq, "cor": cores.cor_de(m),
                             "numero": m.numero if m else None, "partido_sigla": m.partido_sigla if m else "",
                             "vitorias": vitorias.get(sq, 0)})
     lista_cands.sort(key=lambda c: -c["vitorias"])
@@ -615,7 +615,7 @@ async def detalhe_secao(session: AsyncSession, turno: int, sid: str) -> dict | N
                 c = por_num.get(int(num))
                 votos.append({"tipo": "nominal", "numero": int(num), "sqcand": c.sqcand if c else None,
                               "nome_urna": c.nome_urna if c else f"Nº {num}", "partido_sigla": c.partido_sigla if c else "",
-                              "cor": c.cor if c else "#888", "votos": q})
+                              "cor": cores.cor_de(c) if c else cores.cor_partido(int(num)), "votos": q})
             for num, q in sorted((v.get("leg") or {}).items(), key=lambda kv: -kv[1]):
                 votos.append({"tipo": "legenda", "numero": int(num), "sqcand": None, "nome_urna": f"Legenda {num}",
                               "partido_sigla": "", "cor": cores.cor_partido(int(num)), "votos": q})
@@ -638,7 +638,7 @@ async def detalhe_secao(session: AsyncSession, turno: int, sid: str) -> dict | N
 
 def candidato_json(c: Candidato) -> dict:
     return {"sqcand": c.sqcand, "numero": c.numero, "nome": c.nome, "nome_urna": c.nome_urna,
-            "partido_sigla": c.partido_sigla, "agremiacao": c.agremiacao, "cor": c.cor, "foto_url": foto_url(c.sqcand),
+            "partido_sigla": c.partido_sigla, "agremiacao": c.agremiacao, "cor": cores.cor_de(c), "foto_url": foto_url(c.sqcand),
             "uf": None if c.uf == "br" else c.uf, "cargo": c.cd_cargo, "situacao_geral": c.situacao_geral,
             "eleito": c.eleito, "vices": c.vices}
 

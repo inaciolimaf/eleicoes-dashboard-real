@@ -281,7 +281,6 @@ def _linha_resultado(ctx: Contexto, res: ResultadoTSE, sistema: str) -> dict:
 
 
 async def _upsert_candidatos(session: AsyncSession, ctx: Contexto, res: ResultadoTSE, vagas: int) -> None:
-    paleta = cores.cores_por_numero([c.numero for c in res.candidatos])
     sit = situacao.calcular(
         [{"sq": c.sqcand, "v": c.votos, "e": c.eleito, "st": c.situacao_tse, "d": c.destinacao} for c in res.candidatos],
         vagas, res.final, res.matematicamente_definido, ctx.abrangencia_do_cargo,
@@ -292,7 +291,7 @@ async def _upsert_candidatos(session: AsyncSession, ctx: Contexto, res: Resultad
             "sqcand": c.sqcand, "eleicao_id": ctx.eleicao_id, "turno": ctx.turno, "cd_cargo": ctx.cd_cargo,
             "uf": "br" if ctx.cd_cargo == 1 else ctx.uf,
             "numero": c.numero, "nome": c.nome, "nome_urna": c.nome_urna, "partido_sigla": c.partido_sigla,
-            "partido_numero": c.partido_numero, "agremiacao": c.agremiacao, "cor": paleta.get(c.numero, cores.PALETA[0]),
+            "partido_numero": c.partido_numero, "agremiacao": c.agremiacao, "cor": cores.cor_candidato(c.numero, c.partido_numero, c.partido_sigla),
             "vices": [{"nome": v.nome, "tipo": "vice" if v.tipo == "v" else "suplente"} for v in c.vices],
             "situacao_geral": sit.get(c.sqcand, situacao.EM_APURACAO),
             "eleito": sit.get(c.sqcand) in (situacao.ELEITO, situacao.MATEMATICAMENTE_ELEITO),
