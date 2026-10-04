@@ -101,3 +101,28 @@ async def test_token_bucket_prioridade_alta_passa_na_frente():
     await asyncio.gather(*baixas, *altas)
     # o 1º baixo pode pegar o token que já estava no balde; depois disso os altos vêm antes dos baixos
     assert ordem.index("a2") < ordem.index("b2")
+
+
+@respx.mock
+async def test_secao_tenta_o_bu_de_novo_se_ele_falhou():
+    """Falha no BU não pode travar a seção: o auxiliar é relido sem ETag (não volta 304)."""
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from app.collector.coletor import Coletor
+    from app.core.config import Settings
+
+    c = Coletor(Settings(tse_verificar_jws=False), None, None, Fetcher(max_rps=1000))  # type: ignore[arg-type]
+    c.urls = MagicMock()
+    c.urls.auxiliar_secao.return_value = "http://tse.teste/aux.json"
+    c.urls.arquivo_urna.return_value = "http://tse.teste/h/o.bu"
+    aux = b'{"st": "Totalizada", "hashes": [{"hash": "h", "st": "Totalizado", "dr": "04/10/2026", "hr": "17:30:00", "nmarq": ["o.bu"]}]}'
+    rota_aux = respx.get("http://tse.teste/aux.json").mock(
+        return_value=httpx.Response(200, content=aux, headers={"ETag": '"1"'}))
+    respx.get("http://tse.teste/h/o.bu").mock(side_effect=[httpx.Response(404), httpx.Response(200, content=b"BU")])
+    with patch("app.collector.coletor.fila.enfileirar", new=AsyncMock()) as enf:
+        await c.processar_secao(1, "ce", 1234, 64, 16, alta=True)
+        assert enf.await_count == 0
+        c.fetcher.limpar_404()
+        await c.processar_secao(1, "ce", 1234, 64, 16, alta=True)
+    assert "If-None-Match" not in rota_aux.calls[1].request.headers
+    assert enf.await_count == 1 and enf.await_args.kwargs["alta"] is True

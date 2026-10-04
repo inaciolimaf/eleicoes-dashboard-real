@@ -323,12 +323,14 @@ class Coletor:
                 self.pendentes_sec.add(sid)
                 self.fila_sec.put_nowait((prio, self._ordem(), turno, uf, cd_mun, zona, secao))
 
-    async def processar_secao(self, turno: int, uf: str, cd_mun: int, zona: int, secao: int) -> None:
+    async def processar_secao(self, turno: int, uf: str, cd_mun: int, zona: int, secao: int,
+                              alta: bool = False) -> None:
         assert self.urls is not None
         sid = f"{uf}{cd_mun:05d}-z{zona:04d}-s{secao:04d}"
         self.tentativa_sec[sid] = time.monotonic()
         url = self.urls.auxiliar_secao(uf, cd_mun, zona, secao)
-        r = await self.fetcher.get(url, alta=False)
+        # Sem ETag: com ele, se o BU falhasse uma vez, o auxiliar passava a voltar 304 e a seção nunca era baixada
+        r = await self.fetcher.get(url, usar_etag=False, alta=alta)
         if r.status != 200 or not r.corpo:
             return
         aux = parse_auxiliar(orjson.loads(r.corpo))
@@ -338,12 +340,12 @@ class Coletor:
         nome = urna.nome_bu()
         assert nome is not None
         url_bu = self.urls.arquivo_urna(uf, cd_mun, zona, secao, urna.hash, nome)
-        rb = await self.fetcher.get(url_bu, usar_etag=False, alta=False)
+        rb = await self.fetcher.get(url_bu, usar_etag=False, alta=alta)
         if rb.status != 200 or not rb.corpo:
             return
         self._arquivar(url_bu, urna.hash[:16], rb.corpo)
         self.secoes_feitas.add(sid)
-        await fila.enfileirar(self.redis, "boletim", rb.corpo, turno=turno, uf=uf, hash=urna.hash, status=urna.status,
+        await fila.enfileirar(self.redis, "boletim", rb.corpo, alta=alta, turno=turno, uf=uf, hash=urna.hash, status=urna.status,
                               totalizado_em=urna.recebido_em.isoformat() if urna.recebido_em else None, url=url_bu)
 
     async def ciclo_sob_demanda(self) -> None:
@@ -432,13 +434,14 @@ class Coletor:
 
     async def _consumir_secoes(self) -> None:
         while True:
-            _, _, turno, uf, cd_mun, zona, secao = await self.fila_sec.get()
+            prio, _, turno, uf, cd_mun, zona, secao = await self.fila_sec.get()
             sid = f"{uf}{cd_mun:05d}-z{zona:04d}-s{secao:04d}"
             self.pendentes_sec.discard(sid)
             while self.pausado:
                 await asyncio.sleep(1)
             try:
-                await self.processar_secao(turno, uf, cd_mun, zona, secao)
+                # prio 0 = seção/local aberto no dashboard: passa na frente no TSE e na fila do worker
+                await self.processar_secao(turno, uf, cd_mun, zona, secao, alta=prio == 0)
             except Exception:
                 log.exception("falha na seção %s", sid)
 
