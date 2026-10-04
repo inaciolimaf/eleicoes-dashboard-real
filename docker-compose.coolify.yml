@@ -55,15 +55,14 @@ services:
 
   redis:
     image: redis:7-alpine
-    # Teto de memória: se a fila crescer demais, o Redis recusa novas escritas em vez de derrubar a máquina
-    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "1500mb", "--maxmemory-policy", "noeviction"]
-    volumes: [redisdata:/data]
+    # Sem persistência: tudo no Redis é temporário (fila do worker, métricas, tópicos do tempo real) e o coletor
+    # rebaixa o que precisar. Assim o Redis sempre sobe vazio e na hora, em vez de passar minutos lendo (ou não
+    # conseguindo ler) um AOF de vários GB. Teto de memória: recusa escritas em vez de derrubar a máquina.
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "1500mb", "--maxmemory-policy", "noeviction"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 3s
       retries: 30
-      # Carregar o AOF do disco pode levar minutos (o ping responde LOADING); sem isso o resto não sobe
-      start_period: 600s
     restart: unless-stopped
 
   # A API roda as migrações antes de subir (evita um container "migrate" parado, que o Coolify marca como unhealthy)
@@ -111,6 +110,5 @@ services:
 
 volumes:
   pgdata:
-  redisdata:
   brutos:
   fotos:
