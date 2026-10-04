@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     # todas: varre todas as seções de cada município que mudou (~500 mil seções no Brasil, horas de coleta)
     modo_secoes: Literal["sob_demanda", "todas"] = "sob_demanda"
     coletar_zonas: bool = True
+    # Acima disso (itens na fila baixa do worker) o coletor para de baixar municípios até a fila esvaziar
+    fila_max: int = 3000
     # Chave pública Ed25519 (base64url) para o ambiente "fake" (o mock publica a dele)
     tse_fake_kid: str = "fake-eleicoes-dashboard"
     tse_fake_chave_publica: str = ""

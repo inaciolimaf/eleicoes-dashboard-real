@@ -18,3 +18,16 @@ async def test_fila_prioriza_alta_e_coalesce_versoes(redis_cliente):
     # depois de retirado, uma nova versão volta a entrar na fila
     await fila.enfileirar(redis, "resultado", b"mun-v3", chave="mun.json")
     assert (await fila.retirar(redis, timeout=1))[1] == b"mun-v3"
+
+
+async def test_fila_comprime_e_le_formato_antigo(redis_cliente):
+    import base64
+
+    import orjson
+
+    corpo = b'{"cand": [' + b'{"n": 1, "v": 12345},' * 2000 + b'{}]}'
+    msg = fila.mensagem("resultado", corpo, x=1)
+    assert len(msg) < len(corpo) / 5
+    assert fila.ler(msg) == ("resultado", corpo, {"x": 1})
+    antigo = orjson.dumps({"tipo": "boletim", "corpo": base64.b64encode(b"bu").decode(), "ctx": {}})
+    assert fila.ler(antigo) == ("boletim", b"bu", {})

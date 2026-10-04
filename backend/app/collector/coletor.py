@@ -408,12 +408,23 @@ class Coletor:
                     log.exception("falha no laço %s", nome)
             await asyncio.sleep(max(0.5, intervalo - (time.monotonic() - inicio)))
 
+    async def _fila_cheia(self) -> bool:
+        """Freio: se o worker não está dando conta, para de baixar municípios até a fila baixar.
+
+        Sem isso a fila do Redis cresce sem limite (e pode estourar a memória). Nada se perde: o arquivo não é
+        baixado, então o ETag não muda e ele é buscado de novo quando a fila esvaziar.
+        """
+        try:
+            return await fila.tamanho_baixa(self.redis) > self.s.fila_max
+        except Exception:
+            return False
+
     async def _consumir_municipios(self) -> None:
         while True:
             _, _, turno, mid = await self.fila_mun.get()
             self.pendentes_mun.discard((turno, mid))
-            while self.pausado:
-                await asyncio.sleep(1)
+            while self.pausado or (mid not in self.vigiados and await self._fila_cheia()):
+                await asyncio.sleep(2)
             try:
                 await self.processar_municipio(turno, mid)
             except Exception:

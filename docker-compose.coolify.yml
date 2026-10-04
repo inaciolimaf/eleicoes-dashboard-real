@@ -14,11 +14,14 @@ x-backend: &backend
     TSE_BASE_URL: https://resultados.tse.jus.br/oficial
     # o TSE bloqueia o IP por 10 min acima de 100 req/s
     TSE_MAX_RPS: "90"
-    TSE_CONCORRENCIA: "48"
+    TSE_CONCORRENCIA: "24"
     TSE_VERIFICAR_JWS: "true"
     COLETAR_SECOES: "true"
     MODO_SECOES: sob_demanda
-    COLETAR_ZONAS: "true"
+    # Zonas multiplicam o volume (cada zona de cada município × cada cargo) e travavam o worker
+    COLETAR_ZONAS: "false"
+    # Freio: acima disso na fila do worker, o coletor para de baixar municípios até ela esvaziar
+    FILA_MAX: "3000"
     INTERVALO_CATALOGO: "30"
     INTERVALO_PRINCIPAL: "5"
     INTERVALO_ACOMPANHAMENTO: "5"
@@ -52,7 +55,8 @@ services:
 
   redis:
     image: redis:7-alpine
-    command: ["redis-server", "--appendonly", "yes"]
+    # Teto de memória: se a fila crescer demais, o Redis recusa novas escritas em vez de derrubar a máquina
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "1500mb", "--maxmemory-policy", "noeviction"]
     volumes: [redisdata:/data]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]

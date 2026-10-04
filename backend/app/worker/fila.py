@@ -4,11 +4,13 @@
   O worker sempre esvazia a alta antes da baixa: o total do estado não espera atrás de milhares de municípios.
 - Mensagens com `chave` (um arquivo do TSE) ficam num hash; a lista guarda só a referência. Se o arquivo mudar de
   novo antes de ser processado, a versão nova substitui a antiga em vez de entrar no fim da fila.
+- O corpo vai comprimido (zlib): o JSON do TSE encolhe ~10x, o que mantém a memória do Redis sob controle.
 """
 
 from __future__ import annotations
 
 import base64
+import zlib
 
 import orjson
 from redis.asyncio import Redis
@@ -23,12 +25,13 @@ _LUA_TIRAR = "local v = redis.call('HGET', KEYS[1], ARGV[1]) if v then redis.cal
 
 
 def mensagem(tipo: str, corpo: bytes, **ctx: object) -> bytes:
-    return orjson.dumps({"tipo": tipo, "corpo": base64.b64encode(corpo).decode(), "ctx": ctx})
+    return orjson.dumps({"tipo": tipo, "z": base64.b64encode(zlib.compress(corpo, 6)).decode(), "ctx": ctx})
 
 
 def ler(bruto: bytes) -> tuple[str, bytes, dict]:
     d = orjson.loads(bruto)
-    return d["tipo"], base64.b64decode(d["corpo"]), d.get("ctx") or {}
+    corpo = zlib.decompress(base64.b64decode(d["z"])) if "z" in d else base64.b64decode(d["corpo"])  # "corpo": formato antigo
+    return d["tipo"], corpo, d.get("ctx") or {}
 
 
 async def enfileirar(redis: Redis, tipo: str, corpo: bytes, *, alta: bool = False, chave: str | None = None,
@@ -66,3 +69,7 @@ async def retirar(redis: Redis, timeout: float = 5) -> tuple[str, bytes, dict] |
 
 async def tamanho(redis: Redis) -> int:
     return int(await redis.llen(FILA_ALTA)) + int(await redis.llen(FILA))
+
+
+async def tamanho_baixa(redis: Redis) -> int:
+    return int(await redis.llen(FILA))
