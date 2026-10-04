@@ -30,6 +30,10 @@ x-backend: &backend
     WORKER_CONCORRENCIA: "6"
     LOG_LEVEL: INFO
   restart: unless-stopped
+  # Processo init (tini) como PID 1: repassa o SIGTERM ao Python. Sem isso, coletor e workers ignoram o
+  # sinal e o Docker espera 30 s por container antes de matá-los, o que deixava o deploy ~1,5 min mais lento.
+  init: true
+  stop_grace_period: 10s
 
 services:
   db:
