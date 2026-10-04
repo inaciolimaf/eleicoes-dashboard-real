@@ -6,6 +6,8 @@
 
 x-backend: &backend
   build: ./backend
+  # tini como PID 1: repassa o SIGTERM ao Python (sem isso cada container leva 30s para parar no redeploy)
+  init: true
   environment: &backend-env
     DATABASE_URL: postgresql+asyncpg://eleicoes:${SERVICE_PASSWORD_POSTGRES}@db:5432/eleicoes
     REDIS_URL: redis://redis:6379/0
