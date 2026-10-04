@@ -10,3 +10,4 @@ frontend/dist/
 .vite/
 *.log
 dump.rdb
+*.egg-info/
