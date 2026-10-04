@@ -1,0 +1,106 @@
+# Deploy no Coolify (Build Pack: Docker Compose, arquivo: /docker-compose.coolify.yml)
+# Não precisa configurar nenhuma variável no Coolify: tudo está fixo aqui, e os segredos
+# (senha do Postgres e JWT_SECRET) são gerados e guardados pelo próprio Coolify (SERVICE_PASSWORD_*).
+# O domínio também é gerado (SERVICE_FQDN_WEB_80); para usar o seu, troque em Domains do serviço "web".
+# Roda contra o TSE OFICIAL. Para o mock, use o docker-compose.yml normal.
+
+x-backend: &backend
+  build: ./backend
+  environment: &backend-env
+    DATABASE_URL: postgresql+asyncpg://eleicoes:${SERVICE_PASSWORD_POSTGRES}@db:5432/eleicoes
+    REDIS_URL: redis://redis:6379/0
+    # ---- TSE ----
+    TSE_AMBIENTE: oficial
+    TSE_BASE_URL: https://resultados.tse.jus.br/oficial
+    # o TSE bloqueia o IP por 10 min acima de 100 req/s
+    TSE_MAX_RPS: "60"
+    TSE_CONCORRENCIA: "32"
+    TSE_VERIFICAR_JWS: "true"
+    COLETAR_SECOES: "true"
+    MODO_SECOES: sob_demanda
+    COLETAR_ZONAS: "true"
+    INTERVALO_CATALOGO: "30"
+    INTERVALO_PRINCIPAL: "5"
+    INTERVALO_ACOMPANHAMENTO: "5"
+    INTERVALO_MIN_MUNICIPIO: "20"
+    LOCAIS_VOTACAO_URL: https://cdn.tse.jus.br/estatistica/sead/odsele/eleitorado_locais_votacao/eleitorado_local_votacao_2026.zip
+    # ---- Aplicação ----
+    JWT_SECRET: ${SERVICE_PASSWORD_64_JWT}
+    CORS_ORIGINS: ${SERVICE_URL_WEB}
+    WORKER_CONCORRENCIA: "6"
+    LOG_LEVEL: INFO
+  restart: unless-stopped
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: eleicoes
+      POSTGRES_PASSWORD: ${SERVICE_PASSWORD_POSTGRES}
+      POSTGRES_DB: eleicoes
+    command: ["postgres", "-c", "shared_buffers=256MB", "-c", "max_connections=200", "-c", "synchronous_commit=off"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eleicoes"]
+      interval: 3s
+      retries: 30
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes: [redisdata:/data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      retries: 30
+    restart: unless-stopped
+
+  # A API roda as migrações antes de subir (evita um container "migrate" parado, que o Coolify marca como unhealthy)
+  api:
+    <<: *backend
+    command: ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*' --workers 2"]
+    volumes: [fotos:/data/fotos]
+    depends_on:
+      db: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/saude')"]
+      interval: 5s
+      start_period: 30s
+      retries: 30
+
+  collector:
+    <<: *backend
+    command: ["python", "-m", "app.collector.main"]
+    volumes: [brutos:/data/brutos]
+    depends_on:
+      api: {condition: service_healthy}
+
+  # Dois workers como serviços separados (o Coolify não lida bem com deploy.replicas)
+  worker-1:
+    <<: *backend
+    command: ["python", "-m", "app.worker.main"]
+    depends_on:
+      api: {condition: service_healthy}
+
+  worker-2:
+    <<: *backend
+    command: ["python", "-m", "app.worker.main"]
+    depends_on:
+      api: {condition: service_healthy}
+
+  web:
+    build: ./frontend
+    environment:
+      # Coolify gera o domínio e aponta o proxy (Traefik/Caddy) para a porta 80 deste serviço
+      - SERVICE_FQDN_WEB_80
+    depends_on:
+      api: {condition: service_healthy}
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  redisdata:
+  brutos:
+  fotos:

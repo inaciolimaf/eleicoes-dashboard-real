@@ -92,3 +92,17 @@ projeto).
 2. `make up-oficial`.
 3. Acompanhe a página Admin (req/s, 304/404, falhas de JWS, filas). Se algo der errado no formato, os brutos
    ficam no volume `brutos` para reprocessar.
+
+## 10.x Deploy no Coolify
+
+`docker-compose.coolify.yml` já vem pronto: **não precisa configurar nenhuma variável** no Coolify.
+
+1. New Resource → seu repositório Git → Build Pack **Docker Compose**.
+2. Docker Compose Location: `/docker-compose.coolify.yml` → Deploy.
+
+- Roda contra o **TSE oficial** (60 req/s), sem o mock.
+- Senha do Postgres e `JWT_SECRET` são gerados pelo Coolify (`SERVICE_PASSWORD_*`) e mantidos entre deploys.
+- O domínio é gerado automaticamente para o serviço `web` (porta 80); para usar o seu, edite em *Domains* do `web`.
+- Nada publica porta no host: o acesso é só pelo proxy do Coolify. A API fica em `/api` no mesmo domínio.
+- As migrações rodam no início da `api`; `collector` e os dois workers sobem depois que ela fica saudável.
+- O primeiro usuário registrado vira admin: registre-se logo após o primeiro deploy.
