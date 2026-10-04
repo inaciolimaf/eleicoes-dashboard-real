@@ -68,7 +68,7 @@ class Coletor:
         self.ufs_secoes_carregadas: set[str] = set()
         self.estado_mun: dict[tuple[int, str], tuple] = {}
         self.estado_uf: dict[tuple[int, str], tuple] = {}
-        self.secoes_feitas: set[str] = set()
+        self.secoes_feitas: dict[str, float] = {}
         self.tentativa_sec: dict[str, float] = {}
         self.fila_mun: asyncio.PriorityQueue = asyncio.PriorityQueue()
         self.fila_sec: asyncio.PriorityQueue = asyncio.PriorityQueue()
@@ -318,7 +318,7 @@ class Coletor:
             prio = 0 if mid in self.vigiados else 2
             for zona, secao in self.secoes_mun.get(mid, []):
                 sid = f"{mid}-z{zona:04d}-s{secao:04d}"
-                if sid in self.secoes_feitas or sid in self.pendentes_sec:
+                if self._secao_feita(sid) or sid in self.pendentes_sec:
                     continue
                 self.pendentes_sec.add(sid)
                 self.fila_sec.put_nowait((prio, self._ordem(), turno, uf, cd_mun, zona, secao))
@@ -328,25 +328,53 @@ class Coletor:
         assert self.urls is not None
         sid = f"{uf}{cd_mun:05d}-z{zona:04d}-s{secao:04d}"
         self.tentativa_sec[sid] = time.monotonic()
+        diag: dict = {"quando": agora_iso(), "turno": turno, "alta": alta}
+        try:
+            await self._processar_secao(turno, uf, cd_mun, zona, secao, sid, alta, diag)
+        except Exception as exc:
+            diag["erro"] = f"{type(exc).__name__}: {exc}"
+            raise
+        finally:
+            log.info("seção %s: %s", sid, diag)
+            with contextlib.suppress(Exception):
+                await self.redis.set(f"diag:secao:{sid}", orjson.dumps(diag), ex=3600)
+
+    async def _processar_secao(self, turno: int, uf: str, cd_mun: int, zona: int, secao: int, sid: str, alta: bool,
+                               diag: dict) -> None:
+        assert self.urls is not None
         url = self.urls.auxiliar_secao(uf, cd_mun, zona, secao)
         # Sem ETag: com ele, se o BU falhasse uma vez, o auxiliar passava a voltar 304 e a seção nunca era baixada
         r = await self.fetcher.get(url, usar_etag=False, alta=alta)
+        diag.update(url_aux=url, status_aux=r.status)
         if r.status != 200 or not r.corpo:
+            diag["etapa"] = "auxiliar indisponível"
             return
         aux = parse_auxiliar(orjson.loads(r.corpo))
+        diag["aux"] = {"st": aux.status, "urnas": [{"hash": u.hash[:16], "st": u.status, "arquivos": u.arquivos}
+                                                    for u in aux.urnas]}
         urna = aux.urna_totalizada()
         if urna is None:
+            diag["etapa"] = "nenhuma urna totalizada com .bu no auxiliar"
             return
         nome = urna.nome_bu()
         assert nome is not None
         url_bu = self.urls.arquivo_urna(uf, cd_mun, zona, secao, urna.hash, nome)
         rb = await self.fetcher.get(url_bu, usar_etag=False, alta=alta)
+        diag.update(url_bu=url_bu, status_bu=rb.status)
         if rb.status != 200 or not rb.corpo:
+            diag["etapa"] = "BU indisponível"
             return
         self._arquivar(url_bu, urna.hash[:16], rb.corpo)
-        self.secoes_feitas.add(sid)
-        await fila.enfileirar(self.redis, "boletim", rb.corpo, alta=alta, turno=turno, uf=uf, hash=urna.hash, status=urna.status,
+        # Marca só por um tempo: se o worker falhar, a seção volta a ser tentada (o banco é a fonte da verdade)
+        self.secoes_feitas[sid] = time.monotonic()
+        await fila.enfileirar(self.redis, "boletim", rb.corpo, alta=alta, turno=turno, uf=uf, hash=urna.hash,
+                              status=urna.status, secao_id=sid,
                               totalizado_em=urna.recebido_em.isoformat() if urna.recebido_em else None, url=url_bu)
+        diag["etapa"] = "BU enviado ao worker"
+
+    def _secao_feita(self, sid: str) -> bool:
+        t = self.secoes_feitas.get(sid)
+        return t is not None and (self.s.modo_secoes == "todas" or time.monotonic() - t < 120)
 
     async def ciclo_sob_demanda(self) -> None:
         """Enfileira só os boletins dos locais/seções abertos no dashboard ou com alerta de "local apurado".
@@ -386,7 +414,7 @@ class Coletor:
         agora = time.monotonic()
         for turno, ids in secoes.items():
             for sid in ids:
-                if (turno, sid) in feitas or sid in self.secoes_feitas or sid in self.pendentes_sec:
+                if (turno, sid) in feitas or self._secao_feita(sid) or sid in self.pendentes_sec:
                     continue
                 if agora - self.tentativa_sec.get(sid, -1e9) < intervalo:
                     continue

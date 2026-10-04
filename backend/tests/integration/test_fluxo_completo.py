@@ -193,6 +193,16 @@ async def test_secoes_sob_demanda(ambiente, api, redis_cliente):
             coletor.pendentes_sec.discard(f"{uf}{mun:05d}-z{zona:04d}-s{sec:04d}")
             await coletor.processar_secao(turno, uf, mun, zona, sec)
         await drenar_fila(redis_cliente, proc)
+
+        # diagnóstico do local: mostra o que coletor e worker fizeram com cada seção
+        d = (await api.get(f"/api/v1/diagnostico/locais/{feito.local_id}")).json()
+        assert d["local_no_banco"] and d["municipio_no_banco"] and d["pedido_registrado"]
+        por_id = {x["id"]: x for x in d["secoes"]}
+        assert set(por_id) == do_local
+        for sid in do_local - com_bu:
+            assert por_id[sid]["coletor"]["status_aux"] in (200, 404)
+            if por_id[sid]["coletor"].get("etapa") == "BU enviado ao worker":
+                assert por_id[sid]["worker"]["ok"] and por_id[sid]["boletim_no_banco"]
     finally:
         s.modo_secoes = "todas"
         await redis_cliente.delete("secoes:demanda")

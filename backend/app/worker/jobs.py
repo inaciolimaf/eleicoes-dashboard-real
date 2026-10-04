@@ -133,6 +133,22 @@ class Processador:
         return self._numeros[chave][1]
 
     async def boletim(self, corpo: bytes, ctx: dict) -> None:
+        sid_pedido = ctx.get("secao_id")
+        try:
+            await self._boletim(corpo, ctx)
+        except Exception as exc:
+            if sid_pedido:
+                await self._diag_worker(sid_pedido, {"erro": f"{type(exc).__name__}: {exc}"})
+            raise
+
+    async def _diag_worker(self, sid: str, dados: dict) -> None:
+        try:
+            await self.redis.set(f"diag:secao:{sid}:worker", orjson.dumps({"quando": datetime.now().isoformat(), **dados}),
+                                 ex=3600)
+        except Exception:
+            pass
+
+    async def _boletim(self, corpo: bytes, ctx: dict) -> None:
         turno = int(ctx["turno"])
         uf = ctx["uf"]
         bu = bu_mod.decodificar(corpo)
@@ -142,6 +158,11 @@ class Processador:
                                                        _dt(ctx.get("totalizado_em")), ctx.get("url"), numeros)
             mid = f"{uf}{bu.municipio:05d}"
             sid = f"{mid}-z{bu.zona:04d}-s{bu.secao:04d}"
+            if ctx.get("secao_id"):
+                await self._diag_worker(ctx["secao_id"], {
+                    "ok": True, "bu": {"municipio": bu.municipio, "zona": bu.zona, "local": bu.local, "secao": bu.secao},
+                    "secao_gravada": sid, "locais_recalculados": alterados,
+                    "aviso": None if alterados else "município do BU não está no banco ou o local não foi recalculado"})
             zid = f"{mid}-z{bu.zona:04d}"
             for cd, lid in alterados:
                 t_loc = topicos.locais(turno, cd, mid)

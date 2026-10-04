@@ -9,11 +9,12 @@ from pathlib import Path
 import httpx
 import orjson
 from fastapi import APIRouter, HTTPException, Query, Response
+from sqlalchemy import select
 
 from app.api.deps import RecorteDep, SessaoDep, TempoDep, parse_t
 from app.core.config import get_settings
 from app.core.redis import get_redis
-from app.models import Candidato, Eleicao
+from app.models import Boletim, Candidato, Eleicao, LocalVotacao, Municipio, Secao
 from app.services import demanda, resultados
 from app.services.recortes import RecorteInvalido, parse
 from app.tse.urls import MontadorUrls
@@ -118,6 +119,42 @@ async def secao(session: SessaoDep, secao_id: str, turno: int = 1) -> dict:
     if d is None:
         raise HTTPException(404, "seção não encontrada")
     return d
+
+
+@router.get("/diagnostico/locais/{local_id}")
+async def diagnostico_local(session: SessaoDep, local_id: str, turno: int = 1) -> dict:
+    """Por que as seções de um local não aparecem: o que o coletor e o worker fizeram com cada uma.
+
+    Só lê o que já está no banco e no Redis (não faz requisição ao TSE). Abra a página do local antes, para o
+    coletor receber o pedido, e espere uns 30 s.
+    """
+    lid = local_id.strip().lower()
+    redis = get_redis()
+    local = await session.get(LocalVotacao, lid)
+    secoes = (await session.execute(select(Secao).where(Secao.local_id == lid))).scalars().all()
+    bols = set((await session.execute(select(Boletim.secao_id).where(
+        Boletim.turno == turno, Boletim.local_id == lid))).scalars())
+    pedidos = await demanda.pedidos(redis)
+    met = await redis.get("coletor:metricas")
+    m = orjson.loads(met) if met else {}
+
+    async def _ler(chave: str) -> dict | None:
+        v = await redis.get(chave)
+        return orjson.loads(v) if v else None
+
+    return {
+        "local_id": lid,
+        "local_no_banco": local is not None,
+        "municipio_no_banco": bool(local and await session.get(Municipio, local.municipio_id)),
+        "pedido_registrado": (turno, "local", lid) in pedidos,
+        "coletor": {k: m.get(k) for k in ("modo_secoes", "fila_secoes", "secoes_coletadas", "atualizado_em", "pausado")},
+        "secoes": [{
+            "id": sec.id,
+            "boletim_no_banco": sec.id in bols,
+            "coletor": await _ler(f"diag:secao:{sec.id}"),
+            "worker": await _ler(f"diag:secao:{sec.id}:worker"),
+        } for sec in secoes],
+    }
 
 
 @router.get("/candidatos")
