@@ -11,6 +11,16 @@ from app.tse.numeros import data_hora, decimal, inteiro, inteiro_ou_none, sim_na
 # ---------------------------------------------------------------- EA12 municípios
 
 
+
+def _idg(dados: dict) -> str:
+    """Identificador de geração. Sem `idg` no arquivo, usa a data/hora de geração: sem isso todas as gerações
+    teriam idg 0 e só a primeira seria gravada (o snapshot é único por idg)."""
+    idg = str(dados.get("idg") or "").strip()
+    if idg.isdigit():
+        return idg
+    gerado = data_hora(dados.get("dg"), dados.get("hg")) or data_hora(dados.get("dt"), dados.get("ht"))
+    return str(int(gerado.timestamp())) if gerado else ""
+
 @dataclass
 class MunicipioTSE:
     uf: str
@@ -99,7 +109,7 @@ def parse_acompanhamento(dados: dict) -> AcompanhamentoTSE:
     return AcompanhamentoTSE(
         cd_eleicao=inteiro(dados.get("ele")),
         turno=inteiro(dados.get("t"), 1),
-        idg=str(dados.get("idg") or ""),
+        idg=_idg(dados),
         gerado_em=data_hora(dados.get("dg"), dados.get("hg")),
         itens=itens,
     )
@@ -273,7 +283,7 @@ def parse_resultado(dados: dict, cd_cargo: int | None = None) -> ResultadoTSE:
         turno=inteiro(dados.get("t"), 1),
         cd_cargo=cd,
         vagas=vagas,
-        idg=str(dados.get("idg") or ""),
+        idg=_idg(dados),
         gerado_em=data_hora(dados.get("dg"), dados.get("hg")),
         totalizado_em=data_hora(dados.get("dt"), dados.get("ht")) or data_hora(dados.get("dg"), dados.get("hg")),
         final=sim_nao(dados.get("tf")),

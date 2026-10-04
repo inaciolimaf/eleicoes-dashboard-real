@@ -11,7 +11,7 @@ up: env ## sobe o sistema completo (mock do TSE) em http://localhost:8080
 	@echo "Dashboard: http://localhost:8080  |  API: $(API)/api/docs  |  Mock TSE: http://localhost:8089/_fake/estado"
 
 up-oficial: env ## sobe contra o TSE real (sem o mock)
-	TSE_AMBIENTE=oficial TSE_BASE_URL=https://resultados.tse.jus.br/oficial TSE_MAX_RPS=210 \
+	TSE_AMBIENTE=oficial TSE_BASE_URL=https://resultados.tse.jus.br/oficial TSE_MAX_RPS=90 \
 		$(COMPOSE) up -d --build db redis migrate api collector worker web
 
 dev: env ## modo desenvolvimento (reload + Vite em http://localhost:5173)

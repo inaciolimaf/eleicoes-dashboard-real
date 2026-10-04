@@ -153,3 +153,12 @@ def test_ler_csv_locais_zip_oficial_usa_o_csv_do_brasil():
     assert [ln["SG_UF"] for ln in linhas] == ["BA", "CE"]
     assert linhas[1]["NM_LOCAL_VOTACAO"] == "COLÉGIO B"
     assert list(ler_csv_locais((cab + "AP;06050;2;10;1;ESCOLA C\n").encode("latin-1")))[0]["NR_SECAO"] == "10"
+
+
+def test_idg_ausente_usa_a_hora_de_geracao():
+    """Sem `idg`, cada geração precisa de um id próprio; senão só a primeira seria gravada."""
+    base = {k: v for k, v in EA20.items() if k != "idg"}
+    r1 = parse_resultado({**base, "dg": "04/10/2026", "hg": "18:00:00"}, 1)
+    r2 = parse_resultado({**base, "dg": "04/10/2026", "hg": "18:00:05"}, 1)
+    assert r1.idg and r2.idg and r1.idg != r2.idg
+    assert parse_resultado(EA20, 1).idg == str(EA20["idg"])

@@ -205,7 +205,7 @@ Execução:
 | `S3_ENDPOINT` / `S3_BUCKET` / chaves | `http://minio:9000`, `tse-brutos` |
 | `TSE_AMBIENTE` | `oficial` \| `simulado` \| `fake` |
 | `TSE_BASE_URL` | `https://resultados.tse.jus.br/oficial` (ou `http://tse-fake:8080/oficial`) |
-| `TSE_MAX_RPS` | `210` |
+| `TSE_MAX_RPS` | `90` |
 | `TSE_VERIFICAR_JWS` | `true` |
 | `COLETAR_SECOES` | `true` |
 | `JWT_SECRET`, `JWT_EXPIRA_MIN` | — |

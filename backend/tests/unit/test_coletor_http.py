@@ -53,3 +53,33 @@ async def test_retentativa_em_erro_5xx():
     f.bucket.taxa = 10000
     r = await f.get(url)
     assert r.status == 200 and r.corpo == b"ok"
+
+
+@respx.mock
+async def test_jws_com_chave_errada_cai_para_o_json():
+    """Se a chave/kid do TSE não bater, o coletor não pode parar de atualizar: usa o .json."""
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+    from app.collector.coletor import Coletor
+    from app.core.config import Settings
+    from app.tse import jws
+
+    base = "http://tse.teste/oficial/x"
+    token = jws.assinar(b'{"v": 1}', Ed25519PrivateKey.generate(), "kid-desconhecido")
+    rota_jws = respx.get(f"{base}.jws").mock(return_value=httpx.Response(200, content=token.encode()))
+    respx.get(f"{base}.json").mock(return_value=httpx.Response(200, content=b'{"v": 2}'))
+    c = Coletor(Settings(tse_verificar_jws=True), None, None, Fetcher(max_rps=1000))  # type: ignore[arg-type]
+    assert await c.obter(f"{base}.json", arquivar=False) == (200, b'{"v": 2}', False)
+    assert c.fetcher.metricas.falhas_jws == 1
+    # depois da falha, nem tenta mais o .jws
+    await c.obter(f"{base}.json", arquivar=False)
+    assert rota_jws.call_count == 1
+
+
+@respx.mock
+async def test_429_pausa_o_coletor():
+    url = "http://tse.teste/oficial/c.json"
+    respx.get(url).mock(return_value=httpx.Response(429))
+    f = Fetcher(max_rps=1000)
+    assert (await f.get(url, tentativas=1)).status == 429
+    assert f.pausa_ate > time.monotonic() + 20

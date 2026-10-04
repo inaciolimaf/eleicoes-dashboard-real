@@ -77,6 +77,7 @@ class Coletor:
         self.vigiados: set[str] = set()
         self.ultima_coleta_mun: dict[tuple[int, str], float] = {}
         self.pausado = False
+        self.jws_desligado = False
         self.id = uuid.uuid4().hex[:8]
         self._contador = 0
 
@@ -97,7 +98,7 @@ class Coletor:
 
     async def obter(self, url_json: str, arquivar: bool = True) -> tuple[int, bytes | None, bool]:
         """Busca o .jws (verificando a assinatura) e cai para o .json se o .jws não existir."""
-        if self.s.tse_usar_jws and url_json.endswith(".json"):
+        if self.s.tse_usar_jws and not self.jws_desligado and url_json.endswith(".json"):
             url = url_json[:-5] + ".jws"
             r = await self.fetcher.get(url)
             if r.status == 200 and r.corpo is not None:
@@ -108,11 +109,13 @@ class Coletor:
                 try:
                     return 200, jws.verificar(r.corpo.decode(), self.chave), True
                 except jws.ErroJWS as exc:
+                    # Chave/kid diferente da esperada: em vez de descartar o resultado (e o site parar de
+                    # atualizar), passa a usar o .json, sem a marca de verificado.
                     self.fetcher.metricas.falhas_jws += 1
                     self.fetcher.etags.pop(url, None)
-                    log.error("JWS inválido em %s: %s", url, exc)
-                    return 498, None, False
-            if r.status != 404:
+                    self.jws_desligado = True
+                    log.error("JWS inválido em %s: %s — coletando pelo .json sem verificar assinatura", url, exc)
+            elif r.status != 404:
                 return r.status, None, False
         r = await self.fetcher.get(url_json)
         if r.status == 200 and r.corpo is not None and arquivar:

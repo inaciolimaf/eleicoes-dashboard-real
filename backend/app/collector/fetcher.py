@@ -69,6 +69,7 @@ class Fetcher:
         self.nao_encontrados: dict[str, float] = {}
         self.ttl_404 = ttl_404
         self.metricas = Metricas()
+        self.pausa_ate = 0.0
 
     def limpar_404(self) -> None:
         self.nao_encontrados.clear()
@@ -82,6 +83,9 @@ class Fetcher:
             headers["If-None-Match"] = self.etags[url]
         atraso = 1.0
         for tentativa in range(tentativas):
+            espera = self.pausa_ate - time.monotonic()
+            if espera > 0:
+                await asyncio.sleep(espera)
             await self.bucket.adquirir()
             try:
                 async with self.sem:
@@ -99,6 +103,9 @@ class Fetcher:
             if r.status_code == 404:
                 self.nao_encontrados[url] = time.monotonic()
                 return Resposta(404, None, None, url)
+            if r.status_code == 429:
+                # Excesso de requisições: segura todo o coletor por um tempo em vez de insistir.
+                self.pausa_ate = max(self.pausa_ate, time.monotonic() + 30.0)
             if r.status_code >= 500 or r.status_code == 429:
                 if tentativa == tentativas - 1:
                     return Resposta(r.status_code, None, None, url)
