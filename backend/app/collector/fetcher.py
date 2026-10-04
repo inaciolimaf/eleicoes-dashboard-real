@@ -11,7 +11,10 @@ import httpx
 
 
 class TokenBucket:
-    """Limita requisições por segundo (um 304 também consome token — regra do TSE)."""
+    """Limita requisições por segundo (um 304 também consome token — regra do TSE).
+
+    Pedidos de prioridade alta passam na frente: enquanto houver um esperando, os de baixa não pegam token.
+    """
 
     def __init__(self, taxa: float, capacidade: float | None = None):
         self.taxa = taxa
@@ -20,11 +23,15 @@ class TokenBucket:
         self.capacidade = capacidade if capacidade is not None else max(1.0, taxa * 0.1)
         self.tokens = self.capacidade
         self.ultimo = time.monotonic()
-        self._lock = asyncio.Lock()
+        self._lock_alta = asyncio.Lock()
+        self._lock_baixa = asyncio.Lock()
 
-    async def adquirir(self) -> None:
-        async with self._lock:
+    async def adquirir(self, alta: bool = False) -> None:
+        async with self._lock_alta if alta else self._lock_baixa:
             while True:
+                if not alta and self._lock_alta.locked():
+                    await asyncio.sleep(1 / self.taxa)
+                    continue
                 agora = time.monotonic()
                 self.tokens = min(self.capacidade, self.tokens + (agora - self.ultimo) * self.taxa)
                 self.ultimo = agora
@@ -63,6 +70,7 @@ class Fetcher:
                  ttl_404: float = 120.0):
         self.bucket = TokenBucket(max_rps)
         self.sem = asyncio.Semaphore(concorrencia)
+        self.sem_alta = asyncio.Semaphore(max(4, concorrencia // 3))
         self.cliente = cliente or httpx.AsyncClient(timeout=httpx.Timeout(20.0), follow_redirects=True,
                                                     headers={"User-Agent": "eleicoes-dashboard-real/1.0"})
         self.etags: dict[str, str] = {}
@@ -74,7 +82,7 @@ class Fetcher:
     def limpar_404(self) -> None:
         self.nao_encontrados.clear()
 
-    async def get(self, url: str, usar_etag: bool = True, tentativas: int = 3) -> Resposta:
+    async def get(self, url: str, usar_etag: bool = True, tentativas: int = 3, alta: bool = True) -> Resposta:
         visto = self.nao_encontrados.get(url)
         if visto is not None and time.monotonic() - visto < self.ttl_404:
             return Resposta(404, None, None, url)
@@ -86,9 +94,9 @@ class Fetcher:
             espera = self.pausa_ate - time.monotonic()
             if espera > 0:
                 await asyncio.sleep(espera)
-            await self.bucket.adquirir()
+            await self.bucket.adquirir(alta)
             try:
-                async with self.sem:
+                async with self.sem_alta if alta else self.sem:
                     r = await self.cliente.get(url, headers=headers)
             except httpx.HTTPError:
                 self.metricas.erros_rede += 1

@@ -83,3 +83,21 @@ async def test_429_pausa_o_coletor():
     f = Fetcher(max_rps=1000)
     assert (await f.get(url, tentativas=1)).status == 429
     assert f.pausa_ate > time.monotonic() + 20
+
+
+async def test_token_bucket_prioridade_alta_passa_na_frente():
+    import asyncio
+
+    bucket = TokenBucket(taxa=100, capacidade=1)
+    ordem: list[str] = []
+
+    async def pedir(nome: str, alta: bool) -> None:
+        await bucket.adquirir(alta)
+        ordem.append(nome)
+
+    baixas = [asyncio.create_task(pedir(f"b{i}", False)) for i in range(5)]
+    await asyncio.sleep(0)
+    altas = [asyncio.create_task(pedir(f"a{i}", True)) for i in range(3)]
+    await asyncio.gather(*baixas, *altas)
+    # o 1º baixo pode pegar o token que já estava no balde; depois disso os altos vêm antes dos baixos
+    assert ordem.index("a2") < ordem.index("b2")

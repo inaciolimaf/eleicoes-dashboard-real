@@ -96,11 +96,11 @@ class Coletor:
         except OSError:
             pass
 
-    async def obter(self, url_json: str, arquivar: bool = True) -> tuple[int, bytes | None, bool]:
+    async def obter(self, url_json: str, arquivar: bool = True, alta: bool = True) -> tuple[int, bytes | None, bool]:
         """Busca o .jws (verificando a assinatura) e cai para o .json se o .jws não existir."""
         if self.s.tse_usar_jws and not self.jws_desligado and url_json.endswith(".json"):
             url = url_json[:-5] + ".jws"
-            r = await self.fetcher.get(url)
+            r = await self.fetcher.get(url, alta=alta)
             if r.status == 200 and r.corpo is not None:
                 if arquivar:
                     self._arquivar(url, r.etag, r.corpo)
@@ -117,7 +117,7 @@ class Coletor:
                     log.error("JWS inválido em %s: %s — coletando pelo .json sem verificar assinatura", url, exc)
             elif r.status != 404:
                 return r.status, None, False
-        r = await self.fetcher.get(url_json)
+        r = await self.fetcher.get(url_json, alta=alta)
         if r.status == 200 and r.corpo is not None and arquivar:
             self._arquivar(url_json, r.etag, r.corpo)
         return r.status, r.corpo, False
@@ -182,7 +182,7 @@ class Coletor:
         if uf in self.ufs_secoes_carregadas or self.urls is None:
             return
         self.ufs_secoes_carregadas.add(uf)
-        status, corpo, _ = await self.obter(self.urls.secoes(uf), arquivar=False)
+        status, corpo, _ = await self.obter(self.urls.secoes(uf), arquivar=False, alta=False)
         if corpo is None:
             self.ufs_secoes_carregadas.discard(uf)
             return
@@ -197,7 +197,9 @@ class Coletor:
                                zona: int | None = None) -> None:
         assert self.urls is not None
         url = self.urls.resultado(e.cd_eleicao, cd, uf, mun, zona)
-        status, corpo, jws_ok = await self.obter(url)
+        # Brasil/UF e municípios abertos no dashboard passam na frente (no limite de requisições e na fila)
+        alta = mun is None or f"{uf}{mun:05d}" in self.vigiados
+        status, corpo, jws_ok = await self.obter(url, alta=alta)
         if status != 200 or corpo is None:
             return
         if uf == "br":
@@ -208,7 +210,7 @@ class Coletor:
             nivel, rid, pai = "municipio", f"{uf}{mun:05d}", uf
         else:
             nivel, rid, pai = "zona", f"{uf}{mun:05d}-z{zona:04d}", f"{uf}{mun:05d}"
-        await fila.enfileirar(self.redis, "resultado", corpo, turno=turno, eleicao_id=e.id, cd_cargo=cd, nivel=nivel,
+        await fila.enfileirar(self.redis, "resultado", corpo, alta=alta, chave=url, turno=turno, eleicao_id=e.id, cd_cargo=cd, nivel=nivel,
                               recorte_id=rid, pai_id=pai, uf=uf if uf != "br" else "br", arquivo=url, jws_ok=jws_ok,
                               capturado_em=agora_iso())
 
@@ -257,7 +259,8 @@ class Coletor:
         status, corpo, _ = await self.obter(self.urls.acompanhamento(e.cd_eleicao, uf))
         if corpo is None:
             return
-        await fila.enfileirar(self.redis, "acompanhamento", corpo, turno=turno, uf=uf, capturado_em=agora_iso())
+        await fila.enfileirar(self.redis, "acompanhamento", corpo, alta=True, chave=f"acomp:{turno}:{uf}", turno=turno,
+                              uf=uf, capturado_em=agora_iso())
         if uf == "br":
             return
         acomp = parse_acompanhamento(orjson.loads(corpo))
@@ -325,7 +328,7 @@ class Coletor:
         sid = f"{uf}{cd_mun:05d}-z{zona:04d}-s{secao:04d}"
         self.tentativa_sec[sid] = time.monotonic()
         url = self.urls.auxiliar_secao(uf, cd_mun, zona, secao)
-        r = await self.fetcher.get(url)
+        r = await self.fetcher.get(url, alta=False)
         if r.status != 200 or not r.corpo:
             return
         aux = parse_auxiliar(orjson.loads(r.corpo))
@@ -335,7 +338,7 @@ class Coletor:
         nome = urna.nome_bu()
         assert nome is not None
         url_bu = self.urls.arquivo_urna(uf, cd_mun, zona, secao, urna.hash, nome)
-        rb = await self.fetcher.get(url_bu, usar_etag=False)
+        rb = await self.fetcher.get(url_bu, usar_etag=False, alta=False)
         if rb.status != 200 or not rb.corpo:
             return
         self._arquivar(url_bu, urna.hash[:16], rb.corpo)

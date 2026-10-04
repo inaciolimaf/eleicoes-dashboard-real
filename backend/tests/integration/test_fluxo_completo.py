@@ -25,10 +25,10 @@ UF_TESTE = "ac"
 async def drenar_fila(redis, proc: Processador) -> int:
     n = 0
     while True:
-        item = await redis.rpop(fila.FILA)
+        item = await fila.retirar(redis, timeout=0)
         if item is None:
             return n
-        await proc.processar(*fila.ler(item))
+        await proc.processar(*item)
         n += 1
 
 
