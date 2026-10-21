@@ -19,8 +19,9 @@ class Eleicao(Base):
     nome: Mapped[str] = mapped_column(String(200))
     data: Mapped[str] = mapped_column(String(10))
 
-    cargos: Mapped[list["EleicaoCargo"]] = relationship(back_populates="eleicao", lazy="selectin",
-                                                        order_by="EleicaoCargo.cd_cargo")
+    cargos: Mapped[list["EleicaoCargo"]] = relationship(
+        back_populates="eleicao", lazy="selectin", order_by="EleicaoCargo.cd_cargo"
+    )
 
 
 class EleicaoCargo(Base):

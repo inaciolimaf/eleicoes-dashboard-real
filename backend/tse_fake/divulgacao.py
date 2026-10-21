@@ -4,19 +4,24 @@ from __future__ import annotations
 
 import hashlib
 from datetime import datetime, timedelta
-from functools import lru_cache
 
 import numpy as np
 
-from app.tse.bu import VotoBU, codificar
+from app.tse.bu import BoletimSpec, VotoBU, codificar
 from app.tse.numeros import BRT
 from tse_fake.cenario import CICLO, ELEICAO_ESTADUAL, ELEICAO_FEDERAL, PLEITO, CargoUF, Cenario
 from tse_fake.dados import UFS
 
 PERIODO = 30.0  # segundos simulados entre rodadas de totalização
 INICIO = datetime(2026, 10, 4, 17, 0, 0, tzinfo=BRT)
-NOMES_CARGO = {1: "Presidente", 3: "Governador", 5: "Senador", 6: "Deputado Federal", 7: "Deputado Estadual",
-               8: "Deputado Distrital"}
+NOMES_CARGO = {
+    1: "Presidente",
+    3: "Governador",
+    5: "Senador",
+    6: "Deputado Federal",
+    7: "Deputado Estadual",
+    8: "Deputado Distrital",
+}
 
 
 def pct2(parte: float, todo: float) -> str:
@@ -33,21 +38,28 @@ def data_hora(seg: float) -> tuple[str, str]:
 
 
 class Divulgacao:
-    def __init__(self, cenario: Cenario):
+    def __init__(self, cenario: Cenario) -> None:
         self.c = cenario
         c = cenario
         # tempos ordenados por recorte (para saber a última mudança de cada arquivo)
         self._t_br = np.sort(c.sec_t)
         self._t_uf = {uf: np.sort(c.sec_t[a:b]) for uf, (a, b) in c.faixa_uf.items()}
-        self._t_mun = [np.sort(c.sec_t[m.a:m.b]) for m in c.municipios]
-        self._t_zona = [np.sort(c.sec_t[z.a:z.b]) for z in c.zonas]
+        self._t_mun = [np.sort(c.sec_t[m.a : m.b]) for m in c.municipios]
+        self._t_zona = [np.sort(c.sec_t[z.a : z.b]) for z in c.zonas]
         self._secao_idx: dict[tuple[str, int, int, int], int] = {}
         for i in range(c.n):
             m = c.municipios[int(c.sec_mun[i])]
             z = c.zonas[int(c.sec_zona[i])]
             self._secao_idx[(m.uf, m.cd, z.numero, int(c.sec_num[i]))] = i
-        self._zona_idx = {(c.municipios[z.municipio].uf, c.municipios[z.municipio].cd, z.numero): z for z in c.zonas}
+        self._zona_idx = {
+            (c.municipios[z.municipio].uf, c.municipios[z.municipio].cd, z.numero): z for z in c.zonas
+        }
         self._cache_situacao: dict[tuple, tuple] = {}
+        # Caches por instância: `lru_cache` em método segura a instância viva para sempre (B019).
+        self._cache_municipios: dict[int, dict] = {}
+        self._cache_secoes: dict[str, dict] = {}
+        self._cache_boletim: dict[int, bytes] = {}
+        self._cache_csv: dict[str, bytes] = {}
 
     # ------------------------------------------------------------------ rodadas e idg
     @staticmethod
@@ -90,7 +102,9 @@ class Divulgacao:
         mask = c.sec_t[a2:b2] <= t
         ra, rb = a2 - cargo.a, b2 - cargo.a
         votos = cargo.votos[ra:rb][mask].sum(axis=0).astype(np.int64)
-        legenda = cargo.legenda[ra:rb][mask].sum(axis=0).astype(np.int64) if cargo.legenda is not None else None
+        legenda = (
+            cargo.legenda[ra:rb][mask].sum(axis=0).astype(np.int64) if cargo.legenda is not None else None
+        )
         aptos = c.sec_aptos[a2:b2]
         comp = c.sec_comp[a2:b2]
         return {
@@ -105,7 +119,9 @@ class Divulgacao:
             "c": int(comp[mask].sum()),
         }
 
-    def situacao(self, cargo: CargoUF, t: float) -> tuple[dict[str, tuple[str, str]], dict[str, int], bool, bool]:
+    def situacao(
+        self, cargo: CargoUF, t: float
+    ) -> tuple[dict[str, tuple[str, str]], dict[str, int], bool, bool]:
         """Situação global (na abrangência do cargo) de cada candidato no instante t."""
         rod = self.rodada(t)
         chave = (cargo.cd, cargo.uf, rod)
@@ -114,7 +130,10 @@ class Divulgacao:
         s = self._somar(cargo, cargo.a, cargo.b, t)
         votos = s["votos"]
         final = s["st"] == s["ts"]
-        restantes = int(self.c.sec_aptos[cargo.a:cargo.b][self.c.sec_t[cargo.a:cargo.b] > t].sum()) * cargo.votos_por_eleitor
+        restantes = (
+            int(self.c.sec_aptos[cargo.a : cargo.b][self.c.sec_t[cargo.a : cargo.b] > t].sum())
+            * cargo.votos_por_eleitor
+        )
         ordem = list(np.argsort(-votos, kind="stable"))
         sit: dict[str, tuple[str, str]] = {cand.sqcand: ("n", "") for cand in cargo.candidatos}
         vagas_agr: dict[str, int] = {}
@@ -138,7 +157,9 @@ class Divulgacao:
                         sit[cand.sqcand] = ("s", "Eleito") if i == lider else ("n", "Não eleito")
             else:
                 vagas = cargo.vagas
-                definido = final or (len(ordem) > vagas and votos[ordem[vagas - 1]] > votos[ordem[vagas]] + restantes)
+                definido = final or (
+                    len(ordem) > vagas and votos[ordem[vagas - 1]] > votos[ordem[vagas]] + restantes
+                )
                 if definido:
                     md = not final
                     eleitos = {int(x) for x in ordem[:vagas]}
@@ -150,7 +171,9 @@ class Divulgacao:
         self._cache_situacao[chave] = out
         return out
 
-    def _proporcional(self, cargo: CargoUF, votos: np.ndarray, legenda: np.ndarray | None):
+    def _proporcional(
+        self, cargo: CargoUF, votos: np.ndarray, legenda: np.ndarray | None
+    ) -> tuple[dict[str, int], dict[str, tuple[str, str]]]:
         agr_votos: dict[str, int] = {}
         agr_cands: dict[str, list[int]] = {}
         for i, cand in enumerate(cargo.candidatos):
@@ -162,7 +185,7 @@ class Divulgacao:
                 agr_votos[par.agremiacao] = agr_votos.get(par.agremiacao, 0) + int(legenda[j])
         total = sum(agr_votos.values())
         qe = max(1, round(total / cargo.vagas))
-        vagas = {ag: 0 for ag in agr_votos}
+        vagas = dict.fromkeys(agr_votos, 0)
         qp = {ag: v // qe for ag, v in agr_votos.items()}
         for ag in vagas:
             vagas[ag] = qp[ag]
@@ -196,34 +219,83 @@ class Divulgacao:
             {"tp": "cs", "dir": "<base>/<ambiente>/<ciclo>/arquivo-urna/<cd_pleito>/config/<uf>"},
             {"tp": "ab", "dir": "<base>/<ambiente>/<ciclo>/<cd_eleicao>/dados/<uf>"},
             {"tp": "u", "dir": "<base>/<ambiente>/<ciclo>/<cd_eleicao>/dados/<uf>"},
-            {"tp": "aux", "dir": "<base>/<ambiente>/<ciclo>/arquivo-urna/<cd_pleito>/dados/<uf>/<municipio>/<zona>/<secao>"},
+            {
+                "tp": "aux",
+                "dir": (
+                    "<base>/<ambiente>/<ciclo>/arquivo-urna/<cd_pleito>/dados/<uf>/<municipio>/<zona>/<secao>"
+                ),
+            },
         ]
         return {
-            "dg": "01/10/2026", "hg": "12:00:00", "f": "o", "idg": "100000001", "c": CICLO, "arq": arq,
-            "pl": [{
-                "cd": str(PLEITO), "cdpr": "9000", "c": CICLO, "dt": "04/10/2026", "dtlim": "25/10/2026",
-                "e": [
-                    {"cd": str(ELEICAO_FEDERAL), "cdt2": str(ELEICAO_FEDERAL + 1), "sqele": "1", "t": "1", "tp": "8",
-                     "nm": "Eleição Ordinária Federal - 2026 - MOCK 1º Turno",
-                     "abr": [{"cd": "br", "cp": [cp(1, "1")]}]},
-                    {"cd": str(ELEICAO_ESTADUAL), "cdt2": str(ELEICAO_ESTADUAL + 1), "sqele": "2", "t": "1", "tp": "1",
-                     "nm": "Eleição Ordinária Estadual - 2026 - MOCK 1º Turno",
-                     "abr": [{"cd": "br", "cp": [cp(3, "1"), cp(5, "1"), cp(6, "2"), cp(7, "2"), cp(8, "2")]}]},
-                ],
-            }],
+            "dg": "01/10/2026",
+            "hg": "12:00:00",
+            "f": "o",
+            "idg": "100000001",
+            "c": CICLO,
+            "arq": arq,
+            "pl": [
+                {
+                    "cd": str(PLEITO),
+                    "cdpr": "9000",
+                    "c": CICLO,
+                    "dt": "04/10/2026",
+                    "dtlim": "25/10/2026",
+                    "e": [
+                        {
+                            "cd": str(ELEICAO_FEDERAL),
+                            "cdt2": str(ELEICAO_FEDERAL + 1),
+                            "sqele": "1",
+                            "t": "1",
+                            "tp": "8",
+                            "nm": "Eleição Ordinária Federal - 2026 - MOCK 1º Turno",
+                            "abr": [{"cd": "br", "cp": [cp(1, "1")]}],
+                        },
+                        {
+                            "cd": str(ELEICAO_ESTADUAL),
+                            "cdt2": str(ELEICAO_ESTADUAL + 1),
+                            "sqele": "2",
+                            "t": "1",
+                            "tp": "1",
+                            "nm": "Eleição Ordinária Estadual - 2026 - MOCK 1º Turno",
+                            "abr": [
+                                {
+                                    "cd": "br",
+                                    "cp": [cp(3, "1"), cp(5, "1"), cp(6, "2"), cp(7, "2"), cp(8, "2")],
+                                }
+                            ],
+                        },
+                    ],
+                }
+            ],
         }
 
-    @lru_cache(maxsize=4)
     def municipios(self, eleicao: int) -> dict:
+        if eleicao not in self._cache_municipios:
+            self._cache_municipios[eleicao] = self._calcular_municipios(eleicao)
+        return self._cache_municipios[eleicao]
+
+    def _calcular_municipios(self, eleicao: int) -> dict:
         c = self.c
         abr = []
         for uf in c.ufs:
             mus = [m for m in c.municipios if m.uf == uf]
-            abr.append({
-                "cd": uf.upper(), "ds": UFS[uf][0].upper(),
-                "mu": [{"cd": f"{m.cd:05d}", "cdi": str(m.ibge), "nm": m.nome, "c": "S" if m.capital else "N",
-                        "s": "S", "z": [f"{c.zonas[z].numero:04d}" for z in m.zonas]} for m in mus],
-            })
+            abr.append(
+                {
+                    "cd": uf.upper(),
+                    "ds": UFS[uf][0].upper(),
+                    "mu": [
+                        {
+                            "cd": f"{m.cd:05d}",
+                            "cdi": str(m.ibge),
+                            "nm": m.nome,
+                            "c": "S" if m.capital else "N",
+                            "s": "S",
+                            "z": [f"{c.zonas[z].numero:04d}" for z in m.zonas],
+                        }
+                        for m in mus
+                    ],
+                }
+            )
         return {"dg": "01/10/2026", "hg": "12:00:00", "f": "o", "idg": "100000002", "abr": abr}
 
     def cargo(self, cd: int, uf: str) -> CargoUF | None:
@@ -231,8 +303,16 @@ class Divulgacao:
             return self.c.cargos.get((1, "br"))
         return self.c.cargos.get((cd, uf))
 
-    def resultado(self, eleicao: int, cd: int, uf: str, mun: int | None, zona: int | None, t: float,
-                  so_eleitos: bool = False) -> tuple[str, dict] | None:
+    def resultado(
+        self,
+        eleicao: int,
+        cd: int,
+        uf: str,
+        mun: int | None,
+        zona: int | None,
+        t: float,
+        so_eleitos: bool = False,
+    ) -> tuple[str, dict] | None:
         cargo = self.cargo(cd, uf)
         if cargo is None or cargo.eleicao != eleicao:
             return None
@@ -242,7 +322,7 @@ class Divulgacao:
         idg, ult = self.idg(tempos, t)
         rod = self.rodada(t)
         s = self._somar(cargo, a, b, t)
-        sit, vagas_agr, md, final_global = self.situacao(cargo, t)
+        sit, vagas_agr, md, _final_global = self.situacao(cargo, t)
         votos = s["votos"]
         validos = int(votos.sum()) + (int(s["legenda"].sum()) if s["legenda"] is not None else 0)
         tv = s["c"] * cargo.votos_por_eleitor
@@ -255,16 +335,30 @@ class Divulgacao:
             if so_eleitos and e != "s":
                 continue
             p = cand.partido
-            g = agr.setdefault(p.agremiacao, {"n": p.agremiacao_numero, "nm": p.agremiacao, "tp": p.tipo,
-                                              "_v": 0, "par": {}})
-            par = g["par"].setdefault(p.sigla, {"n": str(p.numero), "sg": p.sigla, "nm": p.nome, "tvl": "0", "cand": []})
+            g = agr.setdefault(
+                p.agremiacao, {"n": p.agremiacao_numero, "nm": p.agremiacao, "tp": p.tipo, "_v": 0, "par": {}}
+            )
+            par = g["par"].setdefault(
+                p.sigla, {"n": str(p.numero), "sg": p.sigla, "nm": p.nome, "tvl": "0", "cand": []}
+            )
             v = int(votos[i])
             g["_v"] += v
-            par["cand"].append({
-                "seq": "0", "n": str(cand.numero), "sqcand": cand.sqcand, "nm": cand.nome, "nmu": cand.nome_urna,
-                "dvt": "Válido", "e": e, "st": st, "vap": str(v), "pvap": pct2(v, validos), "pvapn": pctn(v, validos),
-                "vs": [{"tp": tp, "nm": nm, "nmu": nm, "sgp": p.sigla} for tp, nm in cand.vices],
-            })
+            par["cand"].append(
+                {
+                    "seq": "0",
+                    "n": str(cand.numero),
+                    "sqcand": cand.sqcand,
+                    "nm": cand.nome,
+                    "nmu": cand.nome_urna,
+                    "dvt": "Válido",
+                    "e": e,
+                    "st": st,
+                    "vap": str(v),
+                    "pvap": pct2(v, validos),
+                    "pvapn": pctn(v, validos),
+                    "vs": [{"tp": tp, "nm": nm, "nmu": nm, "sgp": p.sigla} for tp, nm in cand.vices],
+                }
+            )
         if s["legenda"] is not None and not so_eleitos:
             for j, par_ in enumerate(cargo.partidos):
                 g = agr.get(par_.agremiacao)
@@ -282,17 +376,46 @@ class Divulgacao:
                 item["vag"] = str(vagas_agr.get(nome, 0))
             lista.append(item)
         doc = {
-            "ele": str(eleicao), "t": "1", "f": "o", "dg": dg, "hg": hg, "idg": idg, "dt": dt, "ht": ht,
-            "tf": "s" if final else "n", "md": "s" if (md and uf == cargo.uf and mun is None) else "n",
-            "s": {"ts": str(s["ts"]), "st": str(s["st"]), "pst": pct2(s["st"], s["ts"]), "pstn": pctn(s["st"], s["ts"]),
-                  "snt": str(s["ts"] - s["st"]), "psnt": pct2(s["ts"] - s["st"], s["ts"])},
-            "e": {"te": str(s["te"]), "est": str(s["est"]), "pest": pct2(s["est"], s["te"]),
-                  "esnt": str(s["te"] - s["est"]), "c": str(s["c"]), "pc": pct2(s["c"], s["est"]),
-                  "pcn": pctn(s["c"], s["est"]), "a": str(s["est"] - s["c"]), "pa": pct2(s["est"] - s["c"], s["est"]),
-                  "pan": pctn(s["est"] - s["c"], s["est"])},
-            "v": {"tv": str(tv), "vv": str(validos), "pvv": pct2(validos, tv), "vb": str(s["brancos"]),
-                  "pvb": pct2(s["brancos"], tv), "tvn": str(s["nulos"]), "ptvn": pct2(s["nulos"], tv),
-                  "vn": str(s["nulos"])},
+            "ele": str(eleicao),
+            "t": "1",
+            "f": "o",
+            "dg": dg,
+            "hg": hg,
+            "idg": idg,
+            "dt": dt,
+            "ht": ht,
+            "tf": "s" if final else "n",
+            "md": "s" if (md and uf == cargo.uf and mun is None) else "n",
+            "s": {
+                "ts": str(s["ts"]),
+                "st": str(s["st"]),
+                "pst": pct2(s["st"], s["ts"]),
+                "pstn": pctn(s["st"], s["ts"]),
+                "snt": str(s["ts"] - s["st"]),
+                "psnt": pct2(s["ts"] - s["st"], s["ts"]),
+            },
+            "e": {
+                "te": str(s["te"]),
+                "est": str(s["est"]),
+                "pest": pct2(s["est"], s["te"]),
+                "esnt": str(s["te"] - s["est"]),
+                "c": str(s["c"]),
+                "pc": pct2(s["c"], s["est"]),
+                "pcn": pctn(s["c"], s["est"]),
+                "a": str(s["est"] - s["c"]),
+                "pa": pct2(s["est"] - s["c"], s["est"]),
+                "pan": pctn(s["est"] - s["c"], s["est"]),
+            },
+            "v": {
+                "tv": str(tv),
+                "vv": str(validos),
+                "pvv": pct2(validos, tv),
+                "vb": str(s["brancos"]),
+                "pvb": pct2(s["brancos"], tv),
+                "tvn": str(s["nulos"]),
+                "ptvn": pct2(s["nulos"], tv),
+                "vn": str(s["nulos"]),
+            },
             "carg": [{"cd": f"{cd:04d}", "nmn": NOMES_CARGO[cd], "nv": str(cargo.vagas), "agr": lista}],
         }
         return idg, doc
@@ -300,7 +423,7 @@ class Divulgacao:
     def acompanhamento(self, eleicao: int, uf: str, t: float) -> tuple[str, dict]:
         c = self.c
         tempos, a, b = self.tempos_recorte(uf, None, None)
-        idg, ult = self.idg(tempos, t)
+        idg, _ult = self.idg(tempos, t)
         dg, hg = data_hora(self.rodada(t))
         itens = [self._item_ab("br" if uf == "br" else "uf", uf, a, b, tempos, t)]
         if uf == "br":
@@ -323,12 +446,31 @@ class Divulgacao:
         ult = self.ultima_mudanca(tempos, t)
         dt, ht = data_hora(ult if ult is not None else 0.0)
         item = {
-            "and": "f" if st == ts else ("p" if st else "n"), "tpabr": tipo, "cdabr": cod, "dt": dt, "ht": ht,
-            "s": {"ts": str(ts), "st": str(st), "pst": pct2(st, ts), "pstn": pctn(st, ts), "snt": str(ts - st),
-                  "psnt": pct2(ts - st, ts)},
-            "e": {"te": str(te), "est": str(est), "pest": pct2(est, te), "esnt": str(te - est), "c": str(comp),
-                  "pc": pct2(comp, est), "pcn": pctn(comp, est), "a": str(est - comp), "pa": pct2(est - comp, est),
-                  "pan": pctn(est - comp, est)},
+            "and": "f" if st == ts else ("p" if st else "n"),
+            "tpabr": tipo,
+            "cdabr": cod,
+            "dt": dt,
+            "ht": ht,
+            "s": {
+                "ts": str(ts),
+                "st": str(st),
+                "pst": pct2(st, ts),
+                "pstn": pctn(st, ts),
+                "snt": str(ts - st),
+                "psnt": pct2(ts - st, ts),
+            },
+            "e": {
+                "te": str(te),
+                "est": str(est),
+                "pest": pct2(est, te),
+                "esnt": str(te - est),
+                "c": str(comp),
+                "pc": pct2(comp, est),
+                "pcn": pctn(comp, est),
+                "a": str(est - comp),
+                "pa": pct2(est - comp, est),
+                "pan": pctn(est - comp, est),
+            },
         }
         if tipo in ("br", "uf"):
             mus = [m for m in c.municipios if (tipo == "br" or m.uf == cod)]
@@ -340,12 +482,24 @@ class Divulgacao:
                 elif k > 0:
                     parc += 1
             nr = len(mus) - fin - parc
-            item.update({"munf": str(fin), "pmunf": pct2(fin, len(mus)), "munpt": str(parc),
-                         "pmunpt": pct2(parc, len(mus)), "munnr": str(nr), "pmunnr": pct2(nr, len(mus))})
+            item.update(
+                {
+                    "munf": str(fin),
+                    "pmunf": pct2(fin, len(mus)),
+                    "munpt": str(parc),
+                    "pmunpt": pct2(parc, len(mus)),
+                    "munnr": str(nr),
+                    "pmunnr": pct2(nr, len(mus)),
+                }
+            )
         return item
 
-    @lru_cache(maxsize=32)
     def secoes(self, uf: str) -> dict:
+        if uf not in self._cache_secoes:
+            self._cache_secoes[uf] = self._calcular_secoes(uf)
+        return self._cache_secoes[uf]
+
+    def _calcular_secoes(self, uf: str) -> dict:
         c = self.c
         mus = []
         for m in c.municipios:
@@ -354,11 +508,22 @@ class Divulgacao:
             zon = []
             for zi in m.zonas:
                 z = c.zonas[zi]
-                zon.append({"cd": f"{z.numero:04d}",
-                            "sec": [{"ns": f"{int(c.sec_num[i]):04d}", "nsp": f"{int(c.sec_num[i]):04d}"} for i in range(z.a, z.b)]})
+                zon.append(
+                    {
+                        "cd": f"{z.numero:04d}",
+                        "sec": [
+                            {"ns": f"{int(c.sec_num[i]):04d}", "nsp": f"{int(c.sec_num[i]):04d}"}
+                            for i in range(z.a, z.b)
+                        ],
+                    }
+                )
             mus.append({"cd": f"{m.cd:05d}", "nm": m.nome, "zon": zon})
-        return {"dg": "01/10/2026", "hg": "12:00:00", "f": "o",
-                "abr": [{"cd": uf.upper(), "ds": UFS[uf][0].upper(), "mu": mus}]}
+        return {
+            "dg": "01/10/2026",
+            "hg": "12:00:00",
+            "f": "o",
+            "abr": [{"cd": uf.upper(), "ds": UFS[uf][0].upper(), "mu": mus}],
+        }
 
     def indice_secao(self, uf: str, mun: int, zona: int, secao: int) -> int | None:
         return self._secao_idx.get((uf, mun, zona, secao))
@@ -381,13 +546,35 @@ class Divulgacao:
         dr, hr = data_hora(ts)
         nome = self.nome_bu(i)
         return "2", {
-            "dg": dg, "hg": hg, "f": "o", "st": "Totalizada", "ds": "",
-            "hashes": [{"hash": self.hash_secao(i), "dr": dr, "hr": hr, "st": "Totalizado", "ds": "",
-                        "nmarq": [f"{nome}.logjez", f"{nome}.rdv", f"{nome}.bu", f"{nome}.vscmr", f"{nome}.imgbu"]}],
+            "dg": dg,
+            "hg": hg,
+            "f": "o",
+            "st": "Totalizada",
+            "ds": "",
+            "hashes": [
+                {
+                    "hash": self.hash_secao(i),
+                    "dr": dr,
+                    "hr": hr,
+                    "st": "Totalizado",
+                    "ds": "",
+                    "nmarq": [
+                        f"{nome}.logjez",
+                        f"{nome}.rdv",
+                        f"{nome}.bu",
+                        f"{nome}.vscmr",
+                        f"{nome}.imgbu",
+                    ],
+                }
+            ],
         }
 
-    @lru_cache(maxsize=20000)
     def boletim(self, i: int) -> bytes:
+        if i not in self._cache_boletim:
+            self._cache_boletim[i] = self._calcular_boletim(i)
+        return self._cache_boletim[i]
+
+    def _calcular_boletim(self, i: int) -> bytes:
         c = self.c
         m = c.municipios[int(c.sec_mun[i])]
         z = c.zonas[int(c.sec_zona[i])]
@@ -398,10 +585,17 @@ class Divulgacao:
 
         def votos_cargo(cargo: CargoUF) -> list[VotoBU]:
             r = i - cargo.a
-            out = [VotoBU("nominal", int(v), cand.numero, cand.partido.numero)
-                   for cand, v in zip(cargo.candidatos, cargo.votos[r], strict=True) if v > 0]
+            out = [
+                VotoBU("nominal", int(v), cand.numero, cand.partido.numero)
+                for cand, v in zip(cargo.candidatos, cargo.votos[r], strict=True)
+                if v > 0
+            ]
             if cargo.legenda is not None:
-                out += [VotoBU("legenda", int(v), p.numero, p.numero) for p, v in zip(cargo.partidos, cargo.legenda[r], strict=True) if v > 0]
+                out += [
+                    VotoBU("legenda", int(v), p.numero, p.numero)
+                    for p, v in zip(cargo.partidos, cargo.legenda[r], strict=True)
+                    if v > 0
+                ]
             if cargo.brancos[r]:
                 out.append(VotoBU("branco", int(cargo.brancos[r])))
             if cargo.nulos[r]:
@@ -409,18 +603,55 @@ class Divulgacao:
             return out
 
         pres = c.cargos[(1, "br")]
-        estaduais = [c.cargos[k] for k in [(3, m.uf), (5, m.uf), (6, m.uf), (8 if m.uf == "df" else 7, m.uf)] if k in c.cargos]
+        estaduais = [
+            c.cargos[k]
+            for k in [(3, m.uf), (5, m.uf), (6, m.uf), (8 if m.uf == "df" else 7, m.uf)]
+            if k in c.cargos
+        ]
         maj = [(x.cd, comp, votos_cargo(x)) for x in estaduais if x.sistema == "majoritario"]
         prop = [(x.cd, comp, votos_cargo(x)) for x in estaduais if x.sistema == "proporcional"]
-        eleicoes = [(ELEICAO_FEDERAL, 1, [(1, comp, votos_cargo(pres))]), (ELEICAO_ESTADUAL, 1, maj), (ELEICAO_ESTADUAL, 2, prop)]
-        return codificar(pleito=PLEITO, eleicoes=eleicoes, municipio=m.cd, zona=z.numero, local=loc.numero,
-                         secao=int(c.sec_num[i]), emitido=emitido, aptos=int(c.sec_aptos[i]), comparecimento=comp)
+        eleicoes = [
+            (ELEICAO_FEDERAL, 1, [(1, comp, votos_cargo(pres))]),
+            (ELEICAO_ESTADUAL, 1, maj),
+            (ELEICAO_ESTADUAL, 2, prop),
+        ]
+        return codificar(
+            BoletimSpec(
+                pleito=PLEITO,
+                eleicoes=eleicoes,
+                municipio=m.cd,
+                zona=z.numero,
+                local=loc.numero,
+                secao=int(c.sec_num[i]),
+                emitido=emitido,
+                aptos=int(c.sec_aptos[i]),
+                comparecimento=comp,
+            )
+        )
 
-    @lru_cache(maxsize=1)
     def csv_locais(self) -> bytes:
+        if "csv" not in self._cache_csv:
+            self._cache_csv["csv"] = self._calcular_csv_locais()
+        return self._cache_csv["csv"]
+
+    def _calcular_csv_locais(self) -> bytes:
         c = self.c
-        cab = ["AA_ELEICAO", "SG_UF", "CD_MUNICIPIO", "NM_MUNICIPIO", "NR_ZONA", "NR_SECAO", "NR_LOCAL_VOTACAO",
-               "NM_LOCAL_VOTACAO", "DS_ENDERECO", "NM_BAIRRO", "NR_CEP", "NR_LATITUDE", "NR_LONGITUDE", "QT_ELEITOR_SECAO"]
+        cab = [
+            "AA_ELEICAO",
+            "SG_UF",
+            "CD_MUNICIPIO",
+            "NM_MUNICIPIO",
+            "NR_ZONA",
+            "NR_SECAO",
+            "NR_LOCAL_VOTACAO",
+            "NM_LOCAL_VOTACAO",
+            "DS_ENDERECO",
+            "NM_BAIRRO",
+            "NR_CEP",
+            "NR_LATITUDE",
+            "NR_LONGITUDE",
+            "QT_ELEITOR_SECAO",
+        ]
         linhas = [";".join(f'"{x}"' for x in cab)]
         for i in range(c.n):
             m = c.municipios[int(c.sec_mun[i])]
@@ -428,8 +659,22 @@ class Divulgacao:
             loc = c.locais[int(c.sec_local[i])]
             lat = f"{loc.lat}" if loc.lat is not None else "-1"
             lon = f"{loc.lon}" if loc.lon is not None else "-1"
-            vals = ["2026", m.uf.upper(), str(m.cd), m.nome, str(z.numero), str(int(c.sec_num[i])), str(loc.numero),
-                    loc.nome, loc.endereco, loc.bairro, loc.cep, lat, lon, str(int(c.sec_aptos[i]))]
+            vals = [
+                "2026",
+                m.uf.upper(),
+                str(m.cd),
+                m.nome,
+                str(z.numero),
+                str(int(c.sec_num[i])),
+                str(loc.numero),
+                loc.nome,
+                loc.endereco,
+                loc.bairro,
+                loc.cep,
+                lat,
+                lon,
+                str(int(c.sec_aptos[i])),
+            ]
             linhas.append(";".join(f'"{v}"' for v in vals))
         return ("\n".join(linhas) + "\n").encode("latin-1", errors="replace")
 
@@ -438,12 +683,15 @@ class Divulgacao:
             for cand in cargo.candidatos:
                 if cand.sqcand == sq:
                     ini = "".join(p[0] for p in cand.nome_urna.split()[:2])
-                    h = int(hashlib.md5(sq.encode()).hexdigest()[:6], 16) % 360
-                    svg = (f'<svg xmlns="http://www.w3.org/2000/svg" width="160" height="200" viewBox="0 0 160 200">'
-                           f'<rect width="160" height="200" fill="hsl({h},45%,38%)"/>'
-                           f'<circle cx="80" cy="78" r="38" fill="hsl({h},45%,62%)"/>'
-                           f'<rect x="28" y="124" width="104" height="76" rx="40" fill="hsl({h},45%,62%)"/>'
-                           f'<text x="80" y="190" font-family="sans-serif" font-size="22" font-weight="700" '
-                           f'text-anchor="middle" fill="#fff">{ini}</text></svg>')
+                    h = int(hashlib.md5(sq.encode(), usedforsecurity=False).hexdigest()[:6], 16) % 360
+                    svg = (
+                        '<svg xmlns="http://www.w3.org/2000/svg" width="160" height="200" '
+                        'viewBox="0 0 160 200">'
+                        f'<rect width="160" height="200" fill="hsl({h},45%,38%)"/>'
+                        f'<circle cx="80" cy="78" r="38" fill="hsl({h},45%,62%)"/>'
+                        f'<rect x="28" y="124" width="104" height="76" rx="40" fill="hsl({h},45%,62%)"/>'
+                        f'<text x="80" y="190" font-family="sans-serif" font-size="22" font-weight="700" '
+                        f'text-anchor="middle" fill="#fff">{ini}</text></svg>'
+                    )
                     return svg.encode()
         return None

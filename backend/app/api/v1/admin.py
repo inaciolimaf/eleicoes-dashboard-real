@@ -27,8 +27,13 @@ async def saude(session: SessaoDep, _: AdminDep) -> dict:
         "locais": (await session.execute(select(func.count()).select_from(LocalVotacao))).scalar_one(),
         "eventos": (await session.execute(select(func.count()).select_from(Evento))).scalar_one(),
     }
-    return {"coletor": orjson.loads(m) if m else None, "worker": worker, "fila": await fila.tamanho(redis),
-            "banco": contagens, "ambiente": get_settings().tse_ambiente}
+    return {
+        "coletor": orjson.loads(m) if m else None,
+        "worker": worker,
+        "fila": await fila.tamanho(redis),
+        "banco": contagens,
+        "ambiente": get_settings().tse_ambiente,
+    }
 
 
 @router.post("/coletor/pausar")

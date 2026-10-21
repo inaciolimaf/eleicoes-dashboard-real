@@ -16,7 +16,7 @@ log = logging.getLogger(__name__)
 
 
 class Conexao:
-    def __init__(self, ws: WebSocket):
+    def __init__(self, ws: WebSocket) -> None:
         self.ws = ws
         self.topicos: set[str] = set()
         self.seq = 0
@@ -33,7 +33,7 @@ class Conexao:
 
 
 class Hub:
-    def __init__(self, redis: Redis):
+    def __init__(self, redis: Redis) -> None:
         self.redis = redis
         self.conexoes: set[Conexao] = set()
         self._tarefas: list[asyncio.Task] = []
@@ -71,7 +71,7 @@ class Hub:
                     if msg.get("type") != "pmessage":
                         continue
                     canal = msg["channel"].decode() if isinstance(msg["channel"], bytes) else msg["channel"]
-                    topico = canal[len(topicos.PREFIXO):]
+                    topico = canal[len(topicos.PREFIXO) :]
                     await self.despachar(topico, orjson.loads(msg["data"]))
             except asyncio.CancelledError:
                 raise

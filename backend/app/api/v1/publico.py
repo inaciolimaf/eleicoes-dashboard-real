@@ -2,15 +2,25 @@
 
 import csv
 import io
+import logging
 import mimetypes
 from datetime import datetime
 from pathlib import Path
+from typing import Annotated
 
 import httpx
 import orjson
 from fastapi import APIRouter, HTTPException, Query, Response
 
-from app.api.deps import RecorteDep, SessaoDep, TempoDep, parse_t
+from app.api.deps import (
+    FiltroEleicao,
+    FiltroEventos,
+    FiltroExport,
+    RecorteDep,
+    SessaoDep,
+    TempoDep,
+    parse_t,
+)
 from app.core.config import get_settings
 from app.core.redis import get_redis
 from app.models import Candidato, Eleicao
@@ -19,14 +29,16 @@ from app.services.recortes import RecorteInvalido, parse
 from app.tse.urls import MontadorUrls
 
 router = APIRouter()
+log = logging.getLogger(__name__)
 
 
 async def _pedir_secoes(turno: int, nivel: str, rid: str) -> None:
     """Abriu um local ou seção: avisa o coletor para baixar esses boletins (modo sob demanda)."""
     try:
         await demanda.registrar(get_redis(), turno, nivel, rid)
-    except Exception:  # o pedido é só um sinal; nunca derruba a leitura
-        pass
+    except Exception:
+        # O pedido é só um sinal para o coletor: nunca derruba a leitura.
+        log.warning("não foi possível registrar a demanda por seções: %s", rid, exc_info=True)
 
 
 @router.get("/status")
@@ -46,9 +58,13 @@ async def status(session: SessaoDep) -> dict:
             inicio = f"{a}-{mth}-{d}T20:00:00+00:00"
     ao_vivo = bool(m) and not m.get("pausado")
     return {
-        "ambiente": s.tse_ambiente, "ao_vivo": ao_vivo, "agora": datetime.now().astimezone().isoformat(),
-        "ultima_totalizacao": resultados.iso(ult), "ultima_coleta": ultima_coleta.decode() if ultima_coleta else None,
-        "inicio_divulgacao": inicio, "pct_secoes_br": await resultados.pct_br(session),
+        "ambiente": s.tse_ambiente,
+        "ao_vivo": ao_vivo,
+        "agora": datetime.now().astimezone().isoformat(),
+        "ultima_totalizacao": resultados.iso(ult),
+        "ultima_coleta": ultima_coleta.decode() if ultima_coleta else None,
+        "inicio_divulgacao": inicio,
+        "pct_secoes_br": await resultados.pct_br(session),
         "coletor": {"pausado": bool(m.get("pausado")), "req_por_seg": m.get("req_por_seg", 0.0)},
     }
 
@@ -59,20 +75,36 @@ async def eleicoes(session: SessaoDep) -> list[dict]:
 
 
 @router.get("/resultados")
-async def obter_resultados(session: SessaoDep, r: RecorteDep, t: TempoDep, cargo: int = 1, turno: int = 1) -> dict:
+async def obter_resultados(
+    session: SessaoDep, r: RecorteDep, t: TempoDep, cargo: int = 1, turno: int = 1
+) -> dict:
     await _pedir_secoes(turno, r.nivel, r.id)
     return await resultados.montar_resultado(session, turno, cargo, r, t)
 
 
 @router.get("/resultados/serie")
-async def serie(session: SessaoDep, r: RecorteDep, cargo: int = 1, turno: int = 1, de: str | None = None,
-                ate: str | None = None, max_pontos: int = Query(300, ge=10, le=2000)) -> dict:
+async def serie(
+    session: SessaoDep,
+    r: RecorteDep,
+    cargo: int = 1,
+    turno: int = 1,
+    de: str | None = None,
+    ate: str | None = None,
+    max_pontos: int = Query(300, ge=10, le=2000),
+) -> dict:
     return await resultados.serie(session, turno, cargo, r, parse_t(de), parse_t(ate), max_pontos)
 
 
 @router.get("/recortes/filhos")
-async def filhos(session: SessaoDep, r: RecorteDep, t: TempoDep, cargo: int = 1, turno: int = 1,
-                 filhos: str | None = None, candidatos: str | None = None) -> dict:
+async def filhos(
+    session: SessaoDep,
+    r: RecorteDep,
+    t: TempoDep,
+    cargo: int = 1,
+    turno: int = 1,
+    filhos: str | None = None,
+    candidatos: str | None = None,
+) -> dict:
     lista = [c for c in (candidatos or "").split(",") if c]
     if filhos and filhos not in ("uf", "municipio", "zona", "local", "secao"):
         raise HTTPException(422, "filhos inválido")
@@ -86,9 +118,15 @@ async def progresso(session: SessaoDep, t: TempoDep, turno: int = 1) -> dict:
 
 
 @router.get("/mapas/locais")
-async def mapa_locais(session: SessaoDep, t: TempoDep, cargo: int = 1, turno: int = 1, uf: str | None = None,
-                      municipio: str | None = None, bbox: str | None = None,
-                      limite: int = Query(20000, ge=1, le=100000)) -> dict:
+async def mapa_locais(
+    session: SessaoDep,
+    t: TempoDep,
+    f: Annotated[FiltroEleicao, Query()],
+    uf: str | None = None,
+    municipio: str | None = None,
+    bbox: str | None = None,
+    limite: int = Query(20000, ge=1, le=100000),
+) -> dict:
     caixa = None
     if bbox:
         try:
@@ -96,7 +134,18 @@ async def mapa_locais(session: SessaoDep, t: TempoDep, cargo: int = 1, turno: in
             caixa = (a, b, c, d)
         except ValueError as exc:
             raise HTTPException(422, "bbox inválido") from exc
-    return await resultados.locais_mapa(session, turno, cargo, uf.lower() if uf else None, municipio, caixa, t, limite)
+    return await resultados.locais_mapa(
+        session,
+        f.turno,
+        f.cargo,
+        resultados.ConsultaMapa(
+            uf=uf.lower() if uf else None,
+            municipio=municipio,
+            bbox=caixa,
+        ),
+        t,
+        limite,
+    )
 
 
 @router.get("/locais/{local_id}")
@@ -121,7 +170,9 @@ async def secao(session: SessaoDep, secao_id: str, turno: int = 1) -> dict:
 
 
 @router.get("/candidatos")
-async def candidatos(session: SessaoDep, turno: int = 1, cargo: int | None = None, uf: str | None = None) -> list[dict]:
+async def candidatos(
+    session: SessaoDep, turno: int = 1, cargo: int | None = None, uf: str | None = None
+) -> list[dict]:
     return await resultados.listar_candidatos(session, turno, cargo, uf.lower() if uf else None)
 
 
@@ -140,8 +191,10 @@ async def foto(session: SessaoDep, sqcand: str) -> Response:
         raise HTTPException(404)
     cache = Path(s.dir_cache_fotos) / sqcand
     if cache.exists():
-        tipo = (cache.with_suffix(".tipo").read_text() if cache.with_suffix(".tipo").exists() else "image/jpeg")
-        return Response(cache.read_bytes(), media_type=tipo, headers={"Cache-Control": "public, max-age=86400"})
+        tipo = cache.with_suffix(".tipo").read_text() if cache.with_suffix(".tipo").exists() else "image/jpeg"
+        return Response(
+            cache.read_bytes(), media_type=tipo, headers={"Cache-Control": "public, max-age=86400"}
+        )
     c = await session.get(Candidato, sqcand)
     if c is None:
         raise HTTPException(404)
@@ -167,16 +220,27 @@ async def foto(session: SessaoDep, sqcand: str) -> Response:
 
 
 @router.get("/busca")
-async def busca(session: SessaoDep, q: str = Query("", max_length=80), limite: int = Query(20, ge=1, le=50)) -> dict:
+async def busca(
+    session: SessaoDep, q: str = Query("", max_length=80), limite: int = Query(20, ge=1, le=50)
+) -> dict:
     return await resultados.buscar(session, q, limite)
 
 
 @router.get("/eventos")
-async def eventos(session: SessaoDep, turno: int = 1, desde: str | None = None, ate: str | None = None,
-                  limite: int = Query(100, ge=1, le=1000), tipos: str | None = None, cargo: int | None = None,
-                  nivel: str | None = None, id: str | None = None) -> list[dict]:
-    return await resultados.listar_eventos(session, turno, parse_t(desde), limite,
-                                           [x for x in (tipos or "").split(",") if x] or None, cargo, nivel, id, parse_t(ate))
+async def eventos(session: SessaoDep, f: Annotated[FiltroEventos, Query()]) -> list[dict]:
+    return await resultados.listar_eventos(
+        session,
+        resultados.ConsultaEventos(
+            turno=f.turno,
+            desde=parse_t(f.desde),
+            limite=f.limite,
+            tipos=[x for x in (f.tipos or "").split(",") if x] or None,
+            cargo=f.cargo,
+            nivel=f.nivel,
+            recorte_id=f.id_,
+            ate=parse_t(f.ate),
+        ),
+    )
 
 
 @router.get("/linha-do-tempo")
@@ -193,29 +257,73 @@ def _csv(linhas: list[dict], colunas: list[str]) -> str:
     return buf.getvalue()
 
 
+def _linhas_resultados(dados: dict, recorte_id: str) -> tuple[list[dict], list[str]]:
+    linhas = [{**c, "recorte": recorte_id} for c in dados.get("candidatos", [])]
+    colunas = [
+        "recorte",
+        "posicao",
+        "numero",
+        "nome_urna",
+        "partido_sigla",
+        "votos",
+        "pct_validos",
+        "situacao",
+        "situacao_geral",
+    ]
+    return linhas, colunas
+
+
+def _linhas_filhos(dados: dict) -> tuple[list[dict], list[str]]:
+    linhas = [
+        {
+            **i,
+            "lider_nome": (i.get("lider") or {}).get("nome_urna"),
+            "lider_pct": (i.get("lider") or {}).get("pct"),
+        }
+        for i in dados["itens"]
+    ]
+    colunas = [
+        "nivel",
+        "id",
+        "nome",
+        "uf",
+        "status",
+        "pct_secoes",
+        "eleitorado",
+        "comparecimento",
+        "votos_validos",
+        "brancos",
+        "nulos",
+        "lider_nome",
+        "lider_pct",
+        "margem_pp",
+    ]
+    return linhas, colunas
+
+
 @router.get("/export")
-async def exportar(session: SessaoDep, t: TempoDep, recurso: str = "resultados", formato: str = "csv",
-                   cargo: int = 1, turno: int = 1, nivel: str = "br", id: str = "br", filhos: str | None = None) -> Response:
+async def exportar(session: SessaoDep, t: TempoDep, f: Annotated[FiltroExport, Query()]) -> Response:
     try:
-        r = parse(id, nivel)
+        r = parse(f.id_, f.nivel)
     except RecorteInvalido as exc:
         raise HTTPException(422, "recorte inválido") from exc
-    if recurso == "resultados":
-        dados = await resultados.montar_resultado(session, turno, cargo, r, t)
-        linhas = [{**c, "recorte": r.id} for c in dados.get("candidatos", [])]
-        colunas = ["recorte", "posicao", "numero", "nome_urna", "partido_sigla", "votos", "pct_validos", "situacao",
-                   "situacao_geral"]
-    elif recurso == "filhos":
-        dados = await resultados.filhos(session, turno, cargo, r, t, filhos)
-        linhas = [{**i, "lider_nome": (i.get("lider") or {}).get("nome_urna"), "lider_pct": (i.get("lider") or {}).get("pct")}
-                  for i in dados["itens"]]
-        colunas = ["nivel", "id", "nome", "uf", "status", "pct_secoes", "eleitorado", "comparecimento", "votos_validos",
-                   "brancos", "nulos", "lider_nome", "lider_pct", "margem_pp"]
+    if f.recurso == "resultados":
+        dados = await resultados.montar_resultado(session, f.turno, f.cargo, r, t)
+        linhas, colunas = _linhas_resultados(dados, r.id)
+    elif f.recurso == "filhos":
+        dados = await resultados.filhos(session, f.turno, f.cargo, r, t, f.filhos)
+        linhas, colunas = _linhas_filhos(dados)
     else:
         raise HTTPException(422, "recurso inválido")
-    nome = f"{recurso}-{cargo}-{r.id}"
-    if formato == "json":
-        return Response(orjson.dumps(dados), media_type="application/json",
-                        headers={"Content-Disposition": f'attachment; filename="{nome}.json"'})
-    return Response(_csv(linhas, colunas).encode("utf-8-sig"), media_type="text/csv; charset=utf-8",
-                    headers={"Content-Disposition": f'attachment; filename="{nome}.csv"'})
+    nome = f"{f.recurso}-{f.cargo}-{r.id}"
+    if f.formato == "json":
+        return Response(
+            orjson.dumps(dados),
+            media_type="application/json",
+            headers={"Content-Disposition": f'attachment; filename="{nome}.json"'},
+        )
+    return Response(
+        _csv(linhas, colunas).encode("utf-8-sig"),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{nome}.csv"'},
+    )

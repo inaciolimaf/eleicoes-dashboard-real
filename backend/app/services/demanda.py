@@ -1,7 +1,8 @@
 """Coleta de seções sob demanda.
 
-A API registra em `secoes:demanda` (sorted set, score = expiração) os locais de votação e seções que alguém abriu.
-O coletor junta isso aos tópicos de tempo real ativos e aos alertas de "local apurado" e baixa só esses boletins.
+A API registra em `secoes:demanda` (sorted set, score = expiração) os locais de votação e seções que
+alguém abriu. O coletor junta isso aos tópicos de tempo real ativos e aos alertas de "local apurado" e
+baixa só esses boletins.
 """
 
 from __future__ import annotations
@@ -32,6 +33,11 @@ async def pedidos(redis: Redis) -> set[tuple[int, str, str]]:
     for t in await topicos.ativos(redis):
         partes = t.split(":")
         # res:<turno>:<cargo>:<nivel>:<id> | filhos:<turno>:<cargo>:<nivel>:<id>[:<filhos>]
-        if len(partes) >= 5 and partes[0] in ("res", "filhos") and partes[3] in NIVEIS and partes[1].isdigit():
+        if (
+            len(partes) >= 5
+            and partes[0] in ("res", "filhos")
+            and partes[3] in NIVEIS
+            and partes[1].isdigit()
+        ):
             saida.add((int(partes[1]), partes[3], partes[4]))
     return saida

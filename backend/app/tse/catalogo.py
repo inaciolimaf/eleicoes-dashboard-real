@@ -89,7 +89,9 @@ def parse_catalogo(dados: dict) -> Catalogo:
     pleitos: list[PleitoCatalogo] = []
     ciclo_raiz = str(dados.get("c") or "")
     for pl in dados.get("pl", []) or []:
-        pleito = PleitoCatalogo(cd=inteiro(pl.get("cd")), ciclo=str(pl.get("c") or ciclo_raiz), data=str(pl.get("dt") or ""))
+        pleito = PleitoCatalogo(
+            cd=inteiro(pl.get("cd")), ciclo=str(pl.get("c") or ciclo_raiz), data=str(pl.get("dt") or "")
+        )
         for e in pl.get("e", []) or []:
             cargos: list[CargoCatalogo] = []
             vistos: set[int] = set()
@@ -100,7 +102,13 @@ def parse_catalogo(dados: dict) -> Catalogo:
                         continue
                     vistos.add(cd)
                     sistema = "proporcional" if str(cp.get("tp")) == "2" else "majoritario"
-                    cargos.append(CargoCatalogo(cd=cd, nome=str(cp.get("ds") or NOMES_CARGO.get(cd, f"Cargo {cd}")), sistema=sistema))
+                    cargos.append(
+                        CargoCatalogo(
+                            cd=cd,
+                            nome=str(cp.get("ds") or NOMES_CARGO.get(cd, f"Cargo {cd}")),
+                            sistema=sistema,
+                        )
+                    )
             tp = inteiro(e.get("tp"))
             pleito.eleicoes.append(
                 EleicaoCatalogo(

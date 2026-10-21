@@ -6,7 +6,7 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from app.tse import jws
-from app.tse.bu import VotoBU, codificar, decodificar
+from app.tse.bu import BoletimSpec, VotoBU, codificar, decodificar
 from app.tse.chaves import chave_do_ambiente
 from tse_fake.chave import chave_privada_fake
 
@@ -27,7 +27,7 @@ def test_jws_valido(par_chaves):
 
 def test_jws_um_byte_alterado_e_rejeitado(par_chaves):
     priv, chave = par_chaves
-    h, p, s = jws.assinar(b'{"votos": 100}', priv, "teste").split(".")
+    h, _p, s = jws.assinar(b'{"votos": 100}', priv, "teste").split(".")
     adulterado = jws.b64url_encode(b'{"votos": 900}')
     with pytest.raises(jws.ErroJWS, match="assinatura"):
         jws.verificar(f"{h}.{adulterado}.{s}", chave)
@@ -53,11 +53,26 @@ def test_chave_do_mock_confere_com_ambiente_fake():
 
 
 def test_boletim_de_urna_ida_e_volta():
-    votos_pres = [VotoBU("nominal", 130, 13, 13), VotoBU("nominal", 100, 22, 22), VotoBU("branco", 5), VotoBU("nulo", 15)]
+    votos_pres = [
+        VotoBU("nominal", 130, 13, 13),
+        VotoBU("nominal", 100, 22, 22),
+        VotoBU("branco", 5),
+        VotoBU("nulo", 15),
+    ]
     votos_dep = [VotoBU("nominal", 30, 1301, 13), VotoBU("legenda", 10, 13, 13), VotoBU("nulo", 210)]
-    bruto = codificar(pleito=9001, eleicoes=[(9100, 1, [(1, 250, votos_pres)]), (9102, 2, [(6, 250, votos_dep)])],
-                      municipio=71072, zona=1, local=1015, secao=120, emitido="20261004T171523", aptos=320,
-                      comparecimento=250)
+    bruto = codificar(
+        BoletimSpec(
+            pleito=9001,
+            eleicoes=[(9100, 1, [(1, 250, votos_pres)]), (9102, 2, [(6, 250, votos_dep)])],
+            municipio=71072,
+            zona=1,
+            local=1015,
+            secao=120,
+            emitido="20261004T171523",
+            aptos=320,
+            comparecimento=250,
+        )
+    )
     bu = decodificar(bruto)
     assert (bu.municipio, bu.zona, bu.local, bu.secao) == (71072, 1, 1015, 120)
     assert bu.eleitores_aptos == 320 and bu.comparecimento == 250

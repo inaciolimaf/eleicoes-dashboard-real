@@ -1,7 +1,8 @@
 """Tópicos de tempo real e publicação via Redis pub/sub.
 
-O hub da API registra em `ws:topicos` (sorted set, score = expiração) os tópicos que têm alguém assistindo. O worker só
-monta payloads caros para tópicos ativos. Também serve de sinal para o coletor priorizar recortes vigiados.
+O hub da API registra em `ws:topicos` (sorted set, score = expiração) os tópicos que têm alguém
+assistindo. O worker só monta payloads caros para tópicos ativos. Também serve de sinal para o
+coletor priorizar recortes vigiados.
 """
 
 from __future__ import annotations
@@ -45,7 +46,7 @@ async def registrar_ativos(redis: Redis, topicos: list[str], ttl: float = 45.0) 
     if not topicos:
         return
     expira = time.time() + ttl
-    await redis.zadd(CHAVE_ATIVOS, {t: expira for t in topicos})
+    await redis.zadd(CHAVE_ATIVOS, dict.fromkeys(topicos, expira))
 
 
 async def ativos(redis: Redis) -> set[str]:

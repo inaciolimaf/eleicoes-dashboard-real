@@ -63,7 +63,9 @@ def verificar(token: str, chave: ChaveJWS, algoritmos: tuple[str, ...] = ("EdDSA
 
 def assinar(payload: bytes, chave_privada: Ed25519PrivateKey, kid: str) -> str:
     """Usado pelo mock do TSE e nos testes."""
-    header = b64url_encode(json.dumps({"kid": kid, "typ": "JOSE", "alg": "EdDSA"}, separators=(",", ":")).encode())
+    header = b64url_encode(
+        json.dumps({"kid": kid, "typ": "JOSE", "alg": "EdDSA"}, separators=(",", ":")).encode()
+    )
     corpo = b64url_encode(payload)
     assinatura = chave_privada.sign(f"{header}.{corpo}".encode())
     return f"{header}.{corpo}.{b64url_encode(assinatura)}"
@@ -72,5 +74,7 @@ def assinar(payload: bytes, chave_privada: Ed25519PrivateKey, kid: str) -> str:
 def chave_publica_x(chave_privada: Ed25519PrivateKey) -> str:
     from cryptography.hazmat.primitives import serialization
 
-    bruto = chave_privada.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
+    bruto = chave_privada.public_key().public_bytes(
+        serialization.Encoding.Raw, serialization.PublicFormat.Raw
+    )
     return b64url_encode(bruto)

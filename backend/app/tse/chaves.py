@@ -1,8 +1,9 @@
 """Chaves públicas de verificação JWS, uma por ambiente.
 
-Fonte: "Manual de verificação dos arquivos JWS" do TSE (Apêndice A = desenvolvimento/simulado, Apêndice B = oficial),
-transcritas de projeto de terceiros que validou a de simulado contra arquivos reais. CONFIRMAR no manual oficial.
-O ambiente "fake" (mock local) usa a chave configurada em TSE_FAKE_CHAVE_PUBLICA ou a chave determinística do mock.
+Fonte: "Manual de verificação dos arquivos JWS" do TSE (Apêndice A = desenvolvimento/simulado,
+Apêndice B = oficial), transcritas de projeto de terceiros que validou a de simulado contra arquivos
+reais. CONFIRMAR no manual oficial. O ambiente "fake" (mock local) usa a chave configurada em
+TSE_FAKE_CHAVE_PUBLICA ou a chave determinística do mock.
 """
 
 from app.core.config import get_settings

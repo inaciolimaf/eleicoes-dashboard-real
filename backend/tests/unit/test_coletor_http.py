@@ -19,10 +19,12 @@ async def test_token_bucket_nao_passa_do_teto():
 @respx.mock
 async def test_etag_304_consome_token_e_nao_baixa_de_novo():
     url = "http://tse.teste/oficial/a.json"
-    rota = respx.get(url).mock(side_effect=[
-        httpx.Response(200, content=b"{}", headers={"ETag": '"1"'}),
-        httpx.Response(304),
-    ])
+    rota = respx.get(url).mock(
+        side_effect=[
+            httpx.Response(200, content=b"{}", headers={"ETag": '"1"'}),
+            httpx.Response(304),
+        ]
+    )
     f = Fetcher(max_rps=1000)
     r1 = await f.get(url)
     r2 = await f.get(url)

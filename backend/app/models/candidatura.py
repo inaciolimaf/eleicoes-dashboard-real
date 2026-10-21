@@ -26,5 +26,6 @@ class Candidato(Base):
     vices: Mapped[list] = mapped_column(JSONB, default=list)
     situacao_geral: Mapped[str] = mapped_column(String(32), default="EM_APURACAO")
     eleito: Mapped[bool] = mapped_column(Boolean, default=False)
-    atualizado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(),
-                                                    onupdate=func.now())
+    atualizado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )

@@ -13,7 +13,7 @@ import httpx
 class TokenBucket:
     """Limita requisições por segundo (um 304 também consome token — regra do TSE)."""
 
-    def __init__(self, taxa: float, capacidade: float | None = None):
+    def __init__(self, taxa: float, capacidade: float | None = None) -> None:
         self.taxa = taxa
         self.capacidade = capacidade if capacidade is not None else max(1.0, taxa)
         self.tokens = self.capacidade
@@ -57,12 +57,20 @@ class Metricas:
 
 
 class Fetcher:
-    def __init__(self, max_rps: float, concorrencia: int = 16, cliente: httpx.AsyncClient | None = None,
-                 ttl_404: float = 120.0):
+    def __init__(
+        self,
+        max_rps: float,
+        concorrencia: int = 16,
+        cliente: httpx.AsyncClient | None = None,
+        ttl_404: float = 120.0,
+    ) -> None:
         self.bucket = TokenBucket(max_rps)
         self.sem = asyncio.Semaphore(concorrencia)
-        self.cliente = cliente or httpx.AsyncClient(timeout=httpx.Timeout(20.0), follow_redirects=True,
-                                                    headers={"User-Agent": "eleicoes-dashboard-real/1.0"})
+        self.cliente = cliente or httpx.AsyncClient(
+            timeout=httpx.Timeout(20.0),
+            follow_redirects=True,
+            headers={"User-Agent": "eleicoes-dashboard-real/1.0"},
+        )
         self.etags: dict[str, str] = {}
         self.nao_encontrados: dict[str, float] = {}
         self.ttl_404 = ttl_404

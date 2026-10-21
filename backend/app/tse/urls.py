@@ -5,6 +5,7 @@ O diretório vem SEMPRE do template publicado no catálogo (`arq[].dir`). Só o 
 """
 
 import re
+from dataclasses import dataclass
 
 PADROES_PADRAO = {
     "cm": "<base>/<ambiente>/<ciclo>/<cd_eleicao>/config",
@@ -17,31 +18,34 @@ PADROES_PADRAO = {
 }
 
 
+@dataclass(frozen=True)
+class UrlParams:
+    """Valores que preenchem os marcadores do template de URL."""
+
+    cd_eleicao: int | None = None
+    uf: str = "br"
+    cd_pleito: int | None = None
+    municipio: int | None = None
+    zona: int | None = None
+    secao: int | None = None
+
+
 def pad(n: int | str, largura: int) -> str:
     return str(int(n)).zfill(largura)
 
 
-def preencher(
-    template: str,
-    base: str,
-    ciclo: str,
-    cd_eleicao: int | None = None,
-    uf: str = "br",
-    cd_pleito: int | None = None,
-    municipio: int | None = None,
-    zona: int | None = None,
-    secao: int | None = None,
-) -> str:
+def preencher(template: str, base: str, ciclo: str, params: UrlParams | None = None) -> str:
+    p = params or UrlParams()
     valores = {
         "<base>": base.rstrip("/"),
         "<ambiente>": "",
         "<ciclo>": ciclo,
-        "<cd_eleicao>": str(cd_eleicao) if cd_eleicao is not None else "",
-        "<uf>": uf.lower(),
-        "<cd_pleito>": str(cd_pleito) if cd_pleito is not None else "",
-        "<municipio>": pad(municipio, 5) if municipio is not None else "",
-        "<zona>": pad(zona, 4) if zona is not None else "",
-        "<secao>": pad(secao, 4) if secao is not None else "",
+        "<cd_eleicao>": str(p.cd_eleicao) if p.cd_eleicao is not None else "",
+        "<uf>": p.uf.lower(),
+        "<cd_pleito>": str(p.cd_pleito) if p.cd_pleito is not None else "",
+        "<municipio>": pad(p.municipio, 5) if p.municipio is not None else "",
+        "<zona>": pad(p.zona, 4) if p.zona is not None else "",
+        "<secao>": pad(p.secao, 4) if p.secao is not None else "",
     }
     saida = template
     for chave, valor in valores.items():
@@ -50,15 +54,18 @@ def preencher(
 
 
 class MontadorUrls:
-    def __init__(self, base: str, templates: dict[str, str], ciclo: str, cd_pleito: int, extensao: str = "json"):
+    def __init__(
+        self, base: str, templates: dict[str, str], ciclo: str, cd_pleito: int, extensao: str = "json"
+    ) -> None:
         self.base = base
         self.templates = {**PADROES_PADRAO, **templates}
         self.ciclo = ciclo
         self.cd_pleito = cd_pleito
         self.ext = extensao
 
-    def _dir(self, tp: str, **kw: object) -> str:
-        return preencher(self.templates[tp], self.base, self.ciclo, cd_pleito=self.cd_pleito, **kw)  # type: ignore[arg-type]
+    def _dir(self, tp: str, **kw: int | str | None) -> str:
+        params = UrlParams(cd_pleito=self.cd_pleito, **kw)  # type: ignore[arg-type]
+        return preencher(self.templates[tp], self.base, self.ciclo, params)
 
     def municipios(self, cd_eleicao: int) -> str:
         return f"{self._dir('cm', cd_eleicao=cd_eleicao)}/mun-e{pad(cd_eleicao, 6)}-cm.{self.ext}"
@@ -68,7 +75,12 @@ class MontadorUrls:
         return f"{self._dir('ab', cd_eleicao=cd_eleicao, uf=uf)}/{uf}-e{pad(cd_eleicao, 6)}-ab.{self.ext}"
 
     def resultado(
-        self, cd_eleicao: int, cd_cargo: int, uf: str = "br", municipio: int | None = None, zona: int | None = None,
+        self,
+        cd_eleicao: int,
+        cd_cargo: int,
+        uf: str = "br",
+        municipio: int | None = None,
+        zona: int | None = None,
         tipo: str = "u",
     ) -> str:
         uf = uf.lower()
@@ -77,7 +89,8 @@ class MontadorUrls:
             abr += pad(municipio, 5)
             if zona is not None:
                 abr += f"-z{pad(zona, 4)}"
-        return f"{self._dir(tipo, cd_eleicao=cd_eleicao, uf=uf)}/{abr}-c{pad(cd_cargo, 4)}-e{pad(cd_eleicao, 6)}-{tipo}.{self.ext}"
+        nome = f"{abr}-c{pad(cd_cargo, 4)}-e{pad(cd_eleicao, 6)}-{tipo}"
+        return f"{self._dir(tipo, cd_eleicao=cd_eleicao, uf=uf)}/{nome}.{self.ext}"
 
     def foto(self, cd_eleicao: int, uf: str, sqcand: str) -> str:
         return f"{self._dir('ft', cd_eleicao=cd_eleicao, uf=uf)}/{sqcand}.jpeg"
@@ -89,7 +102,9 @@ class MontadorUrls:
     def auxiliar_secao(self, uf: str, municipio: int, zona: int, secao: int) -> str:
         uf = uf.lower()
         d = self._dir("aux", uf=uf, municipio=municipio, zona=zona, secao=secao)
-        nome = f"p{pad(self.cd_pleito, 6)}-{uf}-m{pad(municipio, 5)}-z{pad(zona, 4)}-s{pad(secao, 4)}-aux.json"
+        nome = (
+            f"p{pad(self.cd_pleito, 6)}-{uf}-m{pad(municipio, 5)}-z{pad(zona, 4)}-s{pad(secao, 4)}-aux.json"
+        )
         return f"{d}/{nome}"
 
     def arquivo_urna(self, uf: str, municipio: int, zona: int, secao: int, hash_: str, nome: str) -> str:

@@ -1,4 +1,5 @@
 import logging
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -13,8 +14,10 @@ from app.realtime.hub import Hub
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    logging.basicConfig(level=get_settings().log_level, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    logging.basicConfig(
+        level=get_settings().log_level, format="%(asctime)s %(levelname)s %(name)s %(message)s"
+    )
     hub = Hub(get_redis())
     app.state.hub = hub
     hub.iniciar()
@@ -24,11 +27,22 @@ async def lifespan(app: FastAPI):
 
 def criar_app() -> FastAPI:
     s = get_settings()
-    app = FastAPI(title="Eleições Dashboard Real", version="1.0.0", lifespan=lifespan,
-                  default_response_class=ORJSONResponse, docs_url="/api/docs", openapi_url="/api/openapi.json")
+    app = FastAPI(
+        title="Eleições Dashboard Real",
+        version="1.0.0",
+        lifespan=lifespan,
+        default_response_class=ORJSONResponse,
+        docs_url="/api/docs",
+        openapi_url="/api/openapi.json",
+    )
     app.add_middleware(GZipMiddleware, minimum_size=1024)
-    app.add_middleware(CORSMiddleware, allow_origins=[o.strip() for o in s.cors_origins.split(",") if o.strip()],
-                       allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[o.strip() for o in s.cors_origins.split(",") if o.strip()],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
     for r in (publico.router, usuario.router, admin.router, ws.router):
         app.include_router(r, prefix="/api/v1")
 

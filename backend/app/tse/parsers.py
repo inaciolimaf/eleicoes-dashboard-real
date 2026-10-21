@@ -202,8 +202,12 @@ def parse_resultado(dados: dict, cd_cargo: int | None = None) -> ResultadoTSE:
     )
     if not totais.comparecimento and totais.votos_total:
         totais.comparecimento = totais.votos_total
-    totais.pct_comparecimento = decimal(e.get("pcn", e.get("pc"))) or _pct(totais.comparecimento, totais.eleitorado_apurado)
-    totais.pct_abstencao = decimal(e.get("pan", e.get("pa"))) or _pct(totais.abstencao, totais.eleitorado_apurado)
+    totais.pct_comparecimento = decimal(e.get("pcn", e.get("pc"))) or _pct(
+        totais.comparecimento, totais.eleitorado_apurado
+    )
+    totais.pct_abstencao = decimal(e.get("pan", e.get("pa"))) or _pct(
+        totais.abstencao, totais.eleitorado_apurado
+    )
     base_votos = totais.votos_total or totais.comparecimento
     totais.pct_validos = _pct(totais.votos_validos, base_votos)
     totais.pct_brancos = _pct(totais.brancos, base_votos)
@@ -245,8 +249,12 @@ def parse_resultado(dados: dict, cd_cargo: int | None = None) -> ResultadoTSE:
                             eleito=sim_nao(c.get("e")),
                             situacao_tse=str(c.get("st") or ""),
                             destinacao=str(c.get("dvt") or "Válido"),
-                            vices=[ViceTSE(nome=str(x.get("nmu") or x.get("nm") or ""), tipo=str(x.get("tp") or "v"))
-                                   for x in (c.get("vs") or [])],
+                            vices=[
+                                ViceTSE(
+                                    nome=str(x.get("nmu") or x.get("nm") or ""), tipo=str(x.get("tp") or "v")
+                                )
+                                for x in (c.get("vs") or [])
+                            ],
                         )
                     )
                 votos_agr += inteiro(par.get("tvl"))
@@ -275,7 +283,8 @@ def parse_resultado(dados: dict, cd_cargo: int | None = None) -> ResultadoTSE:
         vagas=vagas,
         idg=str(dados.get("idg") or ""),
         gerado_em=data_hora(dados.get("dg"), dados.get("hg")),
-        totalizado_em=data_hora(dados.get("dt"), dados.get("ht")) or data_hora(dados.get("dg"), dados.get("hg")),
+        totalizado_em=data_hora(dados.get("dt"), dados.get("ht"))
+        or data_hora(dados.get("dg"), dados.get("hg")),
         final=sim_nao(dados.get("tf")),
         matematicamente_definido=md_raw in {"s", "e", "sim"},
         totais=totais,
@@ -307,8 +316,15 @@ def parse_secoes(dados: dict) -> list[SecaoTSE]:
                 for sec in zon.get("sec", []) or []:
                     ns = inteiro(sec.get("ns"))
                     nsp = inteiro_ou_none(sec.get("nsp"))
-                    saida.append(SecaoTSE(uf=uf, municipio=cd_mu, zona=cd_z, secao=ns,
-                                          agregadora=nsp if nsp and nsp != ns else None))
+                    saida.append(
+                        SecaoTSE(
+                            uf=uf,
+                            municipio=cd_mu,
+                            zona=cd_z,
+                            secao=ns,
+                            agregadora=nsp if nsp and nsp != ns else None,
+                        )
+                    )
     return saida
 
 

@@ -52,7 +52,9 @@ async def registrar(session: SessaoDep, dados: Registro) -> dict:
 
 @router.post("/auth/login")
 async def login(session: SessaoDep, dados: Login) -> dict:
-    u = (await session.execute(select(Usuario).where(Usuario.email == dados.email.lower()))).scalar_one_or_none()
+    u = (
+        await session.execute(select(Usuario).where(Usuario.email == dados.email.lower()))
+    ).scalar_one_or_none()
     if u is None or not verificar_senha(dados.senha, u.senha_hash):
         raise HTTPException(401, "e-mail ou senha inválidos")
     return token_json(u)
@@ -82,8 +84,15 @@ class PainelEntrada(BaseModel):
 
 
 def painel_json(p: Painel) -> dict:
-    return {"id": str(p.id), "nome": p.nome, "ordem": p.ordem, "padrao": p.padrao, "schema_version": p.schema_version,
-            "config": p.config, "atualizado_em": p.atualizado_em.isoformat() if p.atualizado_em else None}
+    return {
+        "id": str(p.id),
+        "nome": p.nome,
+        "ordem": p.ordem,
+        "padrao": p.padrao,
+        "schema_version": p.schema_version,
+        "config": p.config,
+        "atualizado_em": p.atualizado_em.isoformat() if p.atualizado_em else None,
+    }
 
 
 async def _meu_painel(session: SessaoDep, u: Usuario, pid: str) -> Painel:
@@ -98,7 +107,11 @@ async def _meu_painel(session: SessaoDep, u: Usuario, pid: str) -> Painel:
 
 @router.get("/paineis")
 async def listar_paineis(session: SessaoDep, u: UsuarioDep) -> list[dict]:
-    rows = (await session.execute(select(Painel).where(Painel.usuario_id == u.id).order_by(Painel.ordem, Painel.criado_em))).scalars()
+    rows = (
+        await session.execute(
+            select(Painel).where(Painel.usuario_id == u.id).order_by(Painel.ordem, Painel.criado_em)
+        )
+    ).scalars()
     return [painel_json(p) for p in rows]
 
 
@@ -106,11 +119,19 @@ async def listar_paineis(session: SessaoDep, u: UsuarioDep) -> list[dict]:
 async def criar_painel(session: SessaoDep, u: UsuarioDep, dados: PainelEntrada) -> dict:
     ordem = dados.ordem
     if ordem is None:
-        ordem = (await session.execute(select(func.count()).select_from(Painel).where(Painel.usuario_id == u.id))).scalar_one()
+        ordem = (
+            await session.execute(select(func.count()).select_from(Painel).where(Painel.usuario_id == u.id))
+        ).scalar_one()
     if dados.padrao:
         await session.execute(update(Painel).where(Painel.usuario_id == u.id).values(padrao=False))
-    p = Painel(usuario_id=u.id, nome=dados.nome, config=dados.config, padrao=dados.padrao, ordem=ordem,
-               schema_version=dados.schema_version)
+    p = Painel(
+        usuario_id=u.id,
+        nome=dados.nome,
+        config=dados.config,
+        padrao=dados.padrao,
+        ordem=ordem,
+        schema_version=dados.schema_version,
+    )
     session.add(p)
     await session.commit()
     await session.refresh(p)
@@ -127,7 +148,12 @@ async def atualizar_painel(session: SessaoDep, u: UsuarioDep, pid: str, dados: P
     p = await _meu_painel(session, u, pid)
     if dados.padrao and not p.padrao:
         await session.execute(update(Painel).where(Painel.usuario_id == u.id).values(padrao=False))
-    p.nome, p.config, p.padrao, p.schema_version = dados.nome, dados.config, dados.padrao, dados.schema_version
+    p.nome, p.config, p.padrao, p.schema_version = (
+        dados.nome,
+        dados.config,
+        dados.padrao,
+        dados.schema_version,
+    )
     if dados.ordem is not None:
         p.ordem = dados.ordem
     await session.commit()
@@ -155,7 +181,11 @@ async def compartilhar(session: SessaoDep, u: UsuarioDep, pid: str, dados: Compa
     if dados.modo == "congelado" and tempo is None:
         raise HTTPException(422, "modo congelado exige 'tempo'")
     token = secrets.token_urlsafe(16)
-    session.add(Compartilhamento(token=token, painel_id=p.id, modo=dados.modo, tempo=tempo, criado_em=datetime.now(UTC)))
+    session.add(
+        Compartilhamento(
+            token=token, painel_id=p.id, modo=dados.modo, tempo=tempo, criado_em=datetime.now(UTC)
+        )
+    )
     await session.commit()
     return {"token": token, "url": f"/p/{token}"}
 
@@ -199,7 +229,9 @@ async def criar_favorito(session: SessaoDep, u: UsuarioDep, dados: FavoritoEntra
 
 @router.delete("/favoritos/{tipo}/{ref}", status_code=204)
 async def apagar_favorito(session: SessaoDep, u: UsuarioDep, tipo: str, ref: str) -> Response:
-    await session.execute(delete(Favorito).where(Favorito.usuario_id == u.id, Favorito.tipo == tipo, Favorito.ref == ref))
+    await session.execute(
+        delete(Favorito).where(Favorito.usuario_id == u.id, Favorito.tipo == tipo, Favorito.ref == ref)
+    )
     await session.commit()
     return Response(status_code=204)
 
@@ -214,8 +246,13 @@ class AlertaEntrada(BaseModel):
 
 
 def alerta_json(a: Alerta) -> dict:
-    return {"id": str(a.id), "tipo": a.tipo, "params": a.params, "ativo": a.ativo,
-            "disparado_em": a.disparado_em.isoformat() if a.disparado_em else None}
+    return {
+        "id": str(a.id),
+        "tipo": a.tipo,
+        "params": a.params,
+        "ativo": a.ativo,
+        "disparado_em": a.disparado_em.isoformat() if a.disparado_em else None,
+    }
 
 
 async def _meu_alerta(session: SessaoDep, u: Usuario, aid: str) -> Alerta:
@@ -230,7 +267,9 @@ async def _meu_alerta(session: SessaoDep, u: Usuario, aid: str) -> Alerta:
 
 @router.get("/alertas")
 async def listar_alertas(session: SessaoDep, u: UsuarioDep) -> list[dict]:
-    rows = (await session.execute(select(Alerta).where(Alerta.usuario_id == u.id).order_by(Alerta.criado_em))).scalars()
+    rows = (
+        await session.execute(select(Alerta).where(Alerta.usuario_id == u.id).order_by(Alerta.criado_em))
+    ).scalars()
     return [alerta_json(a) for a in rows]
 
 
@@ -266,8 +305,13 @@ async def apagar_alerta(session: SessaoDep, u: UsuarioDep, aid: str) -> Response
 # ------------------------------------------------------------------ preferências
 
 
-PREFERENCIAS_PADRAO = {"tema": "escuro", "densidade": "confortavel", "animacoes": True, "cores_candidatos": {},
-                       "notificacoes": {"virada": True, "eleito": True, "marco": False}}
+PREFERENCIAS_PADRAO = {
+    "tema": "escuro",
+    "densidade": "confortavel",
+    "animacoes": True,
+    "cores_candidatos": {},
+    "notificacoes": {"virada": True, "eleito": True, "marco": False},
+}
 
 
 @router.get("/preferencias")

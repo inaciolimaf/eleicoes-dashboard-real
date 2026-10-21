@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import Depends, Header, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
@@ -11,6 +12,38 @@ from app.models import Usuario
 from app.services.recortes import Recorte, RecorteInvalido, parse
 
 SessaoDep = Annotated[AsyncSession, Depends(get_session)]
+
+
+class FiltroEleicao(BaseModel):
+    """Cargo e turno da consulta."""
+
+    cargo: int = 1
+    turno: int = 1
+
+
+class FiltroEventos(BaseModel):
+    """Filtro da lista de eventos."""
+
+    turno: int = 1
+    desde: str | None = None
+    ate: str | None = None
+    limite: int = Query(100, ge=1, le=1000)
+    tipos: str | None = None
+    cargo: int | None = None
+    nivel: str | None = None
+    id_: str | None = Query(None, alias="id")
+
+
+class FiltroExport(BaseModel):
+    """O que exportar e em que formato."""
+
+    recurso: str = "resultados"
+    formato: str = "csv"
+    cargo: int = 1
+    turno: int = 1
+    nivel: str = "br"
+    id_: str = Query("br", alias="id")
+    filhos: str | None = None
 
 
 def parse_t(t: str | None) -> datetime | None:
@@ -30,9 +63,9 @@ def tempo(t: str | None = Query(None, description="Instante ISO 8601; vazio = ao
 TempoDep = Annotated[datetime | None, Depends(tempo)]
 
 
-def recorte(nivel: str = Query("br"), id: str = Query("br")) -> Recorte:
+def recorte(nivel: str = Query("br"), id_: str = Query("br", alias="id")) -> Recorte:
     try:
-        return parse(id, nivel)
+        return parse(id_, nivel)
     except RecorteInvalido as exc:
         raise HTTPException(422, f"recorte inválido: {exc}") from exc
 

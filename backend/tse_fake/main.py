@@ -1,7 +1,8 @@
 """Mock do TSE: serve os arquivos de divulgação com a mesma estrutura de URLs, com relógio simulado.
 
 Variáveis de ambiente:
-  FAKE_SEMENTE (2026)  FAKE_ESCALA (1.0)  FAKE_VELOCIDADE (10)  FAKE_INICIO_MIN (-2: começa 2 min antes das 17h)
+  FAKE_SEMENTE (2026)  FAKE_ESCALA (1.0)  FAKE_VELOCIDADE (10)
+  FAKE_INICIO_MIN (-2: começa 2 min antes das 17h)
 """
 
 from __future__ import annotations
@@ -10,6 +11,7 @@ import os
 import re
 import time
 from collections import OrderedDict
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from datetime import timedelta
 
@@ -25,7 +27,7 @@ from tse_fake.divulgacao import INICIO, Divulgacao
 
 
 class Relogio:
-    def __init__(self, velocidade: float, inicio_seg: float):
+    def __init__(self, velocidade: float, inicio_seg: float) -> None:
         self.velocidade = velocidade
         self.pausado = False
         self._ref_real = time.monotonic()
@@ -36,7 +38,9 @@ class Relogio:
             return self._ref_sim
         return self._ref_sim + (time.monotonic() - self._ref_real) * self.velocidade
 
-    def ajustar(self, velocidade: float | None = None, pausado: bool | None = None, ir_para: float | None = None) -> None:
+    def ajustar(
+        self, velocidade: float | None = None, pausado: bool | None = None, ir_para: float | None = None
+    ) -> None:
         atual = self.agora()
         self._ref_sim = atual if ir_para is None else ir_para
         self._ref_real = time.monotonic()
@@ -57,29 +61,41 @@ estado = Estado()
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     semente = int(os.getenv("FAKE_SEMENTE", "2026"))
     escala = float(os.getenv("FAKE_ESCALA", "1.0"))
     estado.cenario = Cenario(semente=semente, escala=escala)
     estado.div = Divulgacao(estado.cenario)
-    estado.relogio = Relogio(float(os.getenv("FAKE_VELOCIDADE", "10")), float(os.getenv("FAKE_INICIO_MIN", "-2")) * 60)
+    estado.relogio = Relogio(
+        float(os.getenv("FAKE_VELOCIDADE", "10")), float(os.getenv("FAKE_INICIO_MIN", "-2")) * 60
+    )
     estado.cache = OrderedDict()
     yield
 
 
 app = FastAPI(title="TSE fake (mock da divulgação de resultados)", lifespan=lifespan)
 
+
 def agora_rodada() -> float:
     """Arquivos refletem a última rodada de totalização (o TSE regrava em lotes)."""
     return Divulgacao.rodada(estado.relogio.agora())
 
 
-RE_RESULTADO = re.compile(r"^(?P<uf>[a-z]{2})(?P<mun>\d{5})?(?:-z(?P<zona>\d{4}))?-c(?P<cargo>\d{4})-e(?P<ele>\d{6})-(?P<tp>[ue])\.(?P<ext>json|jws)$")
+RE_RESULTADO = re.compile(
+    r"^(?P<uf>[a-z]{2})(?P<mun>\d{5})?(?:-z(?P<zona>\d{4}))?-c(?P<cargo>\d{4})-e(?P<ele>\d{6})-(?P<tp>[ue])\.(?P<ext>json|jws)$"
+)
 RE_AB = re.compile(r"^(?P<uf>[a-z]{2})-e(?P<ele>\d{6})-ab\.(?P<ext>json|jws)$")
 RE_CM = re.compile(r"^mun-e(?P<ele>\d{6})-cm\.(?P<ext>json|jws)$")
 
 
-def _resposta(request: Request, chave: str, idg: str, doc: dict | None, ext: str, gerar=None) -> Response:
+def _resposta(
+    request: Request,
+    chave: str,
+    idg: str,
+    doc: dict | None,
+    ext: str,
+    gerar: Callable[[], bytes] | None = None,
+) -> Response:
     etag = f'"{idg}"'
     if request.headers.get("if-none-match") in (etag, idg):
         return Response(status_code=304, headers={"ETag": etag})
@@ -91,11 +107,17 @@ def _resposta(request: Request, chave: str, idg: str, doc: dict | None, ext: str
         if doc is None and gerar is not None:
             doc = gerar()
         payload = orjson.dumps(doc)
-        corpo = assinar(payload, chave_privada_fake(), get_settings().tse_fake_kid).encode() if ext == "jws" else payload
+        corpo = (
+            assinar(payload, chave_privada_fake(), get_settings().tse_fake_kid).encode()
+            if ext == "jws"
+            else payload
+        )
         estado.cache[cache_key] = (idg, corpo)
         if len(estado.cache) > 60000:
             estado.cache.popitem(last=False)
-    return Response(content=corpo, media_type="application/json", headers={"ETag": etag, "Cache-Control": "no-cache"})
+    return Response(
+        content=corpo, media_type="application/json", headers={"ETag": etag, "Cache-Control": "no-cache"}
+    )
 
 
 @app.get("/oficial/comum/config/ele-c.{ext}")
@@ -156,7 +178,9 @@ async def config_secoes(pleito: int, uf: str, arquivo: str, request: Request) ->
 
 
 @app.get("/oficial/" + CICLO + "/arquivo-urna/{pleito}/dados/{uf}/{mun}/{zona}/{secao}/{arquivo}")
-async def auxiliar(pleito: int, uf: str, mun: int, zona: int, secao: int, arquivo: str, request: Request) -> Response:
+async def auxiliar(
+    pleito: int, uf: str, mun: int, zona: int, secao: int, arquivo: str, request: Request
+) -> Response:
     i = estado.div.indice_secao(uf, mun, zona, secao)
     esperado = f"p{PLEITO:06d}-{uf}-m{mun:05d}-z{zona:04d}-s{secao:04d}-aux.json"
     if pleito != PLEITO or i is None or arquivo != esperado:
@@ -166,7 +190,9 @@ async def auxiliar(pleito: int, uf: str, mun: int, zona: int, secao: int, arquiv
 
 
 @app.get("/oficial/" + CICLO + "/arquivo-urna/{pleito}/dados/{uf}/{mun}/{zona}/{secao}/{hash_}/{arquivo}")
-async def arquivo_urna(pleito: int, uf: str, mun: int, zona: int, secao: int, hash_: str, arquivo: str) -> Response:
+async def arquivo_urna(
+    pleito: int, uf: str, mun: int, zona: int, secao: int, hash_: str, arquivo: str
+) -> Response:
     i = estado.div.indice_secao(uf, mun, zona, secao)
     if i is None or hash_ != estado.div.hash_secao(i) or float(estado.cenario.sec_t[i]) > agora_rodada():
         raise HTTPException(404)
@@ -202,7 +228,9 @@ def _estado_json() -> dict:
         "pausado": r.pausado,
         "pct_secoes": round(pct, 3),
         "fim_previsto": (INICIO + timedelta(seconds=float(c.sec_t.max()))).isoformat(),
-        "secoes": int(c.n), "municipios": len(c.municipios), "locais": len(c.locais),
+        "secoes": int(c.n),
+        "municipios": len(c.municipios),
+        "locais": len(c.locais),
     }
 
 

@@ -5,7 +5,9 @@ Precisam de um PostgreSQL e um Redis reais (no Docker: `make test`; local: TEST_
 
 import os
 
-os.environ.setdefault("TEST_DATABASE_URL", "postgresql+asyncpg://eleicoes:eleicoes@db-test:5432/eleicoes_test")
+os.environ.setdefault(
+    "TEST_DATABASE_URL", "postgresql+asyncpg://eleicoes:eleicoes@db-test:5432/eleicoes_test"
+)
 os.environ.setdefault("TEST_REDIS_URL", "redis://redis-test:6379/15")
 os.environ["DATABASE_URL"] = os.environ["TEST_DATABASE_URL"]
 os.environ["REDIS_URL"] = os.environ["TEST_REDIS_URL"]
@@ -17,22 +19,39 @@ os.environ["DIR_BRUTOS"] = "/tmp/eleicoes-testes/brutos"
 os.environ["DIR_CACHE_FOTOS"] = "/tmp/eleicoes-testes/fotos"
 os.environ["JWT_SECRET"] = "segredo-de-teste"
 
-import pytest  # noqa: E402
-import pytest_asyncio  # noqa: E402
-from alembic import command  # noqa: E402
-from alembic.config import Config  # noqa: E402
-from sqlalchemy import text  # noqa: E402
-from sqlalchemy.ext.asyncio import create_async_engine  # noqa: E402
+import pytest
+import pytest_asyncio
+from alembic.config import Config
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import create_async_engine
 
-from app.core import db as db_mod  # noqa: E402
-from app.core import redis as redis_mod  # noqa: E402
+from alembic import command
+from app.core import db as db_mod
+from app.core import redis as redis_mod
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 TABELAS = [
-    "alerta", "favorito", "compartilhamento", "painel", "preferencia", "usuario", "evento", "resultado_local",
-    "boletim_urna", "snapshot_progresso", "progresso_atual", "snapshot_resultado", "resultado_atual", "candidato",
-    "secao", "local_votacao", "zona", "municipio", "eleicao_cargo", "eleicao",
+    "alerta",
+    "favorito",
+    "compartilhamento",
+    "painel",
+    "preferencia",
+    "usuario",
+    "evento",
+    "resultado_local",
+    "boletim_urna",
+    "snapshot_progresso",
+    "progresso_atual",
+    "snapshot_resultado",
+    "resultado_atual",
+    "candidato",
+    "secao",
+    "local_votacao",
+    "zona",
+    "municipio",
+    "eleicao_cargo",
+    "eleicao",
 ]
 
 

@@ -1,0 +1,10 @@
+# Portas alternativas para não conflitar com outro sistema rodando na máquina
+services:
+  db:
+    ports: !override ["25432:5432"]
+  api:
+    ports: !override ["28000:8000"]
+  tse-fake:
+    ports: !override ["28089:8080"]
+  web:
+    ports: !override ["28080:80"]

@@ -1,4 +1,5 @@
-"""Coletor: descobre os arquivos pelo catálogo do TSE, faz polling com prioridade e enfileira para o worker."""
+"""Coletor: descobre os arquivos pelo catálogo do TSE, faz polling com prioridade e
+enfileira para o worker."""
 
 from __future__ import annotations
 
@@ -9,6 +10,7 @@ import os
 import time
 import uuid
 from collections import defaultdict
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -32,8 +34,35 @@ from app.worker import fila
 
 log = logging.getLogger("coletor")
 
-UFS = ["ac", "al", "am", "ap", "ba", "ce", "df", "es", "go", "ma", "mg", "ms", "mt", "pa", "pb", "pe", "pi", "pr", "rj",
-       "rn", "ro", "rr", "rs", "sc", "se", "sp", "to"]
+UFS = [
+    "ac",
+    "al",
+    "am",
+    "ap",
+    "ba",
+    "ce",
+    "df",
+    "es",
+    "go",
+    "ma",
+    "mg",
+    "ms",
+    "mt",
+    "pa",
+    "pb",
+    "pe",
+    "pi",
+    "pr",
+    "rj",
+    "rn",
+    "ro",
+    "rr",
+    "rs",
+    "sc",
+    "se",
+    "sp",
+    "to",
+]
 ARQ_MUNICIPIOS = Path(__file__).resolve().parent.parent / "data" / "municipios.json"
 
 
@@ -53,8 +82,13 @@ def cargos_da_uf(cargos: list[int], uf: str) -> list[int]:
 
 
 class Coletor:
-    def __init__(self, settings: Settings, sessionmaker: async_sessionmaker[AsyncSession], redis: Redis,
-                 fetcher: Fetcher | None = None):
+    def __init__(
+        self,
+        settings: Settings,
+        sessionmaker: async_sessionmaker[AsyncSession],
+        redis: Redis,
+        fetcher: Fetcher | None = None,
+    ) -> None:
         self.s = settings
         self.sm = sessionmaker
         self.redis = redis
@@ -138,7 +172,12 @@ class Coletor:
             self.fetcher.limpar_404()
             await self.carregar_municipios()
             await self.carregar_locais()
-        log.info("catálogo: ciclo=%s pleito=%s eleições=%s", pleito.ciclo, pleito.cd, [e.cd_eleicao for e in self.eleicoes])
+        log.info(
+            "catálogo: ciclo=%s pleito=%s eleições=%s",
+            pleito.ciclo,
+            pleito.cd,
+            [e.cd_eleicao for e in self.eleicoes],
+        )
         return True
 
     def eleicao_do_cargo(self, turno: int, cd: int) -> Eleicao | None:
@@ -152,11 +191,13 @@ class Coletor:
         e = self.eleicao_do_cargo(1, 1) or (self.eleicoes[0] if self.eleicoes else None)
         if e is None:
             return
-        status, corpo, _ = await self.obter(self.urls.municipios(e.cd_eleicao))
+        _status, corpo, _ = await self.obter(self.urls.municipios(e.cd_eleicao))
         if corpo is None:
             return
         lista = parse_municipios(orjson.loads(corpo))
-        coords = {m["ibge"]: (m["lat"], m["lon"], m["nome"]) for m in orjson.loads(ARQ_MUNICIPIOS.read_bytes())}
+        coords = {
+            m["ibge"]: (m["lat"], m["lon"], m["nome"]) for m in orjson.loads(ARQ_MUNICIPIOS.read_bytes())
+        }
         async with self.sm() as session:
             await ingestao.ingerir_municipios(session, lista, coords)
         self.municipios = {f"{m.uf}{m.cd:05d}": {"uf": m.uf, "cd": m.cd, "zonas": m.zonas} for m in lista}
@@ -179,7 +220,7 @@ class Coletor:
         if uf in self.ufs_secoes_carregadas or self.urls is None:
             return
         self.ufs_secoes_carregadas.add(uf)
-        status, corpo, _ = await self.obter(self.urls.secoes(uf), arquivar=False)
+        _status, corpo, _ = await self.obter(self.urls.secoes(uf), arquivar=False)
         if corpo is None:
             self.ufs_secoes_carregadas.discard(uf)
             return
@@ -190,8 +231,9 @@ class Coletor:
             self.secoes_mun.setdefault(f"{s.uf}{s.municipio:05d}", []).append((s.zona, s.secao))
 
     # ------------------------------------------------------------------ resultados
-    async def buscar_resultado(self, turno: int, e: Eleicao, cd: int, uf: str, mun: int | None = None,
-                               zona: int | None = None) -> None:
+    async def buscar_resultado(
+        self, turno: int, e: Eleicao, cd: int, uf: str, mun: int | None = None, zona: int | None = None
+    ) -> None:
         assert self.urls is not None
         url = self.urls.resultado(e.cd_eleicao, cd, uf, mun, zona)
         status, corpo, jws_ok = await self.obter(url)
@@ -205,9 +247,21 @@ class Coletor:
             nivel, rid, pai = "municipio", f"{uf}{mun:05d}", uf
         else:
             nivel, rid, pai = "zona", f"{uf}{mun:05d}-z{zona:04d}", f"{uf}{mun:05d}"
-        await fila.enfileirar(self.redis, "resultado", corpo, turno=turno, eleicao_id=e.id, cd_cargo=cd, nivel=nivel,
-                              recorte_id=rid, pai_id=pai, uf=uf if uf != "br" else "br", arquivo=url, jws_ok=jws_ok,
-                              capturado_em=agora_iso())
+        await fila.enfileirar(
+            self.redis,
+            "resultado",
+            corpo,
+            turno=turno,
+            eleicao_id=e.id,
+            cd_cargo=cd,
+            nivel=nivel,
+            recorte_id=rid,
+            pai_id=pai,
+            uf=uf if uf != "br" else "br",
+            arquivo=url,
+            jws_ok=jws_ok,
+            capturado_em=agora_iso(),
+        )
 
     def turnos(self) -> list[int]:
         return sorted({e.turno for e in self.eleicoes})
@@ -232,7 +286,7 @@ class Coletor:
                 cds = [c.cd_cargo for c in e.cargos]
                 if 1 in cds:
                     tarefas.append(self.buscar_resultado(turno, e, 1, "br"))
-                    for uf in UFS + ["zz"]:
+                    for uf in [*UFS, "zz"]:
                         tarefas.append(self.buscar_resultado(turno, e, 1, uf))
                 for uf in UFS:
                     for cd in cargos_da_uf([c for c in cds if c != 1], uf):
@@ -247,14 +301,16 @@ class Coletor:
             e = self.eleicao_do_cargo(turno, 1) or next((x for x in self.eleicoes if x.turno == turno), None)
             if e is None:
                 continue
-            await asyncio.gather(*(self._acompanhamento(turno, e, uf) for uf in ["br"] + UFS))
+            await asyncio.gather(*(self._acompanhamento(turno, e, uf) for uf in ["br", *UFS]))
 
     async def _acompanhamento(self, turno: int, e: Eleicao, uf: str) -> None:
         assert self.urls is not None
-        status, corpo, _ = await self.obter(self.urls.acompanhamento(e.cd_eleicao, uf))
+        _status, corpo, _ = await self.obter(self.urls.acompanhamento(e.cd_eleicao, uf))
         if corpo is None:
             return
-        await fila.enfileirar(self.redis, "acompanhamento", corpo, turno=turno, uf=uf, capturado_em=agora_iso())
+        await fila.enfileirar(
+            self.redis, "acompanhamento", corpo, turno=turno, uf=uf, capturado_em=agora_iso()
+        )
         if uf == "br":
             return
         acomp = parse_acompanhamento(orjson.loads(corpo))
@@ -337,14 +393,23 @@ class Coletor:
             return
         self._arquivar(url_bu, urna.hash[:16], rb.corpo)
         self.secoes_feitas.add(sid)
-        await fila.enfileirar(self.redis, "boletim", rb.corpo, turno=turno, uf=uf, hash=urna.hash, status=urna.status,
-                              totalizado_em=urna.recebido_em.isoformat() if urna.recebido_em else None, url=url_bu)
+        await fila.enfileirar(
+            self.redis,
+            "boletim",
+            rb.corpo,
+            turno=turno,
+            uf=uf,
+            hash=urna.hash,
+            status=urna.status,
+            totalizado_em=urna.recebido_em.isoformat() if urna.recebido_em else None,
+            url=url_bu,
+        )
 
     async def ciclo_sob_demanda(self) -> None:
         """Enfileira só os boletins dos locais/seções abertos no dashboard ou com alerta de "local apurado".
 
-        Seção com boletim já gravado no banco não é baixada de novo. Seção ainda não totalizada é tentada de novo
-        enquanto alguém estiver olhando, respeitando um intervalo mínimo.
+        Seção com boletim já gravado no banco não é baixada de novo. Seção ainda não totalizada é
+        tentada de novo enquanto alguém estiver olhando, respeitando um intervalo mínimo.
         """
         if not self.s.coletar_secoes or self.s.modo_secoes != "sob_demanda":
             return
@@ -365,14 +430,20 @@ class Coletor:
                 elif nivel == "local":
                     locais[rid].add(turno)
             if locais:
-                for lid, sid in await session.execute(select(Secao.local_id, Secao.id).where(Secao.local_id.in_(locais))):
+                for lid, sid in await session.execute(
+                    select(Secao.local_id, Secao.id).where(Secao.local_id.in_(locais))
+                ):
                     for turno in locais[lid]:
                         secoes[turno].add(sid)
             feitas = {
                 (turno, sid)
-                for turno, ids in secoes.items() if ids
-                for sid in (await session.execute(select(Boletim.secao_id).where(
-                    Boletim.turno == turno, Boletim.secao_id.in_(ids)))).scalars()
+                for turno, ids in secoes.items()
+                if ids
+                for sid in (
+                    await session.execute(
+                        select(Boletim.secao_id).where(Boletim.turno == turno, Boletim.secao_id.in_(ids))
+                    )
+                ).scalars()
             }
         intervalo = self.s.intervalo_min_municipio / 3
         agora = time.monotonic()
@@ -386,13 +457,19 @@ class Coletor:
                     r = parse(sid)
                 except RecorteInvalido:
                     continue
-                if r.nivel != "secao" or r.uf is None or r.municipio is None or r.zona is None or r.secao is None:
+                if (
+                    r.nivel != "secao"
+                    or r.uf is None
+                    or r.municipio is None
+                    or r.zona is None
+                    or r.secao is None
+                ):
                     continue
                 self.pendentes_sec.add(sid)
                 self.fila_sec.put_nowait((0, self._ordem(), turno, r.uf, r.municipio, r.zona, r.secao))
 
     # ------------------------------------------------------------------ laços
-    async def _laco(self, nome: str, intervalo: float, fn) -> None:
+    async def _laco(self, nome: str, intervalo: float, fn: Callable[[], Awaitable[None]]) -> None:
         while True:
             inicio = time.monotonic()
             if not self.pausado and self.urls is not None:
@@ -443,12 +520,22 @@ class Coletor:
         while True:
             m = self.fetcher.metricas
             dados = {
-                "req_por_seg": m.req_por_seg(), "status": {str(k): v for k, v in m.por_status.items()},
-                "erros_rede": m.erros_rede, "falhas_jws": m.falhas_jws, "fila_municipios": self.fila_mun.qsize(),
-                "fila_secoes": self.fila_sec.qsize(), "secoes_coletadas": len(self.secoes_feitas),
-                "municipios": len(self.municipios), "modo_secoes": self.s.modo_secoes, "vigiados": len(self.vigiados), "pausado": self.pausado,
-                "ambiente": self.s.tse_ambiente, "base": self.s.tse_base_url, "max_rps": self.s.tse_max_rps,
-                "atualizado_em": agora_iso(), "lider": self.id,
+                "req_por_seg": m.req_por_seg(),
+                "status": {str(k): v for k, v in m.por_status.items()},
+                "erros_rede": m.erros_rede,
+                "falhas_jws": m.falhas_jws,
+                "fila_municipios": self.fila_mun.qsize(),
+                "fila_secoes": self.fila_sec.qsize(),
+                "secoes_coletadas": len(self.secoes_feitas),
+                "municipios": len(self.municipios),
+                "modo_secoes": self.s.modo_secoes,
+                "vigiados": len(self.vigiados),
+                "pausado": self.pausado,
+                "ambiente": self.s.tse_ambiente,
+                "base": self.s.tse_base_url,
+                "max_rps": self.s.tse_max_rps,
+                "atualizado_em": agora_iso(),
+                "lider": self.id,
             }
             with contextlib.suppress(Exception):
                 await self.redis.set("coletor:metricas", orjson.dumps(dados), ex=60)
@@ -479,7 +566,9 @@ class Coletor:
         n_mun = int(os.getenv("COLETOR_WORKERS_MUNICIPIO", "8"))
         n_sec = int(os.getenv("COLETOR_WORKERS_SECAO", "16"))
         tarefas = [
-            self._renovar_lideranca(), self._metricas(), self._atualizar_vigiados(),
+            self._renovar_lideranca(),
+            self._metricas(),
+            self._atualizar_vigiados(),
             self._laco("catalogo", self.s.intervalo_catalogo, self.atualizar_catalogo),
             self._laco("principal", self.s.intervalo_principal, self.ciclo_principal),
             self._laco("acompanhamento", self.s.intervalo_acompanhamento, self.ciclo_acompanhamento),

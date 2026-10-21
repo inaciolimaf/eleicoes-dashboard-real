@@ -52,7 +52,10 @@ def test_websocket_assina_e_recebe_publicacao(redis_cliente):
             ws.send_text(orjson.dumps({"op": "ping"}).decode())
             assert ws.receive_json()["tipo"] == "pong"
             for _ in range(50):
-                n = pub.publish("pub:res:1:1:uf:sp", orjson.dumps({"tipo": "res", "topico": "res:1:1:uf:sp", "dados": {"x": 1}}))
+                n = pub.publish(
+                    "pub:res:1:1:uf:sp",
+                    orjson.dumps({"tipo": "res", "topico": "res:1:1:uf:sp", "dados": {"x": 1}}),
+                )
                 if n:
                     break
                 asyncio.run(asyncio.sleep(0.05))
@@ -67,10 +70,13 @@ def test_websocket_assina_e_recebe_publicacao(redis_cliente):
         redis_mod.configurar_redis(redis_cliente)
 
 
-@pytest.mark.parametrize("fn,args,esperado", [
-    (topicos.res, (1, 3, "uf", "sp"), "res:1:3:uf:sp"),
-    (topicos.filhos, (1, 1, "br", "br", "municipio"), "filhos:1:1:br:br:municipio"),
-    (topicos.locais, (1, 1, "sp71072"), "locais:1:1:sp71072"),
-])
+@pytest.mark.parametrize(
+    "fn,args,esperado",
+    [
+        (topicos.res, (1, 3, "uf", "sp"), "res:1:3:uf:sp"),
+        (topicos.filhos, (1, 1, "br", "br", "municipio"), "filhos:1:1:br:br:municipio"),
+        (topicos.locais, (1, 1, "sp71072"), "locais:1:1:sp71072"),
+    ],
+)
 def test_nomes_de_topicos(fn, args, esperado):
     assert fn(*args) == esperado

@@ -9,7 +9,9 @@ from dataclasses import dataclass
 NIVEIS = ("br", "uf", "municipio", "zona", "local", "secao")
 FILHO = {"br": "uf", "uf": "municipio", "municipio": "zona", "zona": "local", "local": "secao"}
 
-_RE = re.compile(r"^(?P<uf>[a-z]{2})(?:(?P<mun>\d{5})(?:-z(?P<zona>\d{4})(?:-(?P<tipo>[ls])(?P<num>\d{4}))?)?)?$")
+_RE = re.compile(
+    r"^(?P<uf>[a-z]{2})(?:(?P<mun>\d{5})(?:-z(?P<zona>\d{4})(?:-(?P<tipo>[ls])(?P<num>\d{4}))?)?)?$"
+)
 
 
 @dataclass(frozen=True)
@@ -65,9 +67,13 @@ def parse(id_: str, nivel: str | None = None) -> Recorte:
         elif m["tipo"] is None:
             r = Recorte("zona", id_, uf=uf, municipio=int(m["mun"]), zona=int(m["zona"]))
         elif m["tipo"] == "l":
-            r = Recorte("local", id_, uf=uf, municipio=int(m["mun"]), zona=int(m["zona"]), local=int(m["num"]))
+            r = Recorte(
+                "local", id_, uf=uf, municipio=int(m["mun"]), zona=int(m["zona"]), local=int(m["num"])
+            )
         else:
-            r = Recorte("secao", id_, uf=uf, municipio=int(m["mun"]), zona=int(m["zona"]), secao=int(m["num"]))
+            r = Recorte(
+                "secao", id_, uf=uf, municipio=int(m["mun"]), zona=int(m["zona"]), secao=int(m["num"])
+            )
     if nivel and nivel != r.nivel:
         raise RecorteInvalido(f"{id_} não é do nível {nivel}")
     return r

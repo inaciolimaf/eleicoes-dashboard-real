@@ -27,7 +27,7 @@ def _dt(v: str | None) -> datetime | None:
 
 
 class Processador:
-    def __init__(self, sessionmaker: async_sessionmaker[AsyncSession], redis: Redis):
+    def __init__(self, sessionmaker: async_sessionmaker[AsyncSession], redis: Redis) -> None:
         self.sm = sessionmaker
         self.redis = redis
         self._cargos: dict[tuple[int, int], tuple[str, int | None]] = {}
@@ -54,9 +54,16 @@ class Processador:
     async def resultado(self, corpo: bytes, ctx: dict) -> None:
         dados = orjson.loads(corpo)
         c = ingestao.Contexto(
-            turno=int(ctx["turno"]), eleicao_id=int(ctx["eleicao_id"]), cd_cargo=int(ctx["cd_cargo"]), nivel=ctx["nivel"],
-            recorte_id=ctx["recorte_id"], pai_id=ctx["pai_id"], uf=ctx["uf"], arquivo=ctx.get("arquivo"),
-            jws_verificado=bool(ctx.get("jws_ok")), capturado_em=_dt(ctx.get("capturado_em")),
+            turno=int(ctx["turno"]),
+            eleicao_id=int(ctx["eleicao_id"]),
+            cd_cargo=int(ctx["cd_cargo"]),
+            nivel=ctx["nivel"],
+            recorte_id=ctx["recorte_id"],
+            pai_id=ctx["pai_id"],
+            uf=ctx["uf"],
+            arquivo=ctx.get("arquivo"),
+            jws_verificado=bool(ctx.get("jws_ok")),
+            capturado_em=_dt(ctx.get("capturado_em")),
         )
         res = parse_resultado(dados, c.cd_cargo)
         async with self.sm() as session:
@@ -64,7 +71,9 @@ class Processador:
             sqs = [x.sqcand for x in res.candidatos]
             antes: dict[str, str] = {}
             if c.abrangencia_do_cargo:
-                rows = await session.execute(select(Candidato.sqcand, Candidato.situacao_geral).where(Candidato.sqcand.in_(sqs)))
+                rows = await session.execute(
+                    select(Candidato.sqcand, Candidato.situacao_geral).where(Candidato.sqcand.in_(sqs))
+                )
                 antes = dict(rows.all())
             out = await ingestao.ingerir_resultado(session, c, res, sistema, vagas)
             if out is None:
@@ -72,8 +81,11 @@ class Processador:
             anterior, novo = out
             evs: list[dict] = []
             if c.nivel in ("br", "uf"):
-                rows = await session.execute(select(Candidato.sqcand, Candidato.nome_urna, Candidato.situacao_geral)
-                                             .where(Candidato.sqcand.in_(sqs)))
+                rows = await session.execute(
+                    select(Candidato.sqcand, Candidato.nome_urna, Candidato.situacao_geral).where(
+                        Candidato.sqcand.in_(sqs)
+                    )
+                )
                 info = rows.all()
                 nomes = {sq: n for sq, n, _ in info}
                 depois = {sq: st for sq, _, st in info} if c.abrangencia_do_cargo else None
@@ -111,15 +123,21 @@ class Processador:
             r = alertas.avaliar_resultado(a, linha, evs)
             if r:
                 await alertas.marcar_disparado(session, a)
-                await topicos.publicar(self.redis, topicos.usuario(str(a.usuario_id)), "alerta",
-                                       {"titulo": r[0], "descricao": r[1], "alerta_id": str(a.id)})
+                await topicos.publicar(
+                    self.redis,
+                    topicos.usuario(str(a.usuario_id)),
+                    "alerta",
+                    {"titulo": r[0], "descricao": r[1], "alerta_id": str(a.id)},
+                )
 
     # ------------------------------------------------------------------ acompanhamento (EA14/EA15)
     async def acompanhamento(self, corpo: bytes, ctx: dict) -> None:
         acomp = parse_acompanhamento(orjson.loads(corpo))
         turno = int(ctx["turno"])
         async with self.sm() as session:
-            mudou = await ingestao.ingerir_progresso(session, turno, acomp, ctx["uf"], _dt(ctx.get("capturado_em")))
+            mudou = await ingestao.ingerir_progresso(
+                session, turno, acomp, ctx["uf"], _dt(ctx.get("capturado_em"))
+            )
             if any(m["nivel"] in ("br", "uf") for m in mudou):
                 payload = await resultados.progresso(session, turno, None)
                 await topicos.publicar(self.redis, topicos.progresso(turno), "progresso", payload)
@@ -138,8 +156,19 @@ class Processador:
         bu = bu_mod.decodificar(corpo)
         async with self.sm() as session:
             numeros = await self._mapa_numeros(session, turno, uf)
-            alterados = await ingestao.ingerir_boletim(session, turno, uf, bu, ctx["hash"], ctx.get("status", "Totalizado"),
-                                                       _dt(ctx.get("totalizado_em")), ctx.get("url"), numeros)
+            alterados = await ingestao.ingerir_boletim(
+                session,
+                turno,
+                uf,
+                bu,
+                ingestao.BoletimContexto(
+                    hash=str(ctx["hash"]),
+                    status=str(ctx.get("status", "Totalizado")),
+                    totalizado_em=_dt(ctx.get("totalizado_em")),
+                    url=ctx.get("url"),
+                    numeros=numeros,
+                ),
+            )
             mid = f"{uf}{bu.municipio:05d}"
             sid = f"{mid}-z{bu.zona:04d}-s{bu.secao:04d}"
             zid = f"{mid}-z{bu.zona:04d}"
@@ -166,5 +195,9 @@ class Processador:
                     r = alertas.avaliar_local(a, alterados[0][1], item["status"] if item else "")
                     if r:
                         await alertas.marcar_disparado(session, a)
-                        await topicos.publicar(self.redis, topicos.usuario(str(a.usuario_id)), "alerta",
-                                               {"titulo": r[0], "descricao": r[1], "alerta_id": str(a.id)})
+                        await topicos.publicar(
+                            self.redis,
+                            topicos.usuario(str(a.usuario_id)),
+                            "alerta",
+                            {"titulo": r[0], "descricao": r[1], "alerta_id": str(a.id)},
+                        )

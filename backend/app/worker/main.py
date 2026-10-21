@@ -33,7 +33,9 @@ async def consumidor(nome: str, proc: Processador) -> None:
 
 
 async def main() -> None:
-    logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"), format="%(asctime)s %(levelname)s %(name)s %(message)s")
+    logging.basicConfig(
+        level=os.getenv("LOG_LEVEL", "INFO"), format="%(asctime)s %(levelname)s %(name)s %(message)s"
+    )
     proc = Processador(get_sessionmaker(), get_redis())
     n = int(os.getenv("WORKER_CONCORRENCIA", "4"))
     log.info("worker iniciado com %d consumidores", n)

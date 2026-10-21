@@ -16,8 +16,14 @@ SPEC = Path(__file__).parent / "asn1" / "bu.asn1"
 
 TIPO_VOTO = {1: "nominal", 2: "branco", 3: "nulo", 4: "legenda", 5: "cargoSemCandidato"}
 CARGO_CONSTITUCIONAL = {
-    "presidente": 1, "governador": 3, "senador": 5, "deputadoFederal": 6, "deputadoEstadual": 7,
-    "deputadoDistrital": 8, "prefeito": 11, "vereador": 13,
+    "presidente": 1,
+    "governador": 3,
+    "senador": 5,
+    "deputadoFederal": 6,
+    "deputadoEstadual": 7,
+    "deputadoDistrital": 8,
+    "prefeito": 11,
+    "vereador": 13,
 }
 
 
@@ -113,68 +119,91 @@ def decodificar(conteudo: bytes) -> BoletimUrna:
 CARGO_NOME = {v: k for k, v in CARGO_CONSTITUCIONAL.items()}
 
 
-def codificar(
-    *,
-    pleito: int,
-    eleicoes: list[tuple[int, int, list[tuple[int, int, list[VotoBU]]]]],
-    municipio: int,
-    zona: int,
-    local: int,
-    secao: int,
-    emitido: str,
-    aptos: int,
-    comparecimento: int,
-    fase: str = "oficial",
-) -> bytes:
-    """Gera um .bu válido segundo a spec (usado pelo mock do TSE e pelos testes).
+@dataclass(frozen=True)
+class BoletimSpec:
+    """Conteúdo de um boletim de urna a codificar.
 
     `eleicoes` = [(id_eleicao, tipo_cargo 1|2, [(cd_cargo, comparecimento, votos)])].
     """
+
+    pleito: int
+    eleicoes: list[tuple[int, int, list[tuple[int, int, list[VotoBU]]]]]
+    municipio: int
+    zona: int
+    local: int
+    secao: int
+    emitido: str
+    aptos: int
+    comparecimento: int
+    fase: str = "oficial"
+
+
+def codificar(spec: BoletimSpec) -> bytes:
+    """Gera um .bu válido segundo a spec (usado pelo mock do TSE e pelos testes)."""
     conv = compilador()
-    ident = {"municipioZona": {"municipio": municipio, "zona": zona}, "local": local, "secao": secao}
+    ident = {
+        "municipioZona": {"municipio": spec.municipio, "zona": spec.zona},
+        "local": spec.local,
+        "secao": spec.secao,
+    }
     resultados = []
-    for id_eleicao, tipo_cargo, cargos in eleicoes:
+    for id_eleicao, tipo_cargo, cargos in spec.eleicoes:
         totais = []
         for ordem, (cd_cargo, comp, votos) in enumerate(cargos, start=1):
             vv = []
             for i, v in enumerate(votos, start=1):
-                item: dict = {"tipoVoto": v.tipo, "quantidadeVotos": v.votos, "ordemGeracaoHash": i, "hash": b"\x00" * 4}
+                item: dict = {
+                    "tipoVoto": v.tipo,
+                    "quantidadeVotos": v.votos,
+                    "ordemGeracaoHash": i,
+                    "hash": b"\x00" * 4,
+                }
                 if v.numero is not None:
                     item["identificacaoVotavel"] = {"partido": v.partido or 0, "codigo": v.numero}
                 vv.append(item)
-            totais.append({
-                "codigoCargo": ("cargoConstitucional", CARGO_NOME[cd_cargo]),
-                "ordemImpressao": ordem,
-                "votosVotaveis": vv,
-            })
+            totais.append(
+                {
+                    "codigoCargo": ("cargoConstitucional", CARGO_NOME[cd_cargo]),
+                    "ordemImpressao": ordem,
+                    "votosVotaveis": vv,
+                }
+            )
             _ = comp
-        resultados.append({
-            "idEleicao": id_eleicao,
-            "qtdEleitoresAptos": aptos,
-            "qtdEleitoresAptosSecao": aptos,
-            "qtdEleitoresAptosTTE": 0,
-            "resultadosVotacao": [{
-                "tipoCargo": "majoritario" if tipo_cargo == 1 else "proporcional",
-                "qtdComparecimento": comparecimento,
-                "totaisVotosCargo": totais,
-            }],
-            "ultimoHashVotosVotavel": b"\x00" * 4,
-            "assinaturaUltimoHashVotosVotavel": b"\x00" * 4,
-        })
-    cabecalho = {"dataGeracao": emitido, "idEleitoral": ("idPleito", pleito)}
+        resultados.append(
+            {
+                "idEleicao": id_eleicao,
+                "qtdEleitoresAptos": spec.aptos,
+                "qtdEleitoresAptosSecao": spec.aptos,
+                "qtdEleitoresAptosTTE": 0,
+                "resultadosVotacao": [
+                    {
+                        "tipoCargo": "majoritario" if tipo_cargo == 1 else "proporcional",
+                        "qtdComparecimento": spec.comparecimento,
+                        "totaisVotosCargo": totais,
+                    }
+                ],
+                "ultimoHashVotosVotavel": b"\x00" * 4,
+                "assinaturaUltimoHashVotosVotavel": b"\x00" * 4,
+            }
+        )
+    cabecalho = {"dataGeracao": spec.emitido, "idEleitoral": ("idPleito", spec.pleito)}
     bu = {
         "cabecalho": cabecalho,
-        "fase": fase,
+        "fase": spec.fase,
         "urna": {
             "tipoUrna": "secao",
             "versaoVotacao": "9.99.0.0 - Mock",
             "correspondenciaResultado": {
                 "identificacao": ("identificacaoSecaoEleitoral", ident),
                 "carga": {
-                    "numeroInternoUrna": 2_000_000 + secao,
+                    "numeroInternoUrna": 2_000_000 + spec.secao,
                     "numeroSerieFC": b"\x00\x00\x00\x01",
-                    "identificadorGeradorMidia": {"nome": "MOCK", "serialCertificadoTPM": "0", "serialInstalacao": "0"},
-                    "dataHoraCarga": emitido,
+                    "identificadorGeradorMidia": {
+                        "nome": "MOCK",
+                        "serialCertificadoTPM": "0",
+                        "serialInstalacao": "0",
+                    },
+                    "dataHoraCarga": spec.emitido,
                     "codigoCarga": "000000",
                 },
             },
@@ -182,16 +211,22 @@ def codificar(
             "numeroSerieFV": b"\x00\x00\x00\x02",
         },
         "identificacaoSecao": ident,
-        "dataHoraEmissao": emitido,
-        "dadosSecaoSA": ("dadosSecao", {"dataHoraAbertura": emitido[:9] + "080000", "dataHoraEncerramento": emitido[:9] + "170000"}),
-        "qtdEleitoresCompareceram": comparecimento,
+        "dataHoraEmissao": spec.emitido,
+        "dadosSecaoSA": (
+            "dadosSecao",
+            {
+                "dataHoraAbertura": spec.emitido[:9] + "080000",
+                "dataHoraEncerramento": spec.emitido[:9] + "170000",
+            },
+        ),
+        "qtdEleitoresCompareceram": spec.comparecimento,
         "resultadosVotacaoPorEleicao": resultados,
         "historicoCodigosCarga": [],
     }
     conteudo = conv.encode("EntidadeBoletimUrna", bu)
     envelope = {
         "cabecalho": cabecalho,
-        "fase": fase,
+        "fase": spec.fase,
         "identificacao": ("identificacaoSecaoEleitoral", ident),
         "tipoEnvelope": "envelopeBoletimUrna",
         "conteudo": conteudo,

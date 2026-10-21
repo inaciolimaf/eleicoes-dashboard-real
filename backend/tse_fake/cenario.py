@@ -38,6 +38,16 @@ ELEICAO_ESTADUAL = 9102
 CICLO = "ele2026"
 
 
+@dataclass(frozen=True)
+class CargoProporcional:
+    """Cargo proporcional a gerar: cd, UF, vagas e dígitos do número do candidato."""
+
+    cd: int
+    uf: str
+    vagas: int
+    digitos: int
+
+
 @dataclass
 class Partido:
     numero: int
@@ -120,7 +130,7 @@ class Local:
 
 
 class Cenario:
-    def __init__(self, semente: int = 2026, escala: float = 1.0):
+    def __init__(self, semente: int = 2026, escala: float = 1.0) -> None:
         self.semente = semente
         self.rng = np.random.default_rng(semente)
         self.escala = escala
@@ -154,8 +164,15 @@ class Cenario:
             uf = m["uf"].lower()
             capital = m["ibge"] in CAPITAIS
             mun = Municipio(
-                idx=len(self.municipios), uf=uf, cd=m["ibge"] % 100000, ibge=m["ibge"], nome=m["nome"].upper(),
-                capital=capital, lat=m["lat"], lon=m["lon"], regiao=UFS[uf][1],
+                idx=len(self.municipios),
+                uf=uf,
+                cd=m["ibge"] % 100000,
+                ibge=m["ibge"],
+                nome=m["nome"].upper(),
+                capital=capital,
+                lat=m["lat"],
+                lon=m["lon"],
+                regiao=UFS[uf][1],
             )
             self._aneis[mun.idx] = m["aneis"]
             # porte do município -> quantidade de seções
@@ -163,7 +180,7 @@ class Cenario:
                 n = int(rng.lognormal(math.log(380), 0.45) * (1.6 if uf in ("sp", "rj") else 1.0))
             else:
                 n = int(rng.lognormal(math.log(5.5), 0.95))
-            n = max(1, int(round(n * self.escala)))
+            n = max(1, round(n * self.escala))
             mun.a = len(sec_num)
             nz = max(1, min(40, math.ceil(n / 140)))
             por_zona = np.array_split(np.arange(n), nz)
@@ -182,11 +199,21 @@ class Cenario:
                     tam = min(restantes, int(rng.integers(2, 11)))
                     lat, lon, aprox = self._ponto_local(mun, rng)
                     loc = Local(
-                        idx=len(self.locais), zona=z.idx, numero=1015 + 8 * k, nome=self._nome_local(rng),
-                        endereco=f"{rng.choice(LOGRADOUROS)} {rng.choice(HOMENAGEADOS)}, {int(rng.integers(1, 3000))}",
-                        bairro=str(rng.choice(BAIRROS)) if not capital else f"{rng.choice(BAIRROS)} {int(rng.integers(1, 9))}",
+                        idx=len(self.locais),
+                        zona=z.idx,
+                        numero=1015 + 8 * k,
+                        nome=self._nome_local(rng),
+                        endereco=(
+                            f"{rng.choice(LOGRADOUROS)} {rng.choice(HOMENAGEADOS)}, "
+                            f"{int(rng.integers(1, 3000))}"
+                        ),
+                        bairro=str(rng.choice(BAIRROS))
+                        if not capital
+                        else f"{rng.choice(BAIRROS)} {int(rng.integers(1, 9))}",
                         cep=f"{int(rng.integers(10000, 99999))}-{int(rng.integers(0, 999)):03d}",
-                        lat=None if aprox else lat, lon=None if aprox else lon, a=len(sec_num),
+                        lat=None if aprox else lat,
+                        lon=None if aprox else lon,
+                        a=len(sec_num),
                     )
                     for _ in range(tam):
                         sec_uf.append(uf_idx[uf])
@@ -244,15 +271,23 @@ class Cenario:
                     y = float(rng.uniform(miny, maxy))
                 if _dentro(x, y, anel):
                     return round(y, 5), round(x, 5), aprox
-        return round(mun.lat + float(rng.normal(0, 0.005)), 5), round(mun.lon + float(rng.normal(0, 0.005)), 5), aprox
+        return (
+            round(mun.lat + float(rng.normal(0, 0.005)), 5),
+            round(mun.lon + float(rng.normal(0, 0.005)), 5),
+            aprox,
+        )
 
     # ------------------------------------------------------------------ tempos de totalização
     def _gerar_tempos(self) -> None:
         """Minutos após 17h (Brasília) em que cada seção é totalizada."""
         rng = self.rng
         mediana_regiao = {"Sudeste": 32.0, "Sul": 30.0, "Centro-Oeste": 42.0, "Nordeste": 62.0, "Norte": 85.0}
-        med_mun = np.array([mediana_regiao[m.regiao] * (0.75 if m.capital else 1.0) * float(rng.lognormal(0, 0.25))
-                            for m in self.municipios])
+        med_mun = np.array(
+            [
+                mediana_regiao[m.regiao] * (0.75 if m.capital else 1.0) * float(rng.lognormal(0, 0.25))
+                for m in self.municipios
+            ]
+        )
         t = rng.lognormal(np.log(med_mun[self.sec_mun]), 0.55)
         atrasadas = rng.random(self.n) < 0.004
         t[atrasadas] = rng.uniform(200, 380, int(atrasadas.sum()))
@@ -264,17 +299,15 @@ class Cenario:
             p = str(rng.choice(PRIMEIROS))
             s1, s2 = (str(x) for x in rng.choice(SOBRENOMES, 2, replace=False))
             nome = f"{p} {s1} {s2}"
-            if rng.random() < 0.25:
-                urna = f"{p} {rng.choice(APELIDOS)}"
-            else:
-                urna = f"{p} {s2}"
+            urna = f"{p} {rng.choice(APELIDOS)}" if rng.random() < 0.25 else f"{p} {s2}"
             if urna not in usados:
                 usados.add(urna)
                 return nome, urna
         return nome, f"{urna} {len(usados)}"
 
     def _sq(self, cd: int, uf: str, i: int) -> str:
-        h = int(hashlib.sha1(f"{self.semente}:{cd}:{uf}:{i}".encode()).hexdigest()[:8], 16)
+        bruto = hashlib.sha1(f"{self.semente}:{cd}:{uf}:{i}".encode(), usedforsecurity=False)
+        h = int(bruto.hexdigest()[:8], 16)
         return str(280000000000 + h % 100000000)
 
     def _partidos(self) -> list[Partido]:
@@ -286,7 +319,9 @@ class Cenario:
                 out.append(Partido(numero, sigla, nome, nome, str(numero), "i"))
         return out
 
-    def _campo(self, rng: np.random.Generator, lat: np.ndarray, lon: np.ndarray, centros: int, escala: float) -> np.ndarray:
+    def _campo(
+        self, rng: np.random.Generator, lat: np.ndarray, lon: np.ndarray, centros: int, escala: float
+    ) -> np.ndarray:
         """Campo espacial suave (soma de gaussianas) para dar 'redutos' regionais."""
         v = np.zeros_like(lat)
         for _ in range(centros):
@@ -327,7 +362,7 @@ class Cenario:
         for i, (base, bonus) in enumerate(perfil):
             par = partidos[ordem_partidos[i]]
             nome, urna = self._nome(rng, usados)
-            vice_nome, vice_urna = self._nome(rng, usados)
+            _vice_nome, vice_urna = self._nome(rng, usados)
             cands.append(Candidato(self._sq(1, "br", i), par.numero, nome, urna, par, [("v", vice_urna)]))
             u = np.full(self.n, base)
             for reg, b in bonus.items():
@@ -336,8 +371,20 @@ class Cenario:
             u = u + ruido_mun[self.sec_mun, i] * 0.18 + rng.normal(0, 0.08, self.n)
             util[:, i] = u
         brancos, nulos, validos = self._brancos_nulos(rng, 0.018, 0.032)
-        self.cargos[(1, "br")] = CargoUF(1, "br", ELEICAO_FEDERAL, "majoritario", 1, 1, 0, self.n, cands,
-                                         self._distribuir(rng, util, validos), brancos, nulos)
+        self.cargos[(1, "br")] = CargoUF(
+            1,
+            "br",
+            ELEICAO_FEDERAL,
+            "majoritario",
+            1,
+            1,
+            0,
+            self.n,
+            cands,
+            self._distribuir(rng, util, validos),
+            brancos,
+            nulos,
+        )
 
         # ---------------- cargos estaduais
         for uf in self.ufs:
@@ -360,8 +407,20 @@ class Cenario:
                 util[:, i] = bases[i] + self._campo(rng, lat, lon, 3, 0.6) * 0.5 + rng.normal(0, 0.1, n)
             cands, util = self._numerar_unicos(cands, util)
             br_, nu_, va_ = self._brancos_nulos(rng, 0.03, 0.04, a, b)
-            self.cargos[(3, uf)] = CargoUF(3, uf, ELEICAO_ESTADUAL, "majoritario", 1, 1, a, b, cands,
-                                           self._distribuir(rng, util, va_), br_, nu_)
+            self.cargos[(3, uf)] = CargoUF(
+                3,
+                uf,
+                ELEICAO_ESTADUAL,
+                "majoritario",
+                1,
+                1,
+                a,
+                b,
+                cands,
+                self._distribuir(rng, util, va_),
+                br_,
+                nu_,
+            )
             # Senador (2 vagas em 2026: cada eleitor vota em 2)
             ns = int(rng.integers(5, 9))
             cands = []
@@ -378,13 +437,31 @@ class Cenario:
                 util[:, i] = bases[i] + self._campo(rng, lat, lon, 3, 0.6) * 0.5 + rng.normal(0, 0.1, n)
             cands, util = self._numerar_unicos(cands, util)
             br_, nu_, va_ = self._brancos_nulos(rng, 0.06, 0.07, a, b)
-            self.cargos[(5, uf)] = CargoUF(5, uf, ELEICAO_ESTADUAL, "majoritario", 2, 2, a, b, cands,
-                                           self._distribuir(rng, util, va_ * 2), br_ * 2, nu_ * 2)
+            self.cargos[(5, uf)] = CargoUF(
+                5,
+                uf,
+                ELEICAO_ESTADUAL,
+                "majoritario",
+                2,
+                2,
+                a,
+                b,
+                cands,
+                self._distribuir(rng, util, va_ * 2),
+                br_ * 2,
+                nu_ * 2,
+            )
             # Proporcionais
             vagas_fed = UFS[uf][2]
-            self._proporcional(rng, 6, uf, vagas_fed, 4, a, b, usados_uf)
+            self._proporcional(rng, CargoProporcional(6, uf, vagas_fed, 4), a, b, usados_uf)
             cd_est = 8 if uf == "df" else 7
-            self._proporcional(rng, cd_est, uf, 24 if uf == "df" else vagas_estaduais(vagas_fed), 5, a, b, usados_uf)
+            self._proporcional(
+                rng,
+                CargoProporcional(cd_est, uf, 24 if uf == "df" else vagas_estaduais(vagas_fed), 5),
+                a,
+                b,
+                usados_uf,
+            )
 
     def _numerar_unicos(self, cands: list[Candidato], util: np.ndarray) -> tuple[list[Candidato], np.ndarray]:
         vistos: set[int] = set()
@@ -395,13 +472,23 @@ class Cenario:
                 manter.append(i)
         return [cands[i] for i in manter], util[:, manter]
 
-    def _brancos_nulos(self, rng, pb: float, pn: float, a: int = 0, b: int | None = None):
+    def _brancos_nulos(
+        self, rng: np.random.Generator, pb: float, pn: float, a: int = 0, b: int | None = None
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         comp = self.sec_comp[a:b]
         brancos = rng.binomial(comp, pb).astype(np.int32)
         nulos = rng.binomial(comp - brancos, pn).astype(np.int32)
         return brancos, nulos, (comp - brancos - nulos).astype(np.int32)
 
-    def _proporcional(self, rng, cd: int, uf: str, vagas: int, digitos: int, a: int, b: int, usados: set[str]) -> None:
+    def _proporcional(
+        self,
+        rng: np.random.Generator,
+        cargo: CargoProporcional,
+        a: int,
+        b: int,
+        usados: set[str],
+    ) -> None:
+        cd, uf, vagas, digitos = cargo.cd, cargo.uf, cargo.vagas, cargo.digitos
         n = b - a
         lat, lon = self.sec_lat[a:b], self.sec_lon[a:b]
         partidos = self.partidos
@@ -447,8 +534,22 @@ class Cenario:
             util[:, idx] = np.log(pp[:, [j]] * bloco + 1e-12)
         votos = self._distribuir(rng, util, nominal)
         legenda = rng.multinomial(leg_total.astype(np.int64), pp).astype(np.int32)
-        self.cargos[(cd, uf)] = CargoUF(cd, uf, ELEICAO_ESTADUAL, "proporcional", vagas, 1, a, b, cands, votos,
-                                        brancos, nulos, partidos, legenda)
+        self.cargos[(cd, uf)] = CargoUF(
+            cd,
+            uf,
+            ELEICAO_ESTADUAL,
+            "proporcional",
+            vagas,
+            1,
+            a,
+            b,
+            cands,
+            votos,
+            brancos,
+            nulos,
+            partidos,
+            legenda,
+        )
 
     # ------------------------------------------------------------------ utilidades
     def cargos_da_uf(self, uf: str) -> list[CargoUF]:

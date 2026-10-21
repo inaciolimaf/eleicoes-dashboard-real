@@ -32,4 +32,5 @@ def cor_texto(texto: str) -> str:
     """Cor estável para um nome (ex.: agremiação), igual em qualquer processo."""
     import hashlib
 
-    return PALETA[int(hashlib.md5(texto.encode()).hexdigest()[:6], 16) % len(PALETA)]
+    digest = hashlib.md5(texto.encode(), usedforsecurity=False).hexdigest()
+    return PALETA[int(digest[:6], 16) % len(PALETA)]

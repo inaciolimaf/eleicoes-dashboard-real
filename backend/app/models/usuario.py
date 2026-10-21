@@ -21,7 +21,9 @@ class Usuario(Timestamps, Base):
 class Preferencia(Base):
     __tablename__ = "preferencia"
 
-    usuario_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("usuario.id", ondelete="CASCADE"), primary_key=True)
+    usuario_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("usuario.id", ondelete="CASCADE"), primary_key=True
+    )
     dados: Mapped[dict] = mapped_column(JSONB, default=dict)
 
 
@@ -50,7 +52,9 @@ class Compartilhamento(Base):
 class Favorito(Base):
     __tablename__ = "favorito"
 
-    usuario_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("usuario.id", ondelete="CASCADE"), primary_key=True)
+    usuario_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("usuario.id", ondelete="CASCADE"), primary_key=True
+    )
     tipo: Mapped[str] = mapped_column(String(16), primary_key=True)
     ref: Mapped[str] = mapped_column(String(40), primary_key=True)
     rotulo: Mapped[str] = mapped_column(String(160), default="")

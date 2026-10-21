@@ -32,7 +32,7 @@ def test_soma_dos_municipios_bate_com_o_brasil(div):
 
 def test_idg_so_muda_quando_o_conteudo_muda(div):
     m = div.c.municipios[0]
-    tempos = sorted(div.c.sec_t[m.a:m.b])
+    tempos = sorted(div.c.sec_t[m.a : m.b])
     antes, _ = div.resultado(ELEICAO_FEDERAL, 1, m.uf, m.cd, None, tempos[0] - 60)
     igual, _ = div.resultado(ELEICAO_FEDERAL, 1, m.uf, m.cd, None, tempos[0] - 31)
     depois, _ = div.resultado(ELEICAO_FEDERAL, 1, m.uf, m.cd, None, tempos[-1] + 60)
