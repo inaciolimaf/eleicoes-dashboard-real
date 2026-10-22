@@ -99,15 +99,15 @@ class ResultSteps(SectionSteps):
         m = self.municipalities.get(municipality_id)
         if m is None:
             return
-        uf, municipality_code = m["uf"], m["code"]
+        uf, municipality_code = m["state_code"], m["code"]
         tasks: list[Awaitable[None]] = []
         for e in [x for x in self.elections if x.round == round_number]:
             for office_code in offices_of_state([c.office_code for c in e.offices], uf):
                 tasks.append(self.fetch_result(round_number, e, office_code, uf, municipality_code))
-                if self.settings.collect_zones and len(m["zonas"]) > 1:
+                if self.settings.collect_zones and len(m["zones"]) > 1:
                     tasks.extend(
                         self.fetch_result(round_number, e, office_code, uf, municipality_code, z)
-                        for z in m["zonas"]
+                        for z in m["zones"]
                     )
         await asyncio.gather(*tasks)
         if self.settings.collect_sections and self.settings.section_mode == "todas":

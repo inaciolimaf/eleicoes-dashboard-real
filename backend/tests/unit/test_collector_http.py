@@ -67,7 +67,7 @@ async def test_jws_with_wrong_key_falls_back_to_the_json():
     from app.infra.tse import jws
 
     base = "http://tse.teste/oficial/x"
-    token = jws.assinar(b'{"v": 1}', Ed25519PrivateKey.generate(), "kid-desconhecido")
+    token = jws.sign(b'{"v": 1}', Ed25519PrivateKey.generate(), "kid-desconhecido")
     jws_route = respx.get(f"{base}.jws").mock(return_value=httpx.Response(200, content=token.encode()))
     respx.get(f"{base}.json").mock(return_value=httpx.Response(200, content=b'{"v": 2}'))
     collector = Collector(Settings(tse_verify_jws=True), None, None, Fetcher(max_rps=1000))  # type: ignore[arg-type]

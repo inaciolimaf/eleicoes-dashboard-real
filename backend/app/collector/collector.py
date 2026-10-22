@@ -22,7 +22,7 @@ from app.collector.steps.tracking import TrackingSteps
 from app.core.config import Settings
 from app.infra import queue
 from app.infra.realtime import topics
-from app.infra.tse.keys import chave_do_ambiente
+from app.infra.tse.keys import key_for_environment
 
 __all__ = ["Collector"]
 
@@ -49,7 +49,7 @@ class Collector(ResultSteps, TrackingSteps, DemandSteps):
         self.sessionmaker = sessionmaker
         self.redis = redis
         self.fetcher = fetcher or Fetcher(settings.tse_max_rps, settings.tse_concurrency)
-        self.signing_key = chave_do_ambiente(settings.tse_environment) if settings.tse_verify_jws else None
+        self.signing_key = key_for_environment(settings.tse_environment) if settings.tse_verify_jws else None
         self.catalog = None
         self.urls = None
         self.elections = []

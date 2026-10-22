@@ -8,17 +8,17 @@ from app.infra.tse.numbers import integer, integer_or_none
 
 @dataclass
 class SectionTSE:
-    uf: str
-    municipio: int
-    zona: int
-    secao: int
-    agregadora: int | None
+    state_code: str
+    municipality: int
+    zone: int
+    section: int
+    aggregator: int | None
 
 
 def parse_sections(data: dict[str, Any]) -> list[SectionTSE]:
     result: list[SectionTSE] = []
     for area in data.get("abr", []) or []:
-        uf = str(area.get("cd") or "").lower()
+        state_code = str(area.get("cd") or "").lower()
         for municipality in area.get("mu", []) or []:
             municipality_code = integer(municipality.get("cd"))
             for zone in municipality.get("zon", []) or []:
@@ -28,11 +28,11 @@ def parse_sections(data: dict[str, Any]) -> list[SectionTSE]:
                     aggregator = integer_or_none(section.get("nsp"))
                     result.append(
                         SectionTSE(
-                            uf=uf,
-                            municipio=municipality_code,
-                            zona=zone_code,
-                            secao=number,
-                            agregadora=aggregator if aggregator and aggregator != number else None,
+                            state_code=state_code,
+                            municipality=municipality_code,
+                            zone=zone_code,
+                            section=number,
+                            aggregator=aggregator if aggregator and aggregator != number else None,
                         )
                     )
     return result

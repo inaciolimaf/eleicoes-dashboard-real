@@ -9,7 +9,7 @@ from sqlalchemy import func
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.infra.tse.parsers import MunicipioTSE, SecaoTSE
+from app.infra.tse.parsers import MunicipalityTSE, SectionTSE
 from app.modules.geography import (
     ElectoralZone,
     Municipality,
@@ -31,31 +31,31 @@ def proper_name(name: str) -> str:
 
 
 async def ingest_municipalities(
-    session: AsyncSession, municipalities: list[MunicipioTSE], geo: Mapping[int, tuple[Any, ...]]
+    session: AsyncSession, municipalities: list[MunicipalityTSE], geo: Mapping[int, tuple[Any, ...]]
 ) -> int:
     """`geo`: IBGE code -> (lat, lon[, name with the correct spelling])."""
     rows: list[dict[str, Any]] = []
     zones: list[dict[str, Any]] = []
     for m in municipalities:
-        key = municipality_id_of(m.uf, m.cd)
-        rows.append(_municipality_row(m, geo.get(m.cd_ibge or -1, ()), key))
-        zones.extend(_zone_row(m.uf, m.cd, z, key) for z in m.zonas)
+        key = municipality_id_of(m.state_code, m.cd)
+        rows.append(_municipality_row(m, geo.get(m.ibge_code or -1, ()), key))
+        zones.extend(_zone_row(m.state_code, m.cd, z, key) for z in m.zones)
     await _upsert_municipalities(session, rows)
     await insert_zones(session, zones)
     await session.flush()
     return len(rows)
 
 
-def _municipality_row(m: MunicipioTSE, geo: tuple[Any, ...], key: str) -> dict[str, Any]:
+def _municipality_row(m: MunicipalityTSE, geo: tuple[Any, ...], key: str) -> dict[str, Any]:
     lat, lon = (geo[0], geo[1]) if len(geo) >= 2 else (None, None)
-    name = geo[2] if len(geo) >= 3 else proper_name(m.nome)
+    name = geo[2] if len(geo) >= 3 else proper_name(m.name)
     return {
         "id": key,
-        "state_code": m.uf,
+        "state_code": m.state_code,
         "tse_code": m.cd,
-        "ibge_code": m.cd_ibge,
+        "ibge_code": m.ibge_code,
         "name": name,
-        "is_capital": m.capital,
+        "is_capital": m.is_capital,
         "lat": lat,
         "lon": lon,
     }
@@ -94,17 +94,17 @@ async def insert_zones(session: AsyncSession, zones: list[dict[str, Any]]) -> No
         )
 
 
-async def ingest_sections(session: AsyncSession, sections: list[SecaoTSE]) -> int:
+async def ingest_sections(session: AsyncSession, sections: list[SectionTSE]) -> int:
     zones: dict[str, dict[str, Any]] = {}
     rows: list[dict[str, Any]] = []
     for s in sections:
-        municipality_key = municipality_id_of(s.uf, s.municipio)
-        zone_key = zone_id_of(s.uf, s.municipio, s.zona)
+        municipality_key = municipality_id_of(s.state_code, s.municipality)
+        zone_key = zone_id_of(s.state_code, s.municipality, s.zone)
         zones[zone_key] = {
             "id": zone_key,
             "municipality_id": municipality_key,
-            "state_code": s.uf,
-            "number": s.zona,
+            "state_code": s.state_code,
+            "number": s.zone,
         }
         rows.append(_section_row(s, municipality_key, zone_key))
     await insert_zones(session, list(zones.values()))
@@ -115,12 +115,12 @@ async def ingest_sections(session: AsyncSession, sections: list[SecaoTSE]) -> in
     return len(rows)
 
 
-def _section_row(s: SecaoTSE, municipality_key: str, zone_key: str) -> dict[str, Any]:
+def _section_row(s: SectionTSE, municipality_key: str, zone_key: str) -> dict[str, Any]:
     return {
-        "id": section_id_of(s.uf, s.municipio, s.zona, s.secao),
+        "id": section_id_of(s.state_code, s.municipality, s.zone, s.section),
         "municipality_id": municipality_key,
         "electoral_zone_id": zone_key,
-        "state_code": s.uf,
-        "number": s.secao,
-        "aggregator_section": s.agregadora,
+        "state_code": s.state_code,
+        "number": s.section,
+        "aggregator_section": s.aggregator,
     }

@@ -170,7 +170,7 @@ def test_catalogo_resolve_pelo_cargo_e_nao_pela_uf():
     assert cat.pleito_atual().cd == 17801
     _pleito, eleicao = cat.resolver(3)
     assert eleicao.cd == 21272 and eleicao.cd_t2 == 21273
-    assert [c.sistema for c in eleicao.cargos] == ["majoritario", "proporcional"]
+    assert [c.system for c in eleicao.offices] == ["majoritario", "proporcional"]
     assert cat.resolver(1)[1].cd == 21270
     assert cat.resolver(99) is None
     assert cat.templates["u"].endswith("/dados/<uf>")
@@ -198,15 +198,15 @@ def test_urls_dos_arquivos():
 
 def test_parse_result_unificado():
     r = parse_result(EA20, 1)
-    assert r.cd_cargo == 1 and r.idg == "173967397"
-    assert r.totais.votos_validos == 950 and r.totais.brancos == 20 and r.totais.nulos == 30
-    assert r.totais.pct_secoes == 50.0
-    assert r.totais.comparecimento == 400 and r.totais.pct_comparecimento == 80.0
-    assert [c.numero for c in r.candidatos] == [68, 45]
-    assert r.candidatos[0].pct_validos == 63.157894737
-    assert r.candidatos[0].vices[0].nome == "VICE"
-    assert r.totalizado_em == datetime(2026, 9, 28, 18, 50, tzinfo=UTC)
-    assert not r.final and not r.matematicamente_definido
+    assert r.office_code == 1 and r.generation_id == "173967397"
+    assert r.totals.valid_votes == 950 and r.totals.blank_votes == 20 and r.totals.null_votes == 30
+    assert r.totals.pct_sections == 50.0
+    assert r.totals.turnout == 400 and r.totals.pct_turnout == 80.0
+    assert [c.number for c in r.candidates] == [68, 45]
+    assert r.candidates[0].pct_valid == 63.157894737
+    assert r.candidates[0].running_mates[0].name == "VICE"
+    assert r.tallied_at == datetime(2026, 9, 28, 18, 50, tzinfo=UTC)
+    assert not r.final and not r.mathematically_decided
 
 
 def test_parse_result_tolerante_a_campos_ausentes():
@@ -221,8 +221,8 @@ def test_parse_result_tolerante_a_campos_ausentes():
             ],
         }
     )
-    assert r.totais.votos_validos == 40
-    assert r.candidatos[0].numero == 22 and round(r.candidatos[0].pct_validos) == 75
+    assert r.totals.valid_votes == 40
+    assert r.candidates[0].number == 22 and round(r.candidates[0].pct_valid) == 75
 
 
 def test_parse_tracking_auxiliar_secoes_municipios():
@@ -246,11 +246,11 @@ def test_parse_tracking_auxiliar_secoes_municipios():
         }
     )
     assert (
-        ab.itens[0].codigo == "sp"
-        and ab.itens[0].pct_secoes == 40.0
-        and ab.itens[0].municipios_finalizados == 3
+        ab.items[0].code == "sp"
+        and ab.items[0].pct_sections == 40.0
+        and ab.items[0].municipalities_completed == 3
     )
-    assert ab.itens[1].tipo == "mu" and ab.itens[1].secoes_totalizadas == 5
+    assert ab.items[1].tipo == "mu" and ab.items[1].sections_tallied == 5
 
     aux = parse_auxiliary(
         {
@@ -290,7 +290,7 @@ def test_parse_tracking_auxiliar_secoes_municipios():
             ]
         }
     )
-    assert [(s.uf, s.municipio, s.zona, s.secao, s.agregadora) for s in secs] == [
+    assert [(s.state_code, s.municipality, s.zone, s.section, s.aggregator) for s in secs] == [
         ("ap", 6050, 2, 824, None),
         ("ap", 6050, 2, 825, 824),
     ]
@@ -307,14 +307,19 @@ def test_parse_tracking_auxiliar_secoes_municipios():
             ]
         }
     )
-    assert mus[0].uf == "ac" and mus[0].cd == 1120 and mus[0].cd_ibge == 1200013 and mus[0].zonas == [8, 9]
+    assert (
+        mus[0].state_code == "ac"
+        and mus[0].cd == 1120
+        and mus[0].ibge_code == 1200013
+        and mus[0].zones == [8, 9]
+    )
 
 
 def test_ler_csv_locais_zip_oficial_usa_o_csv_do_brasil():
     import io
     import zipfile
 
-    from app.modules.results.ingestion import ler_csv_locais
+    from app.modules.results.ingestion import read_polling_place_csv
 
     cab = "SG_UF;CD_MUNICIPIO;NR_ZONA;NR_SECAO;NR_LOCAL_VOTACAO;NM_LOCAL_VOTACAO\n"
     buf = io.BytesIO()
@@ -328,11 +333,12 @@ def test_ler_csv_locais_zip_oficial_usa_o_csv_do_brasil():
             (cab + "BA;34576;79;197;1236;ESCOLA A\nCE;13811;12;42;1015;COLÉGIO B\n").encode("latin-1"),
         )
         z.writestr("leiame.pdf", b"%PDF")
-    linhas = list(ler_csv_locais(buf.getvalue()))
+    linhas = list(read_polling_place_csv(buf.getvalue()))
     assert [ln["SG_UF"] for ln in linhas] == ["BA", "CE"]
     assert linhas[1]["NM_LOCAL_VOTACAO"] == "COLÉGIO B"
     assert (
-        next(iter(ler_csv_locais((cab + "AP;06050;2;10;1;ESCOLA C\n").encode("latin-1"))))["NR_SECAO"] == "10"
+        next(iter(read_polling_place_csv((cab + "AP;06050;2;10;1;ESCOLA C\n").encode("latin-1"))))["NR_SECAO"]
+        == "10"
     )
 
 
@@ -341,5 +347,5 @@ def test_idg_ausente_usa_a_hora_de_geracao():
     base = {k: v for k, v in EA20.items() if k != "idg"}
     r1 = parse_result({**base, "dg": "04/10/2026", "hg": "18:00:00"}, 1)
     r2 = parse_result({**base, "dg": "04/10/2026", "hg": "18:00:05"}, 1)
-    assert r1.idg and r2.idg and r1.idg != r2.idg
-    assert parse_result(EA20, 1).idg == str(EA20["idg"])
+    assert r1.generation_id and r2.generation_id and r1.generation_id != r2.generation_id
+    assert parse_result(EA20, 1).generation_id == str(EA20["idg"])

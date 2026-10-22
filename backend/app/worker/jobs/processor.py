@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.infra import queue
 from app.modules.elections import ElectionOffice
-from app.modules.results import ingestion as ingestao
+from app.modules.results import ingestion as ingestion
 from app.worker.jobs import ballot_box, result, tracking
 
 log = logging.getLogger(__name__)
@@ -56,5 +56,8 @@ class Processor:
         key = (round_, state_code)
         hit = self._numbers.get(key)
         if hit is None or time.monotonic() - hit[0] > NUMBERS_TTL_SECONDS or not hit[1]:
-            self._numbers[key] = (time.monotonic(), await ingestao.mapa_numeros(session, round_, state_code))
+            self._numbers[key] = (
+                time.monotonic(),
+                await ingestion.candidate_number_map(session, round_, state_code),
+            )
         return self._numbers[key][1]

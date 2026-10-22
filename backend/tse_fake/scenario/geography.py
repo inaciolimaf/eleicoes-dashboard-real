@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from tse_fake.data import CAPITALS, DISTRICTS, HONOREES, PLACE_TYPES, STREET_TYPES, UFS
+from tse_fake.data import CAPITALS, DISTRICTS, HONOREES, PLACE_TYPES, STATES, STREET_TYPES
 from tse_fake.scenario.model import MUNICIPALITIES_FILE, Municipality, PollingPlace, Zone
 
 if TYPE_CHECKING:
@@ -26,7 +26,7 @@ MAX_ZONES = 40
 class _SectionColumns:
     """One list per section attribute; turned into numpy arrays once every municipality is placed."""
 
-    uf: list[int] = field(default_factory=list)
+    state_code: list[int] = field(default_factory=list)
     municipality: list[int] = field(default_factory=list)
     zone: list[int] = field(default_factory=list)
     place: list[int] = field(default_factory=list)
@@ -75,26 +75,26 @@ class _GeographyBuilder:
         self.scenario = scenario
         self.rng = scenario.rng
         self.cols = _SectionColumns()
-        self.uf_index = {uf: i for i, uf in enumerate(scenario.ufs)}
+        self.uf_index = {state_code: i for i, state_code in enumerate(scenario.states)}
         self.zone_numbers: dict[str, int] = {}
 
     def add_municipality(self, entry: dict[str, Any]) -> None:
         scenario = self.scenario
-        uf = entry["uf"].lower()
-        capital = entry["ibge"] in CAPITALS
+        state_code = entry["uf"].lower()
+        is_capital = entry["ibge"] in CAPITALS
         mun = Municipality(
             idx=len(scenario.municipalities),
-            uf=uf,
+            state_code=state_code,
             tse_code=entry["ibge"] % 100000,
             ibge_code=entry["ibge"],
             name=entry["nome"].upper(),
-            capital=capital,
+            is_capital=is_capital,
             lat=entry["lat"],
             lon=entry["lon"],
-            region=UFS[uf][1],
+            region=STATES[state_code][1],
         )
         scenario.rings[mun.idx] = entry["aneis"]
-        count = self._section_count(uf, capital)
+        count = self._section_count(state_code, is_capital)
         mun.start = len(self.cols.number)
         zone_count = max(1, min(MAX_ZONES, math.ceil(count / ZONE_SECTIONS)))
         for part in np.array_split(np.arange(count), zone_count):
@@ -103,20 +103,22 @@ class _GeographyBuilder:
         mun.end = len(self.cols.number)
         scenario.municipalities.append(mun)
 
-    def _section_count(self, uf: str, capital: bool) -> int:
-        if capital:
-            count = int(self.rng.lognormal(math.log(380), 0.45) * (1.6 if uf in ("sp", "rj") else 1.0))
+    def _section_count(self, state_code: str, is_capital: bool) -> int:
+        if is_capital:
+            count = int(
+                self.rng.lognormal(math.log(380), 0.45) * (1.6 if state_code in ("sp", "rj") else 1.0)
+            )
         else:
             count = int(self.rng.lognormal(math.log(5.5), 0.95))
         return max(1, round(count * self.scenario.scale))
 
     def _add_zone(self, mun: Municipality, remaining: int) -> None:
         scenario = self.scenario
-        self.zone_numbers[mun.uf] = self.zone_numbers.get(mun.uf, 0) + 1
+        self.zone_numbers[mun.state_code] = self.zone_numbers.get(mun.state_code, 0) + 1
         zone = Zone(
             idx=len(scenario.zones),
-            uf=mun.uf,
-            number=self.zone_numbers[mun.uf],
+            state_code=mun.state_code,
+            number=self.zone_numbers[mun.state_code],
             municipality=mun.idx,
             start=len(self.cols.number),
         )
@@ -144,7 +146,7 @@ class _GeographyBuilder:
         rng = self.rng
         name = self._place_name()
         address = f"{rng.choice(STREET_TYPES)} {rng.choice(HONOREES)}, {int(rng.integers(1, 3000))}"
-        if mun.capital:
+        if mun.is_capital:
             district = f"{rng.choice(DISTRICTS)} {int(rng.integers(1, 9))}"
         else:
             district = str(rng.choice(DISTRICTS))
@@ -173,7 +175,7 @@ class _GeographyBuilder:
     ) -> int:
         lat, lon = point
         for _ in range(size):
-            self.cols.uf.append(self.uf_index[mun.uf])
+            self.cols.state_code.append(self.uf_index[mun.state_code])
             self.cols.municipality.append(mun.idx)
             self.cols.zone.append(zone.idx)
             self.cols.place.append(place.idx)
@@ -195,7 +197,7 @@ class _GeographyBuilder:
             ys = [p[1] for p in ring]
             minx, maxx, miny, maxy = min(xs), max(xs), min(ys), max(ys)
             for _ in range(30):
-                if mun.capital or rng.random() < 0.6:
+                if mun.is_capital or rng.random() < 0.6:
                     sx = max((maxx - minx) * 0.12, 0.004)
                     sy = max((maxy - miny) * 0.12, 0.004)
                     x = float(rng.normal(mun.lon, sx))
@@ -214,7 +216,7 @@ class _GeographyBuilder:
     def finish(self) -> None:
         scenario = self.scenario
         cols = self.cols
-        scenario.section_uf = np.array(cols.uf, dtype=np.int16)
+        scenario.section_uf = np.array(cols.state_code, dtype=np.int16)
         scenario.section_municipality = np.array(cols.municipality, dtype=np.int32)
         scenario.section_zone = np.array(cols.zone, dtype=np.int32)
         scenario.section_place = np.array(cols.place, dtype=np.int32)
@@ -223,6 +225,6 @@ class _GeographyBuilder:
         scenario.section_lat = np.array(cols.lat, dtype=np.float64)
         scenario.section_lon = np.array(cols.lon, dtype=np.float64)
         scenario.section_count = len(cols.number)
-        for uf in scenario.ufs:
-            indexes = np.nonzero(scenario.section_uf == self.uf_index[uf])[0]
-            scenario.state_ranges[uf] = (int(indexes[0]), int(indexes[-1]) + 1)
+        for state_code in scenario.states:
+            indexes = np.nonzero(scenario.section_uf == self.uf_index[state_code])[0]
+            scenario.state_ranges[state_code] = (int(indexes[0]), int(indexes[-1]) + 1)

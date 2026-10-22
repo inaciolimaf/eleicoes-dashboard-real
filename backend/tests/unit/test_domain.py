@@ -10,7 +10,7 @@ from app.modules.geography import CHILD_LEVEL, GeoAreaInvalid, parse
 
 
 @pytest.mark.parametrize(
-    ("rid", "nivel"),
+    ("rid", "level"),
     [
         ("br", "country"),
         ("sp", "state"),
@@ -20,16 +20,16 @@ from app.modules.geography import CHILD_LEVEL, GeoAreaInvalid, parse
         ("sp71072-z0001-s0120", "section"),
     ],
 )
-def test_geo_areas(rid, nivel):
+def test_geo_areas(rid, level):
     r = parse(rid)
-    assert r.level == nivel and r.id == rid
-    if nivel != "country":
+    assert r.level == level and r.id == rid
+    if level != "country":
         assert r.parent is not None
 
 
 def test_geo_area_details_and_invalid_ids():
     r = parse("SP71072-Z0001-S0120")
-    assert (r.uf, r.municipality, r.zone, r.section) == ("sp", 71072, 1, 120)
+    assert (r.state_code, r.municipality, r.zone, r.section) == ("sp", 71072, 1, 120)
     assert r.parent.id == "sp71072-z0001" and r.parent.parent.id == "sp71072"
     assert r.parent.parent.parent.id == "sp"
     assert CHILD_LEVEL["zone"] == "polling_place"
@@ -75,11 +75,11 @@ def test_leading_is_computed_only_while_tse_has_not_decided():
     assert status.calculate(cands, 1, True, False, True)["a"] == "ELECTED"
 
 
-def _linha(pct, lider, segundo="x", nivel="country", cd=1):
+def _linha(pct, lider, segundo="x", level="country", cd=1):
     return {
-        "level": nivel,
+        "level": level,
         "office_code": cd,
-        "geo_area_id": "br" if nivel == "country" else "mg",
+        "geo_area_id": "br" if level == "country" else "mg",
         "round": 1,
         "tallied_at": datetime(2026, 10, 4, 22, tzinfo=UTC),
         "pct_sections": pct,
@@ -99,7 +99,7 @@ def test_events_start_milestones_and_lead_change():
     virada = next(e for e in evs if e["type"] == "lead_change")
     assert "BIA passou ANA" in virada["description"]
     assert eventos.detect(_linha(60, "a"), _linha(61, "b"), nomes, "Brasil", "proporcional") == []
-    assert eventos.detect(None, _linha(50, "a", nivel="municipality"), nomes, "X", "majoritario") == []
+    assert eventos.detect(None, _linha(50, "a", level="municipality"), nomes, "X", "majoritario") == []
 
 
 def test_events_elected_and_runoff():

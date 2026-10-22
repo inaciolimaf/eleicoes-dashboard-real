@@ -25,20 +25,20 @@ BATCH = 5000
 
 
 @dataclass(frozen=True)
-class ConsultaMapa:
+class MapQuery:
     """Geo area asked for on the polling places map. The field names are the callers' keyword arguments."""
 
-    uf: str | None = None
-    municipio: str | None = None
+    state_code: str | None = None
+    municipality: str | None = None
     bbox: tuple[float, float, float, float] | None = None
 
 
-def _map_filters(criteria: ConsultaMapa) -> list[Any]:
+def _map_filters(criteria: MapQuery) -> list[Any]:
     filters: list[Any] = []
-    if criteria.uf:
-        filters.append(PollingPlace.state_code == criteria.uf)
-    if criteria.municipio:
-        filters.append(PollingPlace.municipality_id == criteria.municipio)
+    if criteria.state_code:
+        filters.append(PollingPlace.state_code == criteria.state_code)
+    if criteria.municipality:
+        filters.append(PollingPlace.municipality_id == criteria.municipality)
     if criteria.bbox:
         west, south, east, north = criteria.bbox
         filters += [
@@ -102,14 +102,14 @@ async def _ballot_box_results(
         )
         votes_by_place: dict[str, list[Any]] = {}
         states: dict[str, str] = {}
-        for place_id, uf, votes in (await session.execute(stmt)).all():
+        for place_id, state_code, votes in (await session.execute(stmt)).all():
             votes_by_place.setdefault(place_id, []).append(votes)
-            states[place_id] = uf
+            states[place_id] = state_code
         for place_id, votes in votes_by_place.items():
-            uf = states[place_id]
-            if uf not in sq_maps:
-                sq_maps[uf] = await ballot_numbers_to_sq(session, turno, cd, uf)
-            res[place_id] = _ballot_box_result(sum_ballot_boxes(votes, 0, 0, sq_maps[uf]))
+            state_code = states[place_id]
+            if state_code not in sq_maps:
+                sq_maps[state_code] = await ballot_numbers_to_sq(session, turno, cd, state_code)
+            res[place_id] = _ballot_box_result(sum_ballot_boxes(votes, 0, 0, sq_maps[state_code]))
     return res
 
 
@@ -142,11 +142,11 @@ def _map_item(x: Any, result: dict[str, Any] | None, meta: dict[str, Candidate])
     }
 
 
-async def locais_mapa(
+async def polling_place_map(
     session: AsyncSession,
     turno: int,
     cd: int,
-    filtro: ConsultaMapa,
+    filtro: MapQuery,
     t: datetime | None,
     limite: int = 20000,
 ) -> dict[str, Any]:

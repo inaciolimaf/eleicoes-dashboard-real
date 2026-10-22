@@ -140,7 +140,7 @@ def _provenance(line: Line) -> dict[str, Any]:
     }
 
 
-async def montar_resultado(
+async def build_result(
     session: AsyncSession, turno: int, cd: int, r: GeoArea, t: datetime | None = None
 ) -> dict[str, Any]:
     info = await office_info(session, turno, cd)

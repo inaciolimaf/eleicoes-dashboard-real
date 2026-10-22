@@ -253,8 +253,8 @@ async def test_successful_login_clears_the_email_counter(cli, redis_cliente):
 
 
 async def test_login_works_again_after_the_window(cli, monkeypatch):
-    agora = [1_000_000.0]
-    monkeypatch.setattr(login_limit, "clock", lambda: agora[0])
+    now = [1_000_000.0]
+    monkeypatch.setattr(login_limit, "clock", lambda: now[0])
     await sign_up(cli)
     for _ in range(5):
         await cli.post("/api/v1/auth/login", json={"email": "ana@exemplo.com", "password": "errada"})
@@ -263,6 +263,6 @@ async def test_login_works_again_after_the_window(cli, monkeypatch):
     )
     assert bloqueada.status_code == 429
     assert bloqueada.headers["retry-after"] == "900"
-    agora[0] += 15 * 60 + 1
+    now[0] += 15 * 60 + 1
     ok = await cli.post("/api/v1/auth/login", json={"email": "ana@exemplo.com", "password": "segredo123"})
     assert ok.status_code == 200

@@ -50,10 +50,10 @@ class RequestSteps(CollectorBase):
     def _verify_jws(self, url: str, body: bytes) -> tuple[int, bytes, bool] | None:
         """The payload of the signed file, or None when its key does not match (the caller uses the .json)."""
         if self.signing_key is None:
-            return 200, jws.decodificar_sem_verificar(body.decode())[1], False
+            return 200, jws.decode_unverified(body.decode())[1], False
         try:
-            return 200, jws.verificar(body.decode(), self.signing_key), True
-        except jws.ErroJWS as exc:
+            return 200, jws.verify(body.decode(), self.signing_key), True
+        except jws.JwsError as exc:
             # A key or kid other than the expected one: instead of dropping the result (and the site
             # stopping its updates), use the .json, without the verified mark.
             self.fetcher.metrics.jws_failures += 1

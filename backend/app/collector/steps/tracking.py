@@ -10,7 +10,7 @@ import orjson
 from app.collector.steps.base import STATES, now_iso
 from app.collector.steps.catalog import CatalogSteps
 from app.infra import queue
-from app.infra.tse.parsers import AcompanhamentoTSE, parse_acompanhamento
+from app.infra.tse.parsers import TrackingTSE, parse_tracking
 from app.modules.elections import Election
 
 MUNICIPALITY_ITEM_TYPES = ("mu", "mun", "municipio")
@@ -44,27 +44,27 @@ class TrackingSteps(CatalogSteps):
         )
         if uf == "br":
             return
-        tracking = parse_acompanhamento(orjson.loads(body))
+        tracking = parse_tracking(orjson.loads(body))
         if not self._track_items(round_number, uf, tracking):
             # TSE file without a breakdown by municipality: sweeps the state when it changes
             for municipality_id, m in self.municipalities.items():
-                if m["uf"] == uf:
+                if m["state_code"] == uf:
                     self.schedule_municipality(round_number, municipality_id)
 
-    def _track_items(self, round_number: int, uf: str, tracking: AcompanhamentoTSE) -> bool:
+    def _track_items(self, round_number: int, uf: str, tracking: TrackingTSE) -> bool:
         """Marks changed states and municipalities; True when the file lists municipalities."""
         has_municipalities = False
-        for item in tracking.itens:
-            signature = (item.secoes_totalizadas, item.totalizado_em)
+        for item in tracking.items:
+            signature = (item.sections_tallied, item.tallied_at)
             if item.tipo == "uf":
                 key = (round_number, uf)
-                if self.state_signature.get(key) != signature and item.secoes_totalizadas > 0:
+                if self.state_signature.get(key) != signature and item.sections_tallied > 0:
                     self.state_signature[key] = signature
             elif item.tipo in MUNICIPALITY_ITEM_TYPES:
                 has_municipalities = True
-                municipality_id = item.codigo if item.codigo[:2].isalpha() else f"{uf}{int(item.codigo):05d}"
+                municipality_id = item.code if item.code[:2].isalpha() else f"{uf}{int(item.code):05d}"
                 if (
-                    item.secoes_totalizadas > 0
+                    item.sections_tallied > 0
                     and self.municipality_signature.get((round_number, municipality_id)) != signature
                 ):
                     self.municipality_signature[(round_number, municipality_id)] = signature

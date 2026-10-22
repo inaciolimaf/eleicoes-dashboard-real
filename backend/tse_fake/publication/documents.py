@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 from typing import TYPE_CHECKING, Any
 
-from tse_fake.data import UFS
+from tse_fake.data import STATES
 from tse_fake.publication.formatting import OFFICE_NAMES
 from tse_fake.scenario.model import (
     CYCLE,
@@ -88,18 +88,18 @@ def _state_election() -> dict[str, Any]:
 
 def municipalities_document(scenario: Scenario) -> dict[str, Any]:
     areas: list[dict[str, Any]] = []
-    for uf in scenario.ufs:
-        municipalities = [m for m in scenario.municipalities if m.uf == uf]
+    for state_code in scenario.states:
+        municipalities = [m for m in scenario.municipalities if m.state_code == state_code]
         areas.append(
             {
-                "cd": uf.upper(),
-                "ds": UFS[uf][0].upper(),
+                "cd": state_code.upper(),
+                "ds": STATES[state_code][0].upper(),
                 "mu": [
                     {
                         "cd": f"{m.tse_code:05d}",
                         "cdi": str(m.ibge_code),
                         "nm": m.name,
-                        "c": "S" if m.capital else "N",
+                        "c": "S" if m.is_capital else "N",
                         "s": "S",
                         "z": [f"{scenario.zones[z].number:04d}" for z in m.zones],
                     }
@@ -110,10 +110,10 @@ def municipalities_document(scenario: Scenario) -> dict[str, Any]:
     return {"dg": "01/10/2026", "hg": "12:00:00", "f": "o", "idg": "100000002", "abr": areas}
 
 
-def uf_sections_document(scenario: Scenario, uf: str) -> dict[str, Any]:
+def uf_sections_document(scenario: Scenario, state_code: str) -> dict[str, Any]:
     municipalities: list[dict[str, Any]] = []
     for m in scenario.municipalities:
-        if m.uf != uf:
+        if m.state_code != state_code:
             continue
         zones = [
             {"cd": f"{zone.number:04d}", "sec": _zone_sections(scenario, zone.start, zone.end)}
@@ -124,7 +124,7 @@ def uf_sections_document(scenario: Scenario, uf: str) -> dict[str, Any]:
         "dg": "01/10/2026",
         "hg": "12:00:00",
         "f": "o",
-        "abr": [{"cd": uf.upper(), "ds": UFS[uf][0].upper(), "mu": municipalities}],
+        "abr": [{"cd": state_code.upper(), "ds": STATES[state_code][0].upper(), "mu": municipalities}],
     }
 
 
@@ -171,7 +171,7 @@ def _places_row(scenario: Scenario, i: int) -> list[str]:
     lon = f"{place.lon}" if place.lon is not None else "-1"
     return [
         "2026",
-        municipality.uf.upper(),
+        municipality.state_code.upper(),
         str(municipality.tse_code),
         municipality.name,
         str(zone.number),

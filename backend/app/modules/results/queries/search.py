@@ -165,7 +165,7 @@ async def _numbered_hits(session: AsyncSession, q: str, number: str, limit: int)
     return await _section_hits(session, int(number), rest, limit)
 
 
-async def buscar(session: AsyncSession, q: str, limite: int = 20) -> dict[str, Any]:
+async def search_items(session: AsyncSession, q: str, limite: int = 20) -> dict[str, Any]:
     q = q.strip()
     if len(q) < 2:
         return {"items": []}

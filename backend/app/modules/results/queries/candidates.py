@@ -16,7 +16,7 @@ from app.modules.results.queries.common import (
     photo_url,
     vice_list,
 )
-from app.modules.results.queries.tally.result import montar_resultado
+from app.modules.results.queries.tally.result import build_result
 
 
 def candidate_json(c: Candidate) -> dict[str, Any]:
@@ -37,7 +37,7 @@ def candidate_json(c: Candidate) -> dict[str, Any]:
     }
 
 
-async def listar_candidatos(
+async def list_candidates(
     session: AsyncSession, turno: int, cd: int | None, uf: str | None
 ) -> list[dict[str, Any]]:
     q = select(Candidate).where(Candidate.round == turno)
@@ -60,7 +60,7 @@ def _candidate_result(me: dict[str, Any] | None) -> dict[str, Any] | None:
     }
 
 
-async def detalhe_candidato(
+async def candidate_detail(
     session: AsyncSession, sq: str, turno: int, t: datetime | None
 ) -> dict[str, Any] | None:
     c = await session.get(Candidate, sq)
@@ -70,8 +70,8 @@ async def detalhe_candidato(
     if c.state_code == "br":
         area = GeoArea("country", "br")
     else:
-        area = GeoArea("state", c.state_code, uf=c.state_code)
-    result = await montar_resultado(session, c.round, c.office_code, area, t)
+        area = GeoArea("state", c.state_code, state_code=c.state_code)
+    result = await build_result(session, c.round, c.office_code, area, t)
     mine = next((x for x in result.get("candidates", []) if x["tse_candidate_id"] == sq), None)
     return {
         **candidate_json(c),

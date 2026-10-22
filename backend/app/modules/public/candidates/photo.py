@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.errors import AppError
-from app.infra.tse.urls import MontadorUrls
+from app.infra.tse.urls import UrlBuilder
 from app.modules.elections import Candidate, Election
 
 _CACHE_HEADERS = {"Cache-Control": "public, max-age=86400"}
@@ -44,7 +44,7 @@ async def _photo_url(session: AsyncSession, tse_candidate_id: str) -> str:
     election = await session.get(Election, candidate.election_id)
     if election is None:
         raise _not_found()
-    builder = MontadorUrls(get_settings().tse_base_url, {}, election.cycle, election.election_event_code)
+    builder = UrlBuilder(get_settings().tse_base_url, {}, election.cycle, election.election_event_code)
     return str(builder.foto(election.election_code, candidate.state_code, tse_candidate_id))
 
 

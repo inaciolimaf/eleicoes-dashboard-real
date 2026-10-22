@@ -37,40 +37,40 @@ def compiler() -> asn1tools.compiler.Specification:
 @dataclass
 class BallotVote:
     tipo: str  # nominal | branco | nulo | legenda
-    votos: int
-    numero: int | None = None
-    partido: int | None = None
+    votes: int
+    number: int | None = None
+    party: int | None = None
 
 
 @dataclass
 class BallotOffice:
-    cd_cargo: int
-    comparecimento: int
-    votos: list[BallotVote] = field(default_factory=list)
+    office_code: int
+    turnout: int
+    votes: list[BallotVote] = field(default_factory=list)
 
     @property
     def validos(self) -> int:
-        return sum(v.votos for v in self.votos if v.tipo in ("nominal", "legenda"))
+        return sum(v.votes for v in self.votes if v.tipo in ("nominal", "legenda"))
 
     @property
-    def brancos(self) -> int:
-        return sum(v.votos for v in self.votos if v.tipo == "branco")
+    def blank_votes(self) -> int:
+        return sum(v.votes for v in self.votes if v.tipo == "branco")
 
     @property
-    def nulos(self) -> int:
-        return sum(v.votos for v in self.votos if v.tipo == "nulo")
+    def null_votes(self) -> int:
+        return sum(v.votes for v in self.votes if v.tipo == "nulo")
 
 
 @dataclass
-class BallotBoxReport:
-    municipio: int
-    zona: int
-    local: int
-    secao: int
-    emitido_em: datetime | None
-    eleitores_aptos: int
-    comparecimento: int
-    cargos: list[BallotOffice]
+class DecodedBallotBox:
+    municipality: int
+    zone: int
+    polling_place: int
+    section: int
+    issued_at: datetime | None
+    eligible_voters: int
+    turnout: int
+    offices: list[BallotOffice]
 
 
 def _office_code(choice: tuple[str, Any]) -> int:
@@ -86,9 +86,9 @@ def _read_vote(entry: dict[str, Any]) -> BallotVote:
     votable = entry.get("identificacaoVotavel")
     return BallotVote(
         tipo=kind,
-        votos=int(entry["quantidadeVotos"]),
-        numero=int(votable["codigo"]) if votable else None,
-        partido=int(votable["partido"]) if votable else None,
+        votes=int(entry["quantidadeVotos"]),
+        number=int(votable["codigo"]) if votable else None,
+        party=int(votable["partido"]) if votable else None,
     )
 
 
@@ -101,27 +101,27 @@ def _read_offices(bu: dict[str, Any]) -> tuple[int, list[BallotOffice]]:
         for result in by_election["resultadosVotacao"]:
             turnout = int(result["qtdComparecimento"])
             for total in result["totaisVotosCargo"]:
-                office = BallotOffice(cd_cargo=_office_code(total["codigoCargo"]), comparecimento=turnout)
-                office.votos = [_read_vote(vv) for vv in total["votosVotaveis"]]
+                office = BallotOffice(office_code=_office_code(total["codigoCargo"]), turnout=turnout)
+                office.votes = [_read_vote(vv) for vv in total["votosVotaveis"]]
                 offices.append(office)
     return eligible, offices
 
 
-def decode(content: bytes) -> BallotBoxReport:
+def decode(content: bytes) -> DecodedBallotBox:
     conv = compiler()
     envelope = conv.decode("EntidadeEnvelopeGenerico", content)
     bu = conv.decode("EntidadeBoletimUrna", envelope["conteudo"])
     ident = bu["identificacaoSecao"]
     eligible, offices = _read_offices(bu)
-    return BallotBoxReport(
-        municipio=int(ident["municipioZona"]["municipio"]),
-        zona=int(ident["municipioZona"]["zona"]),
-        local=int(ident["local"]),
-        secao=int(ident["secao"]),
-        emitido_em=date_time_je(bu.get("dataHoraEmissao")),
-        eleitores_aptos=eligible,
-        comparecimento=int(bu.get("qtdEleitoresCompareceram", 0)),
-        cargos=offices,
+    return DecodedBallotBox(
+        municipality=int(ident["municipioZona"]["municipio"]),
+        zone=int(ident["municipioZona"]["zona"]),
+        polling_place=int(ident["local"]),
+        section=int(ident["secao"]),
+        issued_at=date_time_je(bu.get("dataHoraEmissao")),
+        eligible_voters=eligible,
+        turnout=int(bu.get("qtdEleitoresCompareceram", 0)),
+        offices=offices,
     )
 
 
@@ -149,12 +149,12 @@ def _votable_items(votes: list[BallotVote]) -> list[dict[str, Any]]:
     for position, vote in enumerate(votes, start=1):
         item: dict[str, Any] = {
             "tipoVoto": vote.tipo,
-            "quantidadeVotos": vote.votos,
+            "quantidadeVotos": vote.votes,
             "ordemGeracaoHash": position,
             "hash": b"\x00" * 4,
         }
-        if vote.numero is not None:
-            item["identificacaoVotavel"] = {"partido": vote.partido or 0, "codigo": vote.numero}
+        if vote.number is not None:
+            item["identificacaoVotavel"] = {"partido": vote.party or 0, "codigo": vote.number}
         items.append(item)
     return items
 
@@ -258,9 +258,3 @@ def encode(spec: BallotBoxSpec) -> bytes:
 
 
 # Names used before the English rename; other slices still import them.
-BoletimUrna = BallotBoxReport
-BoletimSpec = BallotBoxSpec
-VotoBU = BallotVote
-CargoBU = BallotOffice
-decodificar = decode
-codificar = encode

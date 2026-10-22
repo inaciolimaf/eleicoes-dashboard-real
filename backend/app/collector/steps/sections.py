@@ -11,7 +11,7 @@ import orjson
 from app.collector.steps.base import SectionRef, log, now_iso
 from app.collector.steps.catalog import CatalogSteps
 from app.infra import queue
-from app.infra.tse.parsers import UrnFileTSE, parse_auxiliar
+from app.infra.tse.parsers import UrnFileTSE, parse_auxiliary
 
 
 class SectionSteps(CatalogSteps):
@@ -54,7 +54,7 @@ class SectionSteps(CatalogSteps):
 
     async def _process_section(self, ref: SectionRef, high_priority: bool, diag: dict[str, Any]) -> None:
         assert self.urls is not None
-        url = self.urls.auxiliar_secao(ref.uf, ref.municipality, ref.zone, ref.section)
+        url = self.urls.auxiliar_secao(ref.state_code, ref.municipality, ref.zone, ref.section)
         # No ETag: with one, a BU that failed once would keep the auxiliary answering 304 and the
         # section would never be downloaded
         r = await self.fetcher.get(url, use_etag=False, high_priority=high_priority)
@@ -62,10 +62,10 @@ class SectionSteps(CatalogSteps):
         if r.status != 200 or not r.body:
             diag["step"] = "auxiliar indisponível"
             return
-        aux = parse_auxiliar(orjson.loads(r.body))
+        aux = parse_auxiliary(orjson.loads(r.body))
         diag["aux"] = {
             "status": aux.status,
-            "urns": [{"hash": u.hash[:16], "status": u.status, "files": u.arquivos} for u in aux.urnas],
+            "urns": [{"hash": u.hash[:16], "status": u.status, "files": u.files} for u in aux.ballot_boxes],
         }
         ballot_box = aux.urna_totalizada()
         if ballot_box is None:
@@ -80,7 +80,7 @@ class SectionSteps(CatalogSteps):
         name = ballot_box.nome_bu()
         assert name is not None
         url_bu = self.urls.arquivo_urna(
-            ref.uf, ref.municipality, ref.zone, ref.section, ballot_box.hash, name
+            ref.state_code, ref.municipality, ref.zone, ref.section, ballot_box.hash, name
         )
         ballot_response = await self.fetcher.get(url_bu, use_etag=False, high_priority=high_priority)
         diag.update(bu_url=url_bu, bu_status=ballot_response.status)
@@ -96,11 +96,11 @@ class SectionSteps(CatalogSteps):
             ballot_response.body,
             high_priority=high_priority,
             round=ref.round,
-            state_code=ref.uf,
+            state_code=ref.state_code,
             hash=ballot_box.hash,
             status=ballot_box.status,
             polling_section_id=ref.id,
-            tallied_at=ballot_box.recebido_em.isoformat() if ballot_box.recebido_em else None,
+            tallied_at=ballot_box.received_at.isoformat() if ballot_box.received_at else None,
             url=url_bu,
         )
         diag["step"] = "BU enviado ao worker"

@@ -85,9 +85,9 @@ async def municipality_dimension(
 ) -> tuple[Lines, Dimension]:
     query = select(Municipality)
     if r.level == "state":
-        query = query.where(Municipality.state_code == r.uf)
+        query = query.where(Municipality.state_code == r.state_code)
     municipalities = (await session.execute(query.order_by(Municipality.name))).scalars().all()
-    parent = r.uf if r.level == "state" else None
+    parent = r.state_code if r.level == "state" else None
     lines = await _level_lines(session, turno, cd, "municipality", parent, at, with_candidates)
     dimension = [
         {

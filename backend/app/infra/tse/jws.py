@@ -79,9 +79,3 @@ def public_key_x(private_key: Ed25519PrivateKey) -> str:
 
 
 # Names used before the English rename; other slices still import them.
-ErroJWS = JwsError
-ChaveJWS = JwsKey
-decodificar_sem_verificar = decode_unverified
-verificar = verify
-assinar = sign
-chave_publica_x = public_key_x

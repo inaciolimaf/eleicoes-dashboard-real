@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.infra.tse.bu import BoletimUrna, VotoBU
+from app.infra.tse.ballot_box import BallotVote, DecodedBallotBox
 from app.modules.ballot_reports import BallotBoxReport
 from app.modules.elections import Candidate
 from app.modules.geography import (
@@ -31,7 +31,7 @@ class BallotReportContext:
 
     hash: str
     status: str
-    totalizado_em: datetime | None
+    tallied_at: datetime | None
     url: str | None
     numeros: dict[tuple[int, int], str]
 
@@ -61,7 +61,7 @@ async def ingest_ballot_report(
     session: AsyncSession,
     round_number: int,
     uf: str,
-    bu: BoletimUrna,
+    bu: DecodedBallotBox,
     ctx: BallotReportContext,
 ) -> list[tuple[int, str]]:
     """Writes the report and recalculates its polling place. Returns the [(office code, place id)] changed."""
@@ -77,18 +77,18 @@ async def ingest_ballot_report(
     return changed
 
 
-def _keys(uf: str, bu: BoletimUrna) -> _Keys:
+def _keys(uf: str, bu: DecodedBallotBox) -> _Keys:
     return _Keys(
         state_code=uf,
-        municipality_id=municipality_id_of(uf, bu.municipio),
-        zone_id=zone_id_of(uf, bu.municipio, bu.zona),
-        place_id=polling_place_id_of(uf, bu.municipio, bu.zona, bu.local),
-        section_id=section_id_of(uf, bu.municipio, bu.zona, bu.secao),
+        municipality_id=municipality_id_of(uf, bu.municipality),
+        zone_id=zone_id_of(uf, bu.municipality, bu.zone),
+        place_id=polling_place_id_of(uf, bu.municipality, bu.zone, bu.polling_place),
+        section_id=section_id_of(uf, bu.municipality, bu.zone, bu.section),
     )
 
 
 async def _ensure_place(
-    session: AsyncSession, bu: BoletimUrna, keys: _Keys, municipality: Municipality
+    session: AsyncSession, bu: DecodedBallotBox, keys: _Keys, municipality: Municipality
 ) -> None:
     if await session.get(PollingPlace, keys.place_id) is not None:
         return
@@ -99,8 +99,8 @@ async def _ensure_place(
             municipality_id=keys.municipality_id,
             electoral_zone_id=keys.zone_id,
             state_code=keys.state_code,
-            number=bu.local,
-            name=f"LOCAL DE VOTAÇÃO {bu.local}",
+            number=bu.polling_place,
+            name=f"LOCAL DE VOTAÇÃO {bu.polling_place}",
             lat=municipality.lat,
             lon=municipality.lon,
             is_approximate=True,
@@ -115,13 +115,13 @@ async def _ensure_place(
             id=keys.zone_id,
             municipality_id=keys.municipality_id,
             state_code=keys.state_code,
-            number=bu.zona,
+            number=bu.zone,
         )
         .on_conflict_do_nothing()
     )
 
 
-async def _upsert_section(session: AsyncSession, bu: BoletimUrna, keys: _Keys) -> None:
+async def _upsert_section(session: AsyncSession, bu: DecodedBallotBox, keys: _Keys) -> None:
     await session.execute(
         insert(PollingSection)
         .values(
@@ -130,14 +130,16 @@ async def _upsert_section(session: AsyncSession, bu: BoletimUrna, keys: _Keys) -
             electoral_zone_id=keys.zone_id,
             polling_place_id=keys.place_id,
             state_code=keys.state_code,
-            number=bu.secao,
-            eligible_voters=bu.eleitores_aptos,
+            number=bu.section,
+            eligible_voters=bu.eligible_voters,
         )
         .on_conflict_do_update(index_elements=["id"], set_={"polling_place_id": keys.place_id})
     )
 
 
-def _report_row(round_number: int, ctx: BallotReportContext, bu: BoletimUrna, keys: _Keys) -> dict[str, Any]:
+def _report_row(
+    round_number: int, ctx: BallotReportContext, bu: DecodedBallotBox, keys: _Keys
+) -> dict[str, Any]:
     return {
         "round": round_number,
         "polling_section_id": keys.section_id,
@@ -147,41 +149,41 @@ def _report_row(round_number: int, ctx: BallotReportContext, bu: BoletimUrna, ke
         "state_code": keys.state_code,
         "hash": ctx.hash,
         "status": ctx.status,
-        "tallied_at": ctx.totalizado_em,
-        "issued_at": bu.emitido_em,
+        "tallied_at": ctx.tallied_at,
+        "issued_at": bu.issued_at,
         "captured_at": now(),
-        "eligible_voters": bu.eleitores_aptos,
-        "turnout": bu.comparecimento,
+        "eligible_voters": bu.eligible_voters,
+        "turnout": bu.turnout,
         "signature_valid": None,
         "url": ctx.url,
         "votes": _votes_by_office(bu),
     }
 
 
-def _votes_by_office(bu: BoletimUrna) -> dict[str, dict[str, Any]]:
+def _votes_by_office(bu: DecodedBallotBox) -> dict[str, dict[str, Any]]:
     votes: dict[str, dict[str, Any]] = {}
-    for cargo in bu.cargos:
-        nominal, legend = _split_votes(cargo.votos)
-        votes[str(cargo.cd_cargo)] = {
-            "comp": cargo.comparecimento,
-            "b": cargo.brancos,
-            "n": cargo.nulos,
+    for cargo in bu.offices:
+        nominal, legend = _split_votes(cargo.votes)
+        votes[str(cargo.office_code)] = {
+            "comp": cargo.turnout,
+            "b": cargo.blank_votes,
+            "n": cargo.null_votes,
             "nom": nominal,
             "leg": legend,
         }
     return votes
 
 
-def _split_votes(votes: list[VotoBU]) -> tuple[dict[str, int], dict[str, int]]:
+def _split_votes(votes: list[BallotVote]) -> tuple[dict[str, int], dict[str, int]]:
     nominal: dict[str, int] = {}
     legend: dict[str, int] = {}
     for v in votes:
-        if v.numero is None:
+        if v.number is None:
             continue
         if v.tipo == "nominal":
-            nominal[str(v.numero)] = nominal.get(str(v.numero), 0) + v.votos
+            nominal[str(v.number)] = nominal.get(str(v.number), 0) + v.votes
         elif v.tipo == "legenda":
-            legend[str(v.numero)] = legend.get(str(v.numero), 0) + v.votos
+            legend[str(v.number)] = legend.get(str(v.number), 0) + v.votes
     return nominal, legend
 
 

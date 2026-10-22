@@ -12,7 +12,7 @@ from typing import Any
 import orjson
 from redis.asyncio import Redis
 
-from app.infra.tse.bu import BoletimUrna
+from app.infra.tse.ballot_box import DecodedBallotBox
 from app.worker.jobs.shared import ballot_ids
 
 DIAGNOSTIC_TTL_SECONDS = 3600
@@ -27,15 +27,17 @@ async def record_worker(redis: Redis, section_id: str, data: dict[str, Any]) -> 
         )
 
 
-def ballot_outcome(state_code: str, report: BoletimUrna, changed: list[tuple[int, str]]) -> dict[str, Any]:
+def ballot_outcome(
+    state_code: str, report: DecodedBallotBox, changed: list[tuple[int, str]]
+) -> dict[str, Any]:
     warning = None if changed else "município do BU não está no banco ou o local não foi recalculado"
     return {
         "ok": True,
         "ballot": {
-            "municipality": report.municipio,
-            "zone": report.zona,
-            "polling_place": report.local,
-            "section": report.secao,
+            "municipality": report.municipality,
+            "zone": report.zone,
+            "polling_place": report.polling_place,
+            "section": report.section,
         },
         "section_saved": ballot_ids(state_code, report).section,
         "polling_places_recalculated": changed,

@@ -19,7 +19,7 @@ from app.modules.results.queries.common import (
 )
 
 
-async def item_local(session: AsyncSession, turno: int, cd: int, lid: str) -> dict[str, Any] | None:
+async def polling_place_item(session: AsyncSession, turno: int, cd: int, lid: str) -> dict[str, Any] | None:
     loc = await session.get(PollingPlace, lid)
     if loc is None:
         return None
@@ -68,7 +68,7 @@ def _section_rows(
     ]
 
 
-async def detalhe_local(session: AsyncSession, turno: int, lid: str) -> dict[str, Any] | None:
+async def polling_place_detail(session: AsyncSession, turno: int, lid: str) -> dict[str, Any] | None:
     loc = await session.get(PollingPlace, lid)
     if loc is None:
         return None

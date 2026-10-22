@@ -71,8 +71,8 @@ def _coordinate(value: object) -> float | None:
 
 @dataclass(frozen=True)
 class _CsvSection:
-    uf: str
-    cd_mun: int
+    state_code: str
+    municipality_code: int
     zone: int
     section: int
     place_number: int
@@ -81,8 +81,8 @@ class _CsvSection:
 def _parse_csv_section(row: Mapping[str, Any]) -> _CsvSection | None:
     try:
         return _CsvSection(
-            uf=str(row.get("SG_UF", "")).lower(),
-            cd_mun=int(row["CD_MUNICIPIO"]),
+            state_code=str(row.get("SG_UF", "")).lower(),
+            municipality_code=int(row["CD_MUNICIPIO"]),
             zone=int(row["NR_ZONA"]),
             section=int(row["NR_SECAO"]),
             place_number=int(row["NR_LOCAL_VOTACAO"]),
@@ -104,16 +104,20 @@ class _PollingPlaceLoad:
         parsed = _parse_csv_section(row)
         if parsed is None:
             return
-        municipality = self.municipalities.get(municipality_id_of(parsed.uf, parsed.cd_mun))
+        municipality = self.municipalities.get(
+            municipality_id_of(parsed.state_code, parsed.municipality_code)
+        )
         if municipality is None:
             return
         municipality_key = municipality.id
-        place_key = polling_place_id_of(parsed.uf, parsed.cd_mun, parsed.zone, parsed.place_number)
-        zone_key = zone_id_of(parsed.uf, parsed.cd_mun, parsed.zone)
+        place_key = polling_place_id_of(
+            parsed.state_code, parsed.municipality_code, parsed.zone, parsed.place_number
+        )
+        zone_key = zone_id_of(parsed.state_code, parsed.municipality_code, parsed.zone)
         self.zones[zone_key] = {
             "id": zone_key,
             "municipality_id": municipality_key,
-            "state_code": parsed.uf,
+            "state_code": parsed.state_code,
             "number": parsed.zone,
         }
         voters = int(row.get("QT_ELEITOR_SECAO") or row.get("QT_ELEITOR") or 0)
@@ -135,7 +139,7 @@ def _new_place(
         "id": place_key,
         "municipality_id": municipality.id,
         "electoral_zone_id": zone_key,
-        "state_code": parsed.uf,
+        "state_code": parsed.state_code,
         "number": parsed.place_number,
         "name": str(row.get("NM_LOCAL_VOTACAO") or f"LOCAL {parsed.place_number}").strip(),
         "address": (row.get("DS_ENDERECO") or "").strip() or None,
@@ -153,11 +157,11 @@ def _section_row(
     parsed: _CsvSection, municipality_key: str, zone_key: str, place_key: str, voters: int
 ) -> dict[str, Any]:
     return {
-        "id": section_id_of(parsed.uf, parsed.cd_mun, parsed.zone, parsed.section),
+        "id": section_id_of(parsed.state_code, parsed.municipality_code, parsed.zone, parsed.section),
         "municipality_id": municipality_key,
         "electoral_zone_id": zone_key,
         "polling_place_id": place_key,
-        "state_code": parsed.uf,
+        "state_code": parsed.state_code,
         "number": parsed.section,
         "eligible_voters": voters,
     }

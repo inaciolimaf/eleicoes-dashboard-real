@@ -8,27 +8,27 @@ from app.infra.tse.numbers import integer, integer_or_none, yes_no
 
 @dataclass
 class MunicipalityTSE:
-    uf: str
+    state_code: str
     cd: int
-    cd_ibge: int | None
-    nome: str
-    capital: bool
-    zonas: list[int]
+    ibge_code: int | None
+    name: str
+    is_capital: bool
+    zones: list[int]
 
 
 def parse_municipalities(data: dict[str, Any]) -> list[MunicipalityTSE]:
     result: list[MunicipalityTSE] = []
     for area in data.get("abr", []) or []:
-        uf = str(area.get("cd") or "").lower()
+        state_code = str(area.get("cd") or "").lower()
         for entry in area.get("mu", []) or []:
             result.append(
                 MunicipalityTSE(
-                    uf=uf,
+                    state_code=state_code,
                     cd=integer(entry.get("cd")),
-                    cd_ibge=integer_or_none(entry.get("cdi")),
-                    nome=str(entry.get("nm") or "").strip(),
-                    capital=yes_no(entry.get("c")),
-                    zonas=[integer(z) for z in (entry.get("z") or [])],
+                    ibge_code=integer_or_none(entry.get("cdi")),
+                    name=str(entry.get("nm") or "").strip(),
+                    is_capital=yes_no(entry.get("c")),
+                    zones=[integer(z) for z in (entry.get("z") or [])],
                 )
             )
     return result

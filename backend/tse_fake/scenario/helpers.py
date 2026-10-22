@@ -23,9 +23,9 @@ def make_name(rng: np.random.Generator, used: set[str]) -> tuple[str, str]:
     return name, f"{ballot} {len(used)}"
 
 
-def tse_candidate_id(seed: int, office_code: int, uf: str, index: int) -> str:
+def tse_candidate_id(seed: int, office_code: int, state_code: str, index: int) -> str:
     """Stable 'sqcand'-like id: the same inputs always give the same id."""
-    digest = hashlib.sha1(f"{seed}:{office_code}:{uf}:{index}".encode(), usedforsecurity=False)
+    digest = hashlib.sha1(f"{seed}:{office_code}:{state_code}:{index}".encode(), usedforsecurity=False)
     value = int(digest.hexdigest()[:8], 16)
     return str(280000000000 + value % 100000000)
 

@@ -15,20 +15,20 @@ from app.modules.results.queries.common import iso
 
 
 @dataclass(frozen=True)
-class ConsultaEventos:
+class EventsQuery:
     """Filter of the events query. The field names are part of the callers' keyword arguments."""
 
-    turno: int = 1
-    desde: datetime | None = None
-    limite: int = 100
-    tipos: list[str] | None = None
-    cargo: int | None = None
-    nivel: str | None = None
-    recorte_id: str | None = None
-    ate: datetime | None = None
+    round: int = 1
+    since: datetime | None = None
+    limit: int = 100
+    types: list[str] | None = None
+    office_code: int | None = None
+    level: str | None = None
+    geo_area_id: str | None = None
+    until: datetime | None = None
 
 
-def evento_json(e: Event) -> dict[str, Any]:
+def event_json(e: Event) -> dict[str, Any]:
     return {
         "id": e.id,
         "type": e.type,
@@ -42,39 +42,39 @@ def evento_json(e: Event) -> dict[str, Any]:
     }
 
 
-async def listar_eventos(session: AsyncSession, filtro: ConsultaEventos) -> list[dict[str, Any]]:
-    q = select(Event).where(Event.round == filtro.turno)
-    if filtro.desde:
-        q = q.where(Event.occurred_at > filtro.desde)
-    if filtro.ate:
-        q = q.where(Event.occurred_at <= filtro.ate)
-    if filtro.tipos:
-        q = q.where(Event.type.in_(filtro.tipos))
-    if filtro.cargo:
-        q = q.where(or_(Event.office_code == filtro.cargo, Event.office_code.is_(None)))
-    if filtro.nivel and filtro.recorte_id:
+async def list_events(session: AsyncSession, filtro: EventsQuery) -> list[dict[str, Any]]:
+    q = select(Event).where(Event.round == filtro.round)
+    if filtro.since:
+        q = q.where(Event.occurred_at > filtro.since)
+    if filtro.until:
+        q = q.where(Event.occurred_at <= filtro.until)
+    if filtro.types:
+        q = q.where(Event.type.in_(filtro.types))
+    if filtro.office_code:
+        q = q.where(or_(Event.office_code == filtro.office_code, Event.office_code.is_(None)))
+    if filtro.level and filtro.geo_area_id:
         q = q.where(
             or_(
-                and_(Event.level == filtro.nivel, Event.geo_area_id == filtro.recorte_id),
+                and_(Event.level == filtro.level, Event.geo_area_id == filtro.geo_area_id),
                 Event.type == "start",
             )
         )
     rows = (
-        (await session.execute(q.order_by(Event.occurred_at.desc(), Event.id.desc()).limit(filtro.limite)))
+        (await session.execute(q.order_by(Event.occurred_at.desc(), Event.id.desc()).limit(filtro.limit)))
         .scalars()
         .all()
     )
-    return [evento_json(e) for e in rows]
+    return [event_json(e) for e in rows]
 
 
-async def linha_do_tempo(session: AsyncSession, turno: int) -> dict[str, Any]:
+async def timeline(session: AsyncSession, round_number: int) -> dict[str, Any]:
     ini, fim = (
         await session.execute(
             select(func.min(ResultSnapshot.tallied_at), func.max(ResultSnapshot.tallied_at)).where(
-                ResultSnapshot.round == turno, ResultSnapshot.level.in_(["country", "state"])
+                ResultSnapshot.round == round_number, ResultSnapshot.level.in_(["country", "state"])
             )
         )
     ).one()
-    eventos = await listar_eventos(session, ConsultaEventos(turno=turno, limite=300))
+    eventos = await list_events(session, EventsQuery(round=round_number, limit=300))
     eventos = [e for e in eventos if e["level"] in ("country", "state", None)]
     return {"start": iso(ini), "end": iso(fim), "now": iso(fim), "events": eventos}

@@ -33,13 +33,13 @@ def result_document(
     t: float,
     only_elected: bool = False,
 ) -> tuple[str, dict[str, Any]] | None:
-    uf, municipality, zone = area
-    office = pub.office(office_code, uf)
+    state_code, municipality, zone = area
+    office = pub.office(office_code, state_code)
     if office is None or office.election_code != election:
         return None
-    if office_code != 1 and uf == "br":
+    if office_code != 1 and state_code == "br":
         return None
-    times, start, end = pub.time_range(uf, municipality, zone)
+    times, start, end = pub.time_range(state_code, municipality, zone)
     generation, last = pub.generation(times, t)
     sums = pub.sums(office, start, end, t)
     situation, seats_by_alliance, decided, _ = pub.situation(office, t)
@@ -51,7 +51,7 @@ def result_document(
     document = {
         **_header(election, t, generation, last),
         "tf": "s" if sums["st"] == sums["ts"] else "n",
-        "md": "s" if (decided and uf == office.uf and municipality is None) else "n",
+        "md": "s" if (decided and state_code == office.state_code and municipality is None) else "n",
         "s": sections_block(sums["ts"], sums["st"]),
         "e": electorate_block(sums["te"], sums["est"], sums["c"]),
         "v": _votes_block(total_voters, valid, sums["brancos"], sums["nulos"]),
@@ -185,19 +185,21 @@ def _add_party_list_votes(
             group["_v"] += int(party_votes[j])
 
 
-def tracking_document(pub: Publication, election: int, uf: str, t: float) -> tuple[str, dict[str, Any]]:
+def tracking_document(
+    pub: Publication, election: int, state_code: str, t: float
+) -> tuple[str, dict[str, Any]]:
     scenario = pub.scenario
-    times, start, end = pub.time_range(uf, None, None)
+    times, start, end = pub.time_range(state_code, None, None)
     generation, _ = pub.generation(times, t)
     dg, hg = format_datetime(round_of(t))
-    items = [_tracking_item(pub, "br" if uf == "br" else "uf", uf, start, end, times, t)]
-    if uf == "br":
-        for state in scenario.ufs:
+    items = [_tracking_item(pub, "br" if state_code == "br" else "uf", state_code, start, end, times, t)]
+    if state_code == "br":
+        for state in scenario.states:
             state_start, state_end = scenario.state_ranges[state]
             items.append(_tracking_item(pub, "uf", state, state_start, state_end, pub.state_times[state], t))
     else:
         for m in scenario.municipalities:
-            if m.uf == uf:
+            if m.state_code == state_code:
                 times_mun = pub.municipality_times[m.idx]
                 items.append(_tracking_item(pub, "mun", f"{m.tse_code:05d}", m.start, m.end, times_mun, t))
     document = {"ele": str(election), "t": "1", "f": "o", "dg": dg, "hg": hg, "idg": generation, "abr": items}
@@ -239,7 +241,7 @@ def _tracking_item(
 
 
 def _municipality_counts(pub: Publication, kind: str, code: str, t: float) -> dict[str, str]:
-    municipalities = [m for m in pub.scenario.municipalities if kind == "br" or m.uf == code]
+    municipalities = [m for m in pub.scenario.municipalities if kind == "br" or m.state_code == code]
     finished = partial = 0
     for m in municipalities:
         k = int(np.searchsorted(pub.municipality_times[m.idx], t, side="right"))

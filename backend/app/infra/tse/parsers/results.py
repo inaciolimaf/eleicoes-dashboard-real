@@ -10,72 +10,72 @@ from app.infra.tse.parsers.common import generation_id
 
 @dataclass
 class RunningMateTSE:
-    nome: str
+    name: str
     tipo: str
 
 
 @dataclass
 class CandidateTSE:
-    sqcand: str
-    numero: int
-    nome: str
-    nome_urna: str
-    partido_sigla: str
-    partido_numero: int
-    agremiacao: str
-    agremiacao_numero: str
-    votos: int
-    pct_validos: float
-    eleito: bool
-    situacao_tse: str
-    destinacao: str
-    vices: list[RunningMateTSE] = field(default_factory=list)
+    tse_candidate_id: str
+    number: int
+    name: str
+    ballot_name: str
+    party_abbreviation: str
+    party_number: int
+    alliance: str
+    alliance_number: str
+    votes: int
+    pct_valid: float
+    elected: bool
+    tse_status: str
+    vote_destination: str
+    running_mates: list[RunningMateTSE] = field(default_factory=list)
 
 
 @dataclass
 class AllianceTSE:
-    numero: str
-    nome: str
+    number: str
+    name: str
     tipo: str
-    partidos: list[str]
-    votos: int
-    vagas: int | None
+    parties: list[str]
+    votes: int
+    seats: int | None
 
 
 @dataclass
 class TotalsTSE:
-    eleitorado: int = 0
-    eleitorado_apurado: int = 0
-    secoes_total: int = 0
-    secoes_totalizadas: int = 0
-    pct_secoes: float = 0.0
-    comparecimento: int = 0
-    pct_comparecimento: float = 0.0
-    abstencao: int = 0
-    pct_abstencao: float = 0.0
-    votos_total: int = 0
-    votos_validos: int = 0
-    pct_validos: float = 0.0
-    brancos: int = 0
-    pct_brancos: float = 0.0
-    nulos: int = 0
-    pct_nulos: float = 0.0
+    electorate: int = 0
+    tallied_electorate: int = 0
+    sections_total: int = 0
+    sections_tallied: int = 0
+    pct_sections: float = 0.0
+    turnout: int = 0
+    pct_turnout: float = 0.0
+    abstention: int = 0
+    pct_abstention: float = 0.0
+    total_votes: int = 0
+    valid_votes: int = 0
+    pct_valid: float = 0.0
+    blank_votes: int = 0
+    pct_blank: float = 0.0
+    null_votes: int = 0
+    pct_null: float = 0.0
 
 
 @dataclass
 class ResultTSE:
-    cd_eleicao: int
-    turno: int
-    cd_cargo: int
-    vagas: int | None
-    idg: str
-    gerado_em: datetime | None
-    totalizado_em: datetime | None
+    election_code: int
+    round: int
+    office_code: int
+    seats: int | None
+    generation_id: str
+    generated_at: datetime | None
+    tallied_at: datetime | None
     final: bool
-    matematicamente_definido: bool
-    totais: TotalsTSE
-    candidatos: list[CandidateTSE]
-    agremiacoes: list[AllianceTSE]
+    mathematically_decided: bool
+    totals: TotalsTSE
+    candidates: list[CandidateTSE]
+    alliances: list[AllianceTSE]
 
 
 def _pct(part: int, whole: int) -> float:
@@ -87,66 +87,66 @@ def _totals(data: dict[str, Any]) -> TotalsTSE:
     electorate = data.get("e") or {}
     votes = data.get("v") or {}
     totals = TotalsTSE(
-        eleitorado=integer(electorate.get("te")),
-        eleitorado_apurado=integer(electorate.get("est")),
-        secoes_total=integer(sections.get("ts")),
-        secoes_totalizadas=integer(sections.get("st")),
-        pct_secoes=decimal(sections.get("pstn", sections.get("pst"))),
-        comparecimento=integer(electorate.get("c")),
-        abstencao=integer(electorate.get("a")),
-        votos_total=integer(votes.get("tv")),
-        votos_validos=integer(votes.get("vv")),
-        brancos=integer(votes.get("vb")),
-        nulos=integer(votes.get("tvn", votes.get("vn"))),
+        electorate=integer(electorate.get("te")),
+        tallied_electorate=integer(electorate.get("est")),
+        sections_total=integer(sections.get("ts")),
+        sections_tallied=integer(sections.get("st")),
+        pct_sections=decimal(sections.get("pstn", sections.get("pst"))),
+        turnout=integer(electorate.get("c")),
+        abstention=integer(electorate.get("a")),
+        total_votes=integer(votes.get("tv")),
+        valid_votes=integer(votes.get("vv")),
+        blank_votes=integer(votes.get("vb")),
+        null_votes=integer(votes.get("tvn", votes.get("vn"))),
     )
-    if not totals.comparecimento and totals.votos_total:
-        totals.comparecimento = totals.votos_total
+    if not totals.turnout and totals.total_votes:
+        totals.turnout = totals.total_votes
     _turnout_percentages(totals, electorate)
     return totals
 
 
 def _turnout_percentages(totals: TotalsTSE, electorate: dict[str, Any]) -> None:
-    totals.pct_comparecimento = decimal(electorate.get("pcn", electorate.get("pc"))) or _pct(
-        totals.comparecimento, totals.eleitorado_apurado
+    totals.pct_turnout = decimal(electorate.get("pcn", electorate.get("pc"))) or _pct(
+        totals.turnout, totals.tallied_electorate
     )
-    totals.pct_abstencao = decimal(electorate.get("pan", electorate.get("pa"))) or _pct(
-        totals.abstencao, totals.eleitorado_apurado
+    totals.pct_abstention = decimal(electorate.get("pan", electorate.get("pa"))) or _pct(
+        totals.abstention, totals.tallied_electorate
     )
-    base = totals.votos_total or totals.comparecimento
-    totals.pct_validos = _pct(totals.votos_validos, base)
-    totals.pct_brancos = _pct(totals.brancos, base)
-    totals.pct_nulos = _pct(totals.nulos, base)
-    if not totals.pct_secoes and totals.secoes_total:
-        totals.pct_secoes = _pct(totals.secoes_totalizadas, totals.secoes_total)
+    base = totals.total_votes or totals.turnout
+    totals.pct_valid = _pct(totals.valid_votes, base)
+    totals.pct_blank = _pct(totals.blank_votes, base)
+    totals.pct_null = _pct(totals.null_votes, base)
+    if not totals.pct_sections and totals.sections_total:
+        totals.pct_sections = _pct(totals.sections_tallied, totals.sections_total)
 
 
-def _select_office(data: dict[str, Any], cd_cargo: int | None) -> dict[str, Any] | None:
+def _select_office(data: dict[str, Any], office_code: int | None) -> dict[str, Any] | None:
     offices: list[dict[str, Any]] = data.get("carg") or []
     if not offices:
         return None
     selected: dict[str, Any] = next(
-        (o for o in offices if cd_cargo is None or integer(o.get("cd")) == cd_cargo), offices[0]
+        (o for o in offices if office_code is None or integer(o.get("cd")) == office_code), offices[0]
     )
     return selected
 
 
 def _read_candidate(cand: dict[str, Any], party: dict[str, Any], alliance: dict[str, Any]) -> CandidateTSE:
     return CandidateTSE(
-        sqcand=str(cand.get("sqcand") or cand.get("n")),
-        numero=integer(cand.get("n")),
-        nome=str(cand.get("nm") or ""),
-        nome_urna=str(cand.get("nmu") or cand.get("nm") or ""),
-        partido_sigla=str(party.get("sg") or ""),
-        partido_numero=integer(party.get("n")),
-        agremiacao=str(alliance.get("nm") or party.get("nm") or ""),
-        agremiacao_numero=str(alliance.get("n") or ""),
-        votos=integer(cand.get("vap")),
-        pct_validos=decimal(cand.get("pvapn", cand.get("pvap"))),
-        eleito=yes_no(cand.get("e")),
-        situacao_tse=str(cand.get("st") or ""),
-        destinacao=str(cand.get("dvt") or "Válido"),
-        vices=[
-            RunningMateTSE(nome=str(x.get("nmu") or x.get("nm") or ""), tipo=str(x.get("tp") or "v"))
+        tse_candidate_id=str(cand.get("sqcand") or cand.get("n")),
+        number=integer(cand.get("n")),
+        name=str(cand.get("nm") or ""),
+        ballot_name=str(cand.get("nmu") or cand.get("nm") or ""),
+        party_abbreviation=str(party.get("sg") or ""),
+        party_number=integer(party.get("n")),
+        alliance=str(alliance.get("nm") or party.get("nm") or ""),
+        alliance_number=str(alliance.get("n") or ""),
+        votes=integer(cand.get("vap")),
+        pct_valid=decimal(cand.get("pvapn", cand.get("pvap"))),
+        elected=yes_no(cand.get("e")),
+        tse_status=str(cand.get("st") or ""),
+        vote_destination=str(cand.get("dvt") or "Válido"),
+        running_mates=[
+            RunningMateTSE(name=str(x.get("nmu") or x.get("nm") or ""), tipo=str(x.get("tp") or "v"))
             for x in (cand.get("vs") or [])
         ],
     )
@@ -164,31 +164,31 @@ def _read_alliance(alliance: dict[str, Any]) -> tuple[AllianceTSE, list[Candidat
             candidates.append(_read_candidate(cand, party, alliance))
         votes += integer(party.get("tvl"))
     row = AllianceTSE(
-        numero=str(alliance.get("n") or ""),
-        nome=str(alliance.get("nm") or "/".join(acronyms)),
+        number=str(alliance.get("n") or ""),
+        name=str(alliance.get("nm") or "/".join(acronyms)),
         tipo=str(alliance.get("tp") or "i"),
-        partidos=acronyms,
-        votos=integer(alliance.get("tvtl"), votes) or votes,
-        vagas=integer_or_none(alliance.get("vag")),
+        parties=acronyms,
+        votes=integer(alliance.get("tvtl"), votes) or votes,
+        seats=integer_or_none(alliance.get("vag")),
     )
     return row, candidates
 
 
 def _finish_percentages(totals: TotalsTSE, candidates: list[CandidateTSE]) -> None:
-    if totals.votos_validos == 0 and candidates:
-        totals.votos_validos = sum(c.votos for c in candidates if c.destinacao.startswith("V"))
+    if totals.valid_votes == 0 and candidates:
+        totals.valid_votes = sum(c.votes for c in candidates if c.vote_destination.startswith("V"))
     for candidate in candidates:
-        if not candidate.pct_validos and totals.votos_validos:
-            candidate.pct_validos = _pct(candidate.votos, totals.votos_validos)
+        if not candidate.pct_valid and totals.valid_votes:
+            candidate.pct_valid = _pct(candidate.votes, totals.valid_votes)
 
 
-def parse_result(data: dict[str, Any], cd_cargo: int | None = None) -> ResultTSE:
+def parse_result(data: dict[str, Any], office_code: int | None = None) -> ResultTSE:
     totals = _totals(data)
-    office = _select_office(data, cd_cargo)
+    office = _select_office(data, office_code)
     candidates: list[CandidateTSE] = []
     alliances: list[AllianceTSE] = []
     seats = None
-    code = cd_cargo or 0
+    code = office_code or 0
     if office:
         code = integer(office.get("cd"), code)
         seats = integer_or_none(office.get("nv"))
@@ -197,19 +197,19 @@ def parse_result(data: dict[str, Any], cd_cargo: int | None = None) -> ResultTSE
             alliances.append(row)
             candidates.extend(read)
     _finish_percentages(totals, candidates)
-    candidates.sort(key=lambda c: (-c.votos, c.numero))
+    candidates.sort(key=lambda c: (-c.votes, c.number))
     md_raw = str(data.get("md") or "").strip().lower()
     return ResultTSE(
-        cd_eleicao=integer(data.get("ele")),
-        turno=integer(data.get("t"), 1),
-        cd_cargo=code,
-        vagas=seats,
-        idg=generation_id(data),
-        gerado_em=date_time(data.get("dg"), data.get("hg")),
-        totalizado_em=date_time(data.get("dt"), data.get("ht")) or date_time(data.get("dg"), data.get("hg")),
+        election_code=integer(data.get("ele")),
+        round=integer(data.get("t"), 1),
+        office_code=code,
+        seats=seats,
+        generation_id=generation_id(data),
+        generated_at=date_time(data.get("dg"), data.get("hg")),
+        tallied_at=date_time(data.get("dt"), data.get("ht")) or date_time(data.get("dg"), data.get("hg")),
         final=yes_no(data.get("tf")),
-        matematicamente_definido=md_raw in {"s", "e", "sim"},
-        totais=totals,
-        candidatos=candidates,
-        agremiacoes=alliances,
+        mathematically_decided=md_raw in {"s", "e", "sim"},
+        totals=totals,
+        candidates=candidates,
+        alliances=alliances,
     )

@@ -92,7 +92,7 @@ def _ballot_fields(ballot: BallotBoxReport | None, sec: PollingSection | None) -
     }
 
 
-async def detalhe_secao(session: AsyncSession, turno: int, sid: str) -> dict[str, Any] | None:
+async def section_detail(session: AsyncSession, turno: int, sid: str) -> dict[str, Any] | None:
     r = parse(sid, "section")
     sec = await session.get(PollingSection, sid)
     ballot = (
@@ -109,11 +109,11 @@ async def detalhe_secao(session: AsyncSession, turno: int, sid: str) -> dict[str
         ballot.polling_place_id if ballot else None
     )
     loc = await session.get(PollingPlace, polling_place_id) if polling_place_id else None
-    offices = await _section_offices(session, turno, ballot, r.uf) if ballot else []
+    offices = await _section_offices(session, turno, ballot, r.state_code) if ballot else []
     return {
         "id": sid,
         "number": r.section,
-        "state_code": r.uf,
+        "state_code": r.state_code,
         "municipality": {"id": r.municipality_id, "name": mun.name if mun else r.municipality_id},
         "zone": {"id": r.zone_id, "number": r.zone},
         "polling_place": {"id": polling_place_id, "name": loc.name if loc else None},

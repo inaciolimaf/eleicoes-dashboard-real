@@ -6,7 +6,7 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from app.infra.tse import jws
-from app.infra.tse.bu import BallotBoxSpec, BallotVote, decode, encode
+from app.infra.tse.ballot_box import BallotBoxSpec, BallotVote, decode, encode
 from app.infra.tse.keys import key_for_environment
 from tse_fake.key import private_key_fake
 
@@ -78,10 +78,10 @@ def test_boletim_de_urna_ida_e_volta():
         )
     )
     bu = decode(raw)
-    assert (bu.municipio, bu.zona, bu.local, bu.secao) == (71072, 1, 1015, 120)
-    assert bu.eleitores_aptos == 320 and bu.comparecimento == 250
-    pres, dep = bu.cargos
-    assert pres.cd_cargo == 1 and pres.validos == 230 and pres.brancos == 5 and pres.nulos == 15
-    assert dep.cd_cargo == 6 and dep.validos == 40
-    assert [v.tipo for v in dep.votos] == ["nominal", "legenda", "nulo"]
-    assert bu.emitido_em.isoformat() == "2026-10-04T20:15:23+00:00"
+    assert (bu.municipality, bu.zone, bu.polling_place, bu.section) == (71072, 1, 1015, 120)
+    assert bu.eligible_voters == 320 and bu.turnout == 250
+    pres, dep = bu.offices
+    assert pres.office_code == 1 and pres.validos == 230 and pres.blank_votes == 5 and pres.null_votes == 15
+    assert dep.office_code == 6 and dep.validos == 40
+    assert [v.tipo for v in dep.votes] == ["nominal", "legenda", "nulo"]
+    assert bu.issued_at.isoformat() == "2026-10-04T20:15:23+00:00"

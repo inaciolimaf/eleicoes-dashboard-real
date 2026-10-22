@@ -18,7 +18,7 @@ class ProportionalOffice:
     """Proportional office to generate: TSE code, state, seats and digits of the candidate number."""
 
     code: int
-    uf: str
+    state_code: str
     seats: int
     digits: int
 
@@ -48,7 +48,7 @@ class StateOffice:
     """Votes of one office in one area (the whole country for President, one state for the others)."""
 
     office_code: int
-    uf: str  # "br" or a state acronym
+    state_code: str  # "br" or a state acronym
     election_code: int
     system: str
     seats: int
@@ -66,11 +66,11 @@ class StateOffice:
 @dataclass
 class Municipality:
     idx: int
-    uf: str
+    state_code: str
     tse_code: int
     ibge_code: int
     name: str
-    capital: bool
+    is_capital: bool
     lat: float
     lon: float
     region: str
@@ -82,7 +82,7 @@ class Municipality:
 @dataclass
 class Zone:
     idx: int
-    uf: str
+    state_code: str
     number: int
     municipality: int
     start: int = 0

@@ -11,8 +11,8 @@ import pytest
 from app.core.db import get_sessionmaker
 from app.infra import queue
 from app.infra.realtime import topics
-from app.modules.results import ingestion as ingestao
-from app.modules.results import queries as resultados
+from app.modules.results import ingestion as ingestion
+from app.modules.results import queries as results_queries
 from app.worker.jobs import Processor, tracking
 
 
@@ -43,12 +43,12 @@ def _preparar_tracking(monkeypatch: pytest.MonkeyPatch, ordem: list[str]) -> Non
     async def progresso_mudou(session, turno, acomp, uf, capturado) -> list[dict[str, str]]:
         return [{"level": "country"}]
 
-    async def progresso(session, turno, t) -> dict[str, bool]:
+    async def progress(session, turno, t) -> dict[str, bool]:
         return {"ok": True}
 
-    monkeypatch.setattr(tracking, "parse_acompanhamento", lambda dados: None)
-    monkeypatch.setattr(ingestao, "ingerir_progresso", progresso_mudou)
-    monkeypatch.setattr(resultados, "progresso", progresso)
+    monkeypatch.setattr(tracking, "parse_tracking", lambda dados: None)
+    monkeypatch.setattr(ingestion, "ingest_progress", progresso_mudou)
+    monkeypatch.setattr(results_queries, "progress", progress)
     monkeypatch.setattr(topics, "publish", publicar)
 
 

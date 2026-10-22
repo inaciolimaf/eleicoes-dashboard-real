@@ -30,8 +30,8 @@ async def _regions(session: AsyncSession) -> dict[str, str | None]:
 
 async def _dimension(
     session: AsyncSession,
-    turno: int,
-    cd: int,
+    round_number: int,
+    office_code: int,
     level: str,
     r: GeoArea,
     at: datetime | None,
@@ -39,15 +39,17 @@ async def _dimension(
 ) -> tuple[Lines, Dimension]:
     regions = await _regions(session)
     if level == "state":
-        return await state_dimension(session, turno, cd, at, with_candidates)
+        return await state_dimension(session, round_number, office_code, at, with_candidates)
     if level == "municipality":
-        return await municipality_dimension(session, turno, cd, r, at, with_candidates, regions)
+        return await municipality_dimension(
+            session, round_number, office_code, r, at, with_candidates, regions
+        )
     if level == "zone":
-        return await zone_dimension(session, turno, cd, r, at, with_candidates, regions)
+        return await zone_dimension(session, round_number, office_code, r, at, with_candidates, regions)
     if level == "polling_place":
-        return await polling_place_dimension(session, turno, cd, r, at, regions)
+        return await polling_place_dimension(session, round_number, office_code, r, at, regions)
     if level == "section":
-        return await section_dimension(session, turno, cd, r, at, regions)
+        return await section_dimension(session, round_number, office_code, r, at, regions)
     return {}, []
 
 
@@ -79,24 +81,24 @@ def _candidate_rows(
     return rows
 
 
-async def filhos(
+async def children(
     session: AsyncSession,
-    turno: int,
-    cd: int,
+    round_number: int,
+    office_code: int,
     r: GeoArea,
     t: datetime | None,
-    nivel_filhos: str | None = None,
-    candidatos: list[str] | None = None,
+    child_level: str | None = None,
+    candidates: list[str] | None = None,
 ) -> dict[str, Any]:
-    level = nivel_filhos or CHILD_LEVEL.get(r.level)
+    level = child_level or CHILD_LEVEL.get(r.level)
     if level is None:
         return {"child_level": None, "candidates": [], "items": []}
-    lines, dimension = await _dimension(session, turno, cd, level, r, t, bool(candidatos))
-    meta = await candidate_meta(session, _involved_candidates(lines, candidatos))
+    lines, dimension = await _dimension(session, round_number, office_code, level, r, t, bool(candidates))
+    meta = await candidate_meta(session, _involved_candidates(lines, candidates))
     wins: dict[str, int] = {}
     items: list[dict[str, Any]] = []
     for d in dimension:
-        item = build_item(level, d, lines.get(d["id"]), meta, candidatos)
+        item = build_item(level, d, lines.get(d["id"]), meta, candidates)
         leader = item["leader"]
         if leader:
             sq = leader["tse_candidate_id"]
@@ -104,7 +106,7 @@ async def filhos(
         items.append(item)
     return {
         "child_level": level,
-        "candidates": _candidate_rows(wins, candidatos, meta),
+        "candidates": _candidate_rows(wins, candidates, meta),
         "items": items,
     }
 
@@ -136,7 +138,9 @@ async def _descriptor(session: AsyncSession, level: str, rid: str, line: Line) -
     return d
 
 
-async def item_filho(session: AsyncSession, turno: int, cd: int, linha: Line) -> dict[str, Any]:
+async def child_item(
+    session: AsyncSession, round_number: int, office_code: int, linha: Line
+) -> dict[str, Any]:
     """Item of `/geo-areas/children` for a single area (used by the real-time updates)."""
     level = linha["level"]
     d = await _descriptor(session, level, linha["geo_area_id"], linha)

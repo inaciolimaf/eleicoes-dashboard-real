@@ -143,10 +143,10 @@ def _parse_section_id(section_id: str) -> tuple[str, int, int, int] | None:
         return None
     if (
         geo.level != "section"
-        or geo.uf is None
+        or geo.state_code is None
         or geo.municipality is None
         or geo.zone is None
         or geo.section is None
     ):
         return None
-    return geo.uf, geo.municipality, geo.zone, geo.section
+    return geo.state_code, geo.municipality, geo.zone, geo.section

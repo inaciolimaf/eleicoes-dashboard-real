@@ -28,4 +28,3 @@ def key_for_environment(environment: str) -> JwsKey:
 
 
 # Name used before the English rename; the collector still imports it.
-chave_do_ambiente = key_for_environment
