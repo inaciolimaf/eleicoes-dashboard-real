@@ -38,14 +38,14 @@ export const qk = {
 };
 
 export interface EventFilter {
-  cargo?: number | null;
-  nivel?: Level | null;
+  office?: number | null;
+  level?: Level | null;
   id?: string | null;
-  tipos?: EventType[];
-  limite?: number;
+  types?: EventType[];
+  limit?: number;
 }
 
-/** Opções comuns: ao vivo = cache patchado pelo WS + polling de segurança (mais frequente se o WS cair); com t = histórico imutável */
+/** Common options. Live: the cache is patched by the WebSocket, with a safety poll (more often if the socket is down). With a time T: immutable history. */
 export function timeQueryOptions(t: string | null, wsAberto: boolean) {
   return t
     ? { staleTime: Infinity, gcTime: 5 * 60_000, placeholderData: keepPreviousData }
@@ -56,4 +56,5 @@ export function timeQueryOptions(t: string | null, wsAberto: boolean) {
       };
 }
 
+/** true while the WebSocket is open. */
 export const useWsOpen = () => useUi((s) => s.wsEstado === "aberto");

@@ -1,12 +1,12 @@
 import { useEffect } from "react";
 import { liveSocket } from "./socket";
 
-/** Assina tópicos do WebSocket enquanto o componente estiver montado (contagem de referência). */
-export function useLive(topicos: (string | null | undefined | false)[]) {
-  const lista = topicos.filter((t): t is string => typeof t === "string" && t.length > 0);
-  const chave = [...new Set(lista)].sort().join("|");
+/** Subscribes to WebSocket topics while the component is mounted (reference-counted). */
+export function useLive(topics: (string | null | undefined | false)[]) {
+  const list = topics.filter((t): t is string => typeof t === "string" && t.length > 0);
+  const key = [...new Set(list)].sort().join("|");
   useEffect(() => {
-    if (!chave) return;
-    return liveSocket.assinar(chave.split("|"));
-  }, [chave]);
+    if (!key) return;
+    return liveSocket.subscribe(key.split("|"));
+  }, [key]);
 }

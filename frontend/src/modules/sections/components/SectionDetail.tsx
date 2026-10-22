@@ -30,19 +30,250 @@ import { fmtInt, fmtPct } from "../../../lib/formatting";
 import { useCandidateColor } from "../../../lib/useColor";
 import { Loading, ErrorView, NoData } from "../../../components/States";
 import { BadgeStatus } from "../../polling-places";
-import type { TallyStatus } from "../../../api/models";
+import type { SectionOfficeDto, PollingSectionDto, TallyStatus, SectionVoteDto } from "../../../api/models";
 
-function Info({ rotulo, children }: { rotulo: string; children: React.ReactNode }) {
+function Info({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <Stack gap={0}>
       <Text size="xs" c="dimmed" tt="uppercase" fw={600}>
-        {rotulo}
+        {label}
       </Text>
       <Box fz="sm">{children}</Box>
     </Stack>
   );
 }
 
+function SignatureBadge({ valid }: { valid: boolean | null | undefined }) {
+  if (valid === true)
+    return (
+      <Badge color="teal" variant="light" leftSection={<IconShieldCheck size={12} />}>
+        Assinatura válida
+      </Badge>
+    );
+  if (valid === false)
+    return (
+      <Badge color="red" variant="light" leftSection={<IconShieldX size={12} />}>
+        Assinatura inválida
+      </Badge>
+    );
+  return (
+    <Badge color="gray" variant="light" leftSection={<IconShieldQuestion size={12} />}>
+      Não verificada
+    </Badge>
+  );
+}
+
+function SectionHeader({ section }: { section: PollingSectionDto }) {
+  return (
+    <Group justify="space-between" align="flex-start">
+      <Stack gap={2}>
+        <Text fw={800} size="lg">
+          Seção <span className="num">{section.number}</span>
+        </Text>
+        <Text size="sm">
+          <Anchor component={Link} to={`/locais/${section.polling_place.id}`}>
+            {section.polling_place.name}
+          </Anchor>{" "}
+          ·{" "}
+          <Anchor component={Link} to={`/explorar/zona/${section.zone.id}`}>
+            Zona {section.zone.number}
+          </Anchor>{" "}
+          ·{" "}
+          <Anchor component={Link} to={`/explorar/municipio/${section.municipality.id}`}>
+            {section.municipality.name}/{section.state_code.toUpperCase()}
+          </Anchor>
+        </Text>
+      </Stack>
+      <Group gap={6}>
+        <BadgeStatus status={section.status as TallyStatus} />
+        <SignatureBadge valid={section.signature_valid} />
+      </Group>
+    </Group>
+  );
+}
+
+function SectionFacts({ section, compact }: { section: PollingSectionDto; compact?: boolean }) {
+  const turnoutPct =
+    section.turnout != null && section.eligible_voters
+      ? fmtPct((section.turnout / section.eligible_voters) * 100, 1)
+      : "—";
+  return (
+    <SimpleGrid cols={{ base: 2, sm: compact ? 2 : 4 }} spacing="sm">
+      <Info label="Eleitores aptos">
+        <span className="num">{fmtInt(section.eligible_voters)}</span>
+      </Info>
+      <Info label="Comparecimento">
+        <span className="num">{fmtInt(section.turnout)}</span>{" "}
+        <Text span c="dimmed" size="xs">
+          ({turnoutPct})
+        </Text>
+      </Info>
+      <Info label="BU emitido (urna)">
+        <span className="num">{fmtDateTime(section.issued_at)}</span>
+      </Info>
+      <Info label="Totalizado">
+        <span className="num">{fmtTime(section.tallied_at)}</span>
+      </Info>
+    </SimpleGrid>
+  );
+}
+
+/** Hash of the ballot box, copyable, and the link to the raw BU at the TSE. */
+function HashRow({ section }: { section: PollingSectionDto }) {
+  return (
+    <Group gap="xs" wrap="nowrap" align="center">
+      <Text size="xs" c="dimmed" fw={600} tt="uppercase">
+        Hash
+      </Text>
+      <Code style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        {section.hash ?? "—"}
+      </Code>
+      {section.hash && (
+        <CopyButton value={section.hash}>
+          {({ copied, copy }) => (
+            <Tooltip label={copied ? "Copiado" : "Copiar hash"}>
+              <Button size="compact-xs" variant="subtle" onClick={copy}>
+                {copied ? <IconCheck size={14} /> : <IconCopy size={14} />}
+              </Button>
+            </Tooltip>
+          )}
+        </CopyButton>
+      )}
+      {section.bu_url && (
+        <Button
+          size="compact-xs"
+          variant="light"
+          component="a"
+          href={section.bu_url}
+          target="_blank"
+          rel="noopener"
+          leftSection={<IconDownload size={12} />}
+        >
+          BU bruto (TSE)
+        </Button>
+      )}
+    </Group>
+  );
+}
+
+function VoteRow({
+  vote,
+  office,
+  max,
+  color,
+}: {
+  vote: SectionVoteDto;
+  office: SectionOfficeDto;
+  max: number;
+  color: string;
+}) {
+  return (
+    <Table.Tr>
+      <Table.Td className="num" fw={700}>
+        {vote.number ?? "—"}
+      </Table.Td>
+      <Table.Td>
+        <Stack gap={2}>
+          <Text size="sm" fw={600}>
+            {vote.ballot_name ??
+              (vote.kind === "legenda" ? `Legenda ${vote.party_abbreviation ?? ""}` : vote.kind)}
+            {vote.party_abbreviation && vote.ballot_name ? (
+              <Text span size="xs" c="dimmed">
+                {" "}
+                · {vote.party_abbreviation}
+              </Text>
+            ) : null}
+          </Text>
+          <Box className="barra-trilho" style={{ height: 4 }}>
+            <Box
+              className="barra-preenchida"
+              style={{ width: `${(vote.votes / max) * 100}%`, background: color }}
+            />
+          </Box>
+        </Stack>
+      </Table.Td>
+      <Table.Td ta="right" className="num">
+        {fmtInt(vote.votes)}
+      </Table.Td>
+      <Table.Td ta="right" className="num">
+        {fmtPct(office.valid_votes ? (vote.votes / office.valid_votes) * 100 : null, 1)}
+      </Table.Td>
+    </Table.Tr>
+  );
+}
+
+function OfficePanel({ office }: { office: SectionOfficeDto }) {
+  const candidateColor = useCandidateColor();
+  const votes = [...office.votes].sort((a, b) => b.votes - a.votes);
+  const max = votes[0]?.votes ?? 1;
+  return (
+    <Tabs.Panel value={String(office.office_code)} pt="xs">
+      <Group gap="lg" mb="xs">
+        <Text size="sm">
+          Válidos <b className="num">{fmtInt(office.valid_votes)}</b>
+        </Text>
+        <Text size="sm">
+          Brancos <b className="num">{fmtInt(office.blank_votes)}</b>
+        </Text>
+        <Text size="sm">
+          Nulos <b className="num">{fmtInt(office.null_votes)}</b>
+        </Text>
+        <Text size="sm">
+          Comparecimento <b className="num">{fmtInt(office.turnout)}</b>
+        </Text>
+      </Group>
+      <Table verticalSpacing={4} fz="sm" highlightOnHover>
+        <Table.Thead>
+          <Table.Tr>
+            <Table.Th>Nº</Table.Th>
+            <Table.Th>Candidato / legenda</Table.Th>
+            <Table.Th ta="right">Votos</Table.Th>
+            <Table.Th ta="right">%</Table.Th>
+          </Table.Tr>
+        </Table.Thead>
+        <Table.Tbody>
+          {votes.map((vote, i) => (
+            <VoteRow
+              key={`${vote.kind}-${vote.number}-${i}`}
+              vote={vote}
+              office={office}
+              max={max}
+              color={candidateColor(vote.tse_candidate_id, vote.color, vote.number ?? i)}
+            />
+          ))}
+        </Table.Tbody>
+      </Table>
+    </Tabs.Panel>
+  );
+}
+
+function OfficeResults({
+  section,
+  initialOffice,
+}: {
+  section: PollingSectionDto;
+  initialOffice: number | undefined;
+}) {
+  if (section.offices.length === 0) return <NoData titulo="Boletim de urna ainda não coletado" />;
+  return (
+    <Tabs defaultValue={String(initialOffice)} variant="outline">
+      <ScrollArea type="never">
+        <Tabs.List style={{ flexWrap: "nowrap" }}>
+          {section.offices.map((c) => (
+            <Tabs.Tab key={String(c.office_code)} value={String(c.office_code)}>
+              {c.name}
+            </Tabs.Tab>
+          ))}
+        </Tabs.List>
+      </ScrollArea>
+      {section.offices.map((office) => (
+        <OfficePanel key={String(office.office_code)} office={office} />
+      ))}
+    </Tabs>
+  );
+}
+
+/** Ballot box of a section: status, facts, the hash and the votes per office. */
 export function SectionDetail({
   secaoId,
   compacto,
@@ -50,194 +281,23 @@ export function SectionDetail({
   secaoId: string | null | undefined;
   compacto?: boolean;
 }) {
-  const f = useEffectiveFilter();
-  const q = useSection(secaoId, f.turno);
-  const corCand = useCandidateColor();
+  const filter = useEffectiveFilter();
+  const query = useSection(secaoId, filter.turno);
   if (!secaoId)
     return <NoData titulo="Escolha uma seção">Use a busca (Ctrl+K) ou configure o widget.</NoData>;
-  if (q.isLoading) return <Loading linhas={4} />;
-  if (q.error) return <ErrorView erro={q.error} onRetry={() => q.refetch()} />;
-  const s = q.data;
-  if (!s) return <NoData />;
-  const assinatura =
-    s.signature_valid === true ? (
-      <Badge color="teal" variant="light" leftSection={<IconShieldCheck size={12} />}>
-        Assinatura válida
-      </Badge>
-    ) : s.signature_valid === false ? (
-      <Badge color="red" variant="light" leftSection={<IconShieldX size={12} />}>
-        Assinatura inválida
-      </Badge>
-    ) : (
-      <Badge color="gray" variant="light" leftSection={<IconShieldQuestion size={12} />}>
-        Não verificada
-      </Badge>
-    );
-  const cargoInicial =
-    s.offices.find((c) => Number(c.office_code) === f.cargo)?.office_code ?? s.offices[0]?.office_code;
+  if (query.isLoading) return <Loading linhas={4} />;
+  if (query.error) return <ErrorView erro={query.error} onRetry={() => query.refetch()} />;
+  const section = query.data;
+  if (!section) return <NoData />;
+  const initialOffice =
+    section.offices.find((c) => Number(c.office_code) === filter.cargo)?.office_code ??
+    section.offices[0]?.office_code;
   return (
     <Stack gap="sm">
-      <Group justify="space-between" align="flex-start">
-        <Stack gap={2}>
-          <Text fw={800} size="lg">
-            Seção <span className="num">{s.number}</span>
-          </Text>
-          <Text size="sm">
-            <Anchor component={Link} to={`/locais/${s.polling_place.id}`}>
-              {s.polling_place.name}
-            </Anchor>{" "}
-            ·{" "}
-            <Anchor component={Link} to={`/explorar/zona/${s.zone.id}`}>
-              Zona {s.zone.number}
-            </Anchor>{" "}
-            ·{" "}
-            <Anchor component={Link} to={`/explorar/municipio/${s.municipality.id}`}>
-              {s.municipality.name}/{s.state_code.toUpperCase()}
-            </Anchor>
-          </Text>
-        </Stack>
-        <Group gap={6}>
-          <BadgeStatus s={s.status as TallyStatus} />
-          {assinatura}
-        </Group>
-      </Group>
-      <SimpleGrid cols={{ base: 2, sm: compacto ? 2 : 4 }} spacing="sm">
-        <Info rotulo="Eleitores aptos">
-          <span className="num">{fmtInt(s.eligible_voters)}</span>
-        </Info>
-        <Info rotulo="Comparecimento">
-          <span className="num">{fmtInt(s.turnout)}</span>{" "}
-          <Text span c="dimmed" size="xs">
-            ({s.turnout != null && s.eligible_voters ? fmtPct((s.turnout / s.eligible_voters) * 100, 1) : "—"}
-            )
-          </Text>
-        </Info>
-        <Info rotulo="BU emitido (urna)">
-          <span className="num">{fmtDateTime(s.issued_at)}</span>
-        </Info>
-        <Info rotulo="Totalizado">
-          <span className="num">{fmtTime(s.tallied_at)}</span>
-        </Info>
-      </SimpleGrid>
-      {!compacto && (
-        <Group gap="xs" wrap="nowrap" align="center">
-          <Text size="xs" c="dimmed" fw={600} tt="uppercase">
-            Hash
-          </Text>
-          <Code style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {s.hash ?? "—"}
-          </Code>
-          {s.hash && (
-            <CopyButton value={s.hash}>
-              {({ copied, copy }) => (
-                <Tooltip label={copied ? "Copiado" : "Copiar hash"}>
-                  <Button size="compact-xs" variant="subtle" onClick={copy}>
-                    {copied ? <IconCheck size={14} /> : <IconCopy size={14} />}
-                  </Button>
-                </Tooltip>
-              )}
-            </CopyButton>
-          )}
-          {s.bu_url && (
-            <Button
-              size="compact-xs"
-              variant="light"
-              component="a"
-              href={s.bu_url}
-              target="_blank"
-              rel="noopener"
-              leftSection={<IconDownload size={12} />}
-            >
-              BU bruto (TSE)
-            </Button>
-          )}
-        </Group>
-      )}
-      {s.offices.length === 0 ? (
-        <NoData titulo="Boletim de urna ainda não coletado" />
-      ) : (
-        <Tabs defaultValue={String(cargoInicial)} variant="outline">
-          <ScrollArea type="never">
-            <Tabs.List style={{ flexWrap: "nowrap" }}>
-              {s.offices.map((c) => (
-                <Tabs.Tab key={String(c.office_code)} value={String(c.office_code)}>
-                  {c.name}
-                </Tabs.Tab>
-              ))}
-            </Tabs.List>
-          </ScrollArea>
-          {s.offices.map((c) => {
-            const votos = [...c.votes].sort((a, b) => b.votes - a.votes);
-            const max = votos[0]?.votes ?? 1;
-            return (
-              <Tabs.Panel key={String(c.office_code)} value={String(c.office_code)} pt="xs">
-                <Group gap="lg" mb="xs">
-                  <Text size="sm">
-                    Válidos <b className="num">{fmtInt(c.valid_votes)}</b>
-                  </Text>
-                  <Text size="sm">
-                    Brancos <b className="num">{fmtInt(c.blank_votes)}</b>
-                  </Text>
-                  <Text size="sm">
-                    Nulos <b className="num">{fmtInt(c.null_votes)}</b>
-                  </Text>
-                  <Text size="sm">
-                    Comparecimento <b className="num">{fmtInt(c.turnout)}</b>
-                  </Text>
-                </Group>
-                <Table verticalSpacing={4} fz="sm" highlightOnHover>
-                  <Table.Thead>
-                    <Table.Tr>
-                      <Table.Th>Nº</Table.Th>
-                      <Table.Th>Candidato / legenda</Table.Th>
-                      <Table.Th ta="right">Votos</Table.Th>
-                      <Table.Th ta="right">%</Table.Th>
-                    </Table.Tr>
-                  </Table.Thead>
-                  <Table.Tbody>
-                    {votos.map((v, i) => {
-                      const cor = corCand(v.tse_candidate_id, v.color, v.number ?? i);
-                      return (
-                        <Table.Tr key={`${v.kind}-${v.number}-${i}`}>
-                          <Table.Td className="num" fw={700}>
-                            {v.number ?? "—"}
-                          </Table.Td>
-                          <Table.Td>
-                            <Stack gap={2}>
-                              <Text size="sm" fw={600}>
-                                {v.ballot_name ??
-                                  (v.kind === "legenda" ? `Legenda ${v.party_abbreviation ?? ""}` : v.kind)}
-                                {v.party_abbreviation && v.ballot_name ? (
-                                  <Text span size="xs" c="dimmed">
-                                    {" "}
-                                    · {v.party_abbreviation}
-                                  </Text>
-                                ) : null}
-                              </Text>
-                              <Box className="barra-trilho" style={{ height: 4 }}>
-                                <Box
-                                  className="barra-preenchida"
-                                  style={{ width: `${(v.votes / max) * 100}%`, background: cor }}
-                                />
-                              </Box>
-                            </Stack>
-                          </Table.Td>
-                          <Table.Td ta="right" className="num">
-                            {fmtInt(v.votes)}
-                          </Table.Td>
-                          <Table.Td ta="right" className="num">
-                            {fmtPct(c.valid_votes ? (v.votes / c.valid_votes) * 100 : null, 1)}
-                          </Table.Td>
-                        </Table.Tr>
-                      );
-                    })}
-                  </Table.Tbody>
-                </Table>
-              </Tabs.Panel>
-            );
-          })}
-        </Tabs>
-      )}
+      <SectionHeader section={section} />
+      <SectionFacts section={section} compact={compacto} />
+      {!compacto && <HashRow section={section} />}
+      <OfficeResults section={section} initialOffice={initialOffice} />
     </Stack>
   );
 }

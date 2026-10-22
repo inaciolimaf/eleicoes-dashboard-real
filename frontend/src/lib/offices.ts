@@ -7,7 +7,7 @@ export interface OfficeOption {
   cds: number[];
 }
 
-/** Opções do SegmentedControl de cargo. Estadual/Distrital resolve para 7 ou 8 conforme a UF. */
+/** Options of the office SegmentedControl. State/district resolves to 7 or 8 depending on the state. */
 export const OFFICE_OPTIONS: OfficeOption[] = [
   { valor: "1", rotulo: "Presidente", curto: "Pres.", cds: [1] },
   { valor: "3", rotulo: "Governador", curto: "Gov.", cds: [3] },
@@ -25,43 +25,43 @@ export const OFFICE_NAME: Record<number, string> = {
   8: "Deputado Distrital",
 };
 
-export const segmentValue = (cd: number) => (cd === 8 ? "7" : String(cd));
+export const segmentValue = (code: number) => (code === 8 ? "7" : String(code));
 
-/** Ajusta Estadual × Distrital conforme a UF do recorte. */
-export function officeForState(cd: number, uf: string | null | undefined): number {
-  if (cd === 7 && uf === "df") return 8;
-  if (cd === 8 && uf && uf !== "df") return 7;
-  return cd;
+/** Adjusts state (7) × district (8) according to the state of the geo area. */
+export function officeForState(code: number, uf: string | null | undefined): number {
+  if (code === 7 && uf === "df") return 8;
+  if (code === 8 && uf && uf !== "df") return 7;
+  return code;
 }
 
 export function officesOfRound(
-  eleicoes: ElectionDto[] | undefined,
-  turno: number,
-  ciclo: string | null,
+  elections: ElectionDto[] | undefined,
+  round: number,
+  cycle: string | null,
 ): OfficeDto[] {
-  if (!eleicoes) return [];
-  const mapa = new Map<number, OfficeDto>();
-  for (const e of eleicoes) {
-    if (e.round !== turno) continue;
-    if (ciclo && e.cycle && e.cycle !== ciclo) continue;
-    for (const c of e.offices) mapa.set(Number(c.office_code), c);
+  if (!elections) return [];
+  const byCode = new Map<number, OfficeDto>();
+  for (const election of elections) {
+    if (election.round !== round) continue;
+    if (cycle && election.cycle && election.cycle !== cycle) continue;
+    for (const office of election.offices) byCode.set(Number(office.office_code), office);
   }
-  return [...mapa.values()].sort((a, b) => Number(a.office_code) - Number(b.office_code));
+  return [...byCode.values()].sort((a, b) => Number(a.office_code) - Number(b.office_code));
 }
 
-export function officeInfo(eleicoes: ElectionDto[] | undefined, cd: number): OfficeDto | undefined {
-  for (const e of eleicoes ?? []) {
-    const c = e.offices.find((x) => Number(x.office_code) === cd);
-    if (c) return c;
+export function officeInfo(elections: ElectionDto[] | undefined, code: number): OfficeDto | undefined {
+  for (const election of elections ?? []) {
+    const office = election.offices.find((x) => Number(x.office_code) === code);
+    if (office) return office;
   }
   return undefined;
 }
 
-/** Fallback quando /eleicoes ainda não carregou */
-export function defaultScope(cd: number): "br" | "uf" {
-  return cd === 1 ? "br" : "uf";
+/** Fallback while /elections has not loaded. */
+export function defaultScope(code: number): "br" | "uf" {
+  return code === 1 ? "br" : "uf";
 }
 
-export function defaultSystem(cd: number): "majoritario" | "proporcional" {
-  return cd === 6 || cd === 7 || cd === 8 ? "proporcional" : "majoritario";
+export function defaultSystem(code: number): "majoritario" | "proporcional" {
+  return code === 6 || code === 7 || code === 8 ? "proporcional" : "majoritario";
 }

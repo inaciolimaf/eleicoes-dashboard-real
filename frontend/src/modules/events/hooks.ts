@@ -1,35 +1,37 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import type { EventDto, TimelineDto } from "../../api/models";
-import { qk, EventFilter } from "../../api/query-keys";
+import { qk, type EventFilter } from "../../api/query-keys";
 
-export function useEventos(turno: number, f: EventFilter, t: string | null) {
-  const q = useQuery({
-    queryKey: qk.eventos(turno, f),
+/** Events of a round, newest first. With a selected time T only what had happened by T is shown. */
+export function useEvents(round: number, filter: EventFilter, t: string | null) {
+  const query = useQuery({
+    queryKey: qk.eventos(round, filter),
     queryFn: ({ signal }) =>
       api<EventDto[]>("/events", {
         params: {
-          round: turno,
-          limit: f.limite ?? 100,
-          types: f.tipos?.length ? f.tipos : undefined,
-          office: f.cargo ?? undefined,
-          level: f.nivel ?? undefined,
-          geo_area_id: f.id ?? undefined,
+          round,
+          limit: filter.limit ?? 100,
+          types: filter.types?.length ? filter.types : undefined,
+          office: filter.office ?? undefined,
+          level: filter.level ?? undefined,
+          geo_area_id: filter.id ?? undefined,
         },
         signal,
       }),
     staleTime: 30_000,
     refetchInterval: 120_000,
   });
-  // Com T selecionado, mostra só o que já tinha acontecido em T
-  const data = t && q.data ? q.data.filter((e) => e.occurred_at !== null && e.occurred_at <= t) : q.data;
-  return { ...q, data };
+  const data =
+    t && query.data ? query.data.filter((e) => e.occurred_at !== null && e.occurred_at <= t) : query.data;
+  return { ...query, data };
 }
 
-export function useTimeline(turno: number) {
+/** Timeline of the country and the states (the markers of the time slider). */
+export function useTimeline(round: number) {
   return useQuery({
-    queryKey: qk.linha(turno),
-    queryFn: ({ signal }) => api<TimelineDto>("/timeline", { params: { round: turno }, signal }),
+    queryKey: qk.linha(round),
+    queryFn: ({ signal }) => api<TimelineDto>("/timeline", { params: { round }, signal }),
     staleTime: 20_000,
     refetchInterval: 30_000,
   });

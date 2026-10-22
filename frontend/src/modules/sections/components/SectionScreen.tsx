@@ -1,11 +1,11 @@
 import { Card, Grid, Stack, Text, Title } from "@mantine/core";
 import { useEffect } from "react";
 import { SectionDetail } from "./SectionDetail";
-import { WithResults } from "../../results";
-import { TotalsBlock } from "../../results";
+import { WithResults, TotalsBlock } from "../../results";
 import { FilterProvider } from "../../../lib/effective-filter";
 import { useFilter } from "../../../lib/filter-store";
 
+/** Section screen (`/secoes/:id`): the ballot box of the section and the totals of the selected office. */
 export function SectionScreen({ id }: { id: string }) {
   useEffect(() => {
     if (id) useFilter.getState().setRecorte("section", id);

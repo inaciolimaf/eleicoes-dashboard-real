@@ -4,11 +4,11 @@ export const SPEEDS = [1, 10, 60, 300] as const;
 export type Speed = (typeof SPEEDS)[number];
 
 interface TimeState {
-  /** Instante selecionado (ISO UTC). null = ao vivo. */
+  /** Selected instant (ISO UTC). null = live. */
   t: string | null;
   tocando: boolean;
   velocidade: Speed;
-  /** quantidade de novidades recebidas pelo WS enquanto T ≠ agora */
+  /** updates received over the WebSocket while T is not live */
   novidades: number;
   setT: (t: string | null) => void;
   aoVivo: () => void;

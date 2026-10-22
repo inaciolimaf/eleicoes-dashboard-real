@@ -1,6 +1,8 @@
+/** Kinds of map. The values are stored in the URL (`?tipo=`) and in dashboard widgets: they never change. */
 export type MapType =
   "vencedores" | "desempenho" | "comparativo" | "progresso" | "locais" | "comparecimento" | "partido";
 
+/** Map kinds offered to the user. `valor`/`rotulo` are the stored value and the label; `proporcional` hides it for majoritarian offices. */
 export const MAP_TYPES: { valor: MapType; rotulo: string; descricao: string; proporcional?: boolean }[] = [
   {
     valor: "vencedores",

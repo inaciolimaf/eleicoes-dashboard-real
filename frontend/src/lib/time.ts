@@ -33,9 +33,10 @@ export function fmtRelative(iso?: string | null): string {
   return dayjs(iso).fromNow();
 }
 
-export function minutesSince(iso?: string | null, agora?: string | null): number | null {
+/** Minutes from `iso` to `now` (default: the current instant); null when there is no `iso`. */
+export function minutesSince(iso?: string | null, now?: string | null): number | null {
   if (!iso) return null;
-  return dayjs(agora ?? undefined).diff(dayjs(iso), "minute", true);
+  return dayjs(now ?? undefined).diff(dayjs(iso), "minute", true);
 }
 
 export { dayjs };

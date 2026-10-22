@@ -3,6 +3,7 @@ import { IconAlertTriangle, IconDatabaseOff, IconRefresh } from "@tabler/icons-r
 import type { ReactNode } from "react";
 import { ApiError } from "../api/client";
 
+/** Skeleton placeholder while data loads: rows, or one block of a given height. */
 export function Loading({ linhas = 4, altura }: { linhas?: number; altura?: number | string }) {
   if (altura) return <Skeleton h={altura} radius="md" />;
   return (
@@ -21,6 +22,7 @@ export function Loading({ linhas = 4, altura }: { linhas?: number; altura?: numb
   );
 }
 
+/** Empty state: a title and a hint (by default, the TSE has not published results yet). */
 export function NoData({ titulo = "Sem dados ainda", children }: { titulo?: string; children?: ReactNode }) {
   return (
     <Center py="lg" px="sm" h="100%">
@@ -40,6 +42,7 @@ export function NoData({ titulo = "Sem dados ainda", children }: { titulo?: stri
   );
 }
 
+/** Error state with the API message and a retry button; `compacto` is the one-line version for cards. */
 export function ErrorView({
   erro,
   onRetry,
@@ -49,7 +52,7 @@ export function ErrorView({
   onRetry?: () => void;
   compacto?: boolean;
 }) {
-  const msg =
+  const message =
     erro instanceof ApiError ? erro.message : erro instanceof Error ? erro.message : "Erro inesperado.";
   const status = erro instanceof ApiError ? erro.status : null;
   if (compacto)
@@ -57,7 +60,7 @@ export function ErrorView({
       <Group gap={6} p="xs" wrap="nowrap">
         <IconAlertTriangle size={16} color="var(--mantine-color-red-5)" />
         <Text size="sm" c="red.5" lineClamp={2}>
-          {msg}
+          {message}
         </Text>
         {onRetry && (
           <Button size="compact-xs" variant="subtle" onClick={onRetry}>
@@ -75,7 +78,7 @@ export function ErrorView({
       m="xs"
     >
       <Stack gap="xs">
-        <Text size="sm">{msg}</Text>
+        <Text size="sm">{message}</Text>
         {onRetry && (
           <Button
             size="xs"

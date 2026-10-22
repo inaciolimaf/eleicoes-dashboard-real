@@ -20,7 +20,7 @@ export const LEVEL_PLURAL_LABELS: Record<Level, string> = {
   section: "Seções",
 };
 
-/** Segmento da URL (`/explorar/:nivel`) de cada nível: as telas mantêm os nomes em português. */
+/** URL segment (`/explorar/:level`) of each level: the screens keep the Portuguese names. */
 const URL_SEGMENTS: Record<Level, string> = {
   country: "br",
   state: "uf",
@@ -30,17 +30,18 @@ const URL_SEGMENTS: Record<Level, string> = {
   section: "secao",
 };
 
-export const segmentOfLevel = (nivel: Level): string => URL_SEGMENTS[nivel];
+export const segmentOfLevel = (level: Level): string => URL_SEGMENTS[level];
 
-/** Texto de nível vindo de um DTO (a API o tipa como string): o valor é sempre um `Level`. */
+/** Level text from a DTO (the API types it as a string): the value is always a `Level`. */
 export const asLevel = (valor: string): Level => valor as Level;
 
-export function levelOfSegment(segmento: string | undefined): Level | null {
-  return LEVELS.find((n) => URL_SEGMENTS[n] === segmento) ?? null;
+export function levelOfSegment(segment: string | undefined): Level | null {
+  return LEVELS.find((level) => URL_SEGMENTS[level] === segment) ?? null;
 }
 
-export function childLevel(n: Level): Level | null {
-  switch (n) {
+/** The level one step below `level` in the drill-down, or null at the bottom. */
+export function childLevel(level: Level): Level | null {
+  switch (level) {
     case "country":
       return "state";
     case "state":
@@ -56,28 +57,46 @@ export function childLevel(n: Level): Level | null {
   }
 }
 
-/** UF (minúscula) a partir de um id de recorte */
-export function stateOfId(nivel: Level, id: string): string | null {
-  if (nivel === "country") return null;
+/** State code (lowercase) from a geo area id. */
+export function stateOfId(level: Level, id: string): string | null {
+  if (level === "country") return null;
   return id.slice(0, 2).toLowerCase();
 }
 
-/** Município (id de recorte) a partir de um id de zona/local/seção */
-export function municipalityOfId(nivel: Level, id: string): string | null {
-  if (nivel === "country" || nivel === "state") return null;
+/** Municipality id (geo area id) from a zone, polling place or section id. */
+export function municipalityOfId(level: Level, id: string): string | null {
+  if (level === "country" || level === "state") return null;
   return id.split("-")[0];
 }
 
-export function zoneOfId(nivel: Level, id: string): string | null {
-  if (nivel === "zone") return id;
-  if (nivel === "polling_place" || nivel === "section") return id.split("-").slice(0, 2).join("-");
+export function zoneOfId(level: Level, id: string): string | null {
+  if (level === "zone") return id;
+  if (level === "polling_place" || level === "section") return id.split("-").slice(0, 2).join("-");
   return null;
 }
 
-export function geoAreaLink(nivel: Level, id: string): string {
-  if (nivel === "polling_place") return `/locais/${encodeURIComponent(id)}`;
-  if (nivel === "section") return `/secoes/${encodeURIComponent(id)}`;
-  return `/explorar/${segmentOfLevel(nivel)}/${encodeURIComponent(id)}`;
+/** Screen URL of a geo area: polling places and sections have their own screens. */
+/**
+ * Section id from the URL: `/secoes/:id`, or `/secoes/:uf/:mun/:zona/:secao` where the zone and the
+ * section are TSE numbers, padded to four digits. Empty when the URL has no section.
+ */
+export function sectionIdFromParams(p: {
+  id?: string;
+  uf?: string;
+  mun?: string;
+  zona?: string;
+  secao?: string;
+}): string {
+  if (p.id) return decodeURIComponent(p.id);
+  if (p.uf && p.mun && p.zona && p.secao)
+    return `${p.uf}${p.mun}-z${p.zona.padStart(4, "0")}-s${p.secao.padStart(4, "0")}`;
+  return "";
+}
+
+export function geoAreaLink(level: Level, id: string): string {
+  if (level === "polling_place") return `/locais/${encodeURIComponent(id)}`;
+  if (level === "section") return `/secoes/${encodeURIComponent(id)}`;
+  return `/explorar/${segmentOfLevel(level)}/${encodeURIComponent(id)}`;
 }
 
 export const UFS: { uf: string; nome: string; regiao: string; capital: string }[] = [
@@ -115,10 +134,11 @@ export const STATE_BY_CODE: Record<string, (typeof UFS)[number]> = Object.fromEn
 );
 export const REGIONS = ["Norte", "Nordeste", "Centro-Oeste", "Sudeste", "Sul"];
 
-export function defaultGeoAreaName(nivel: Level, id: string): string {
-  if (nivel === "country") return "Brasil";
-  if (nivel === "state") return id === "zz" ? "Exterior" : (STATE_BY_CODE[id]?.nome ?? id.toUpperCase());
-  if (nivel === "zone") return `Zona ${Number(id.split("-z")[1] ?? "")}`;
-  if (nivel === "section") return `Seção ${Number(id.split("-s")[1] ?? "")}`;
+/** Display name of a geo area when the API has not answered yet. */
+export function defaultGeoAreaName(level: Level, id: string): string {
+  if (level === "country") return "Brasil";
+  if (level === "state") return id === "zz" ? "Exterior" : (STATE_BY_CODE[id]?.nome ?? id.toUpperCase());
+  if (level === "zone") return `Zona ${Number(id.split("-z")[1] ?? "")}`;
+  if (level === "section") return `Seção ${Number(id.split("-s")[1] ?? "")}`;
   return id;
 }

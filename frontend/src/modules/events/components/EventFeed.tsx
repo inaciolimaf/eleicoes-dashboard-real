@@ -14,18 +14,19 @@ import {
 import { AnimatePresence, motion } from "motion/react";
 import { Link } from "react-router-dom";
 import type { EventDto, Level } from "../../../api/models";
-import { useEventos } from "../hooks";
+import { useEvents } from "../hooks";
 import { useEffectiveFilter } from "../../../lib/effective-filter";
 import { fmtShortDate, fmtTime } from "../../../lib/time";
 import { geoAreaLink } from "../../../lib/geo-areas";
 import { OFFICE_NAME } from "../../../lib/offices";
 import { EVENT_COLORS, EVENT_LABELS } from "../lib";
-import { useLive } from "../../realtime";
-import { topic } from "../../realtime";
+import { useLive, topic } from "../../realtime";
 import { useTime } from "../../../lib/time-store";
 import { usePrefs } from "../../../lib/prefs-store";
 import { Loading, ErrorView, NoData } from "../../../components/States";
 
+// Keys are the Portuguese type names the icons were first written for; API types are
+// English, so only the default icon applies today. Kept as they are (behavior).
 export const EVENT_ICONS: Record<string, Icon> = {
   virada: IconArrowsExchange,
   marco: IconFlag,
@@ -38,50 +39,55 @@ export const EVENT_ICONS: Record<string, Icon> = {
 
 export const EVENT_TYPES = Object.keys(EVENT_LABELS).map((k) => ({ value: k, label: EVENT_LABELS[k] }));
 
-export function EventItem({ e, compacto }: { e: EventDto; compacto?: boolean }) {
-  const Icone = EVENT_ICONS[e.type] ?? IconFlag;
-  const cor = EVENT_COLORS[e.type] ?? "blue";
+export function EventItem({ event, compact }: { event: EventDto; compact?: boolean }) {
+  const EventIcon = EVENT_ICONS[event.type] ?? IconFlag;
+  const color = EVENT_COLORS[event.type] ?? "blue";
   const setT = useTime((s) => s.setT);
   return (
     <Group gap="sm" wrap="nowrap" align="flex-start" py={6}>
-      <ThemeIcon variant="light" color={cor} radius="xl" size={compacto ? 26 : 32}>
-        <Icone size={compacto ? 14 : 18} />
+      <ThemeIcon variant="light" color={color} radius="xl" size={compact ? 26 : 32}>
+        <EventIcon size={compact ? 14 : 18} />
       </ThemeIcon>
       <Stack gap={1} style={{ flex: 1, minWidth: 0 }}>
         <Group gap={6} wrap="nowrap" justify="space-between">
           <Text size="sm" fw={700} lineClamp={1}>
-            {e.level && e.geo_area_id ? (
-              <Anchor component={Link} to={geoAreaLink(e.level as Level, e.geo_area_id)} inherit c="inherit">
-                {e.title}
+            {event.level && event.geo_area_id ? (
+              <Anchor
+                component={Link}
+                to={geoAreaLink(event.level as Level, event.geo_area_id)}
+                inherit
+                c="inherit"
+              >
+                {event.title}
               </Anchor>
             ) : (
-              e.title
+              event.title
             )}
           </Text>
           <Text size="xs" c="dimmed" className="num" style={{ whiteSpace: "nowrap" }}>
-            {fmtTime(e.occurred_at, false)}
+            {fmtTime(event.occurred_at, false)}
           </Text>
         </Group>
-        {e.description && (
-          <Text size="xs" c="dimmed" lineClamp={compacto ? 1 : 3}>
-            {e.description}
+        {event.description && (
+          <Text size="xs" c="dimmed" lineClamp={compact ? 1 : 3}>
+            {event.description}
           </Text>
         )}
-        {!compacto && (
+        {!compact && (
           <Group gap={6}>
-            <Badge size="xs" variant="light" color={cor}>
-              {EVENT_LABELS[e.type] ?? e.type}
+            <Badge size="xs" variant="light" color={color}>
+              {EVENT_LABELS[event.type] ?? event.type}
             </Badge>
-            {e.office_code ? (
+            {event.office_code ? (
               <Badge size="xs" variant="outline" color="gray">
-                {OFFICE_NAME[Number(e.office_code)] ?? `Cargo ${e.office_code}`}
+                {OFFICE_NAME[Number(event.office_code)] ?? `Cargo ${event.office_code}`}
               </Badge>
             ) : null}
-            <Tooltip label={`Ver o painel como estava em ${fmtShortDate(e.occurred_at)}`}>
+            <Tooltip label={`Ver o painel como estava em ${fmtShortDate(event.occurred_at)}`}>
               <ActionIcon
                 size="xs"
                 variant="subtle"
-                onClick={() => setT(e.occurred_at)}
+                onClick={() => setT(event.occurred_at)}
                 aria-label="Ir para este momento"
               >
                 <IconClockPlay size={14} />
@@ -104,12 +110,48 @@ export interface EventFeedProps {
   alturaMax?: number | string;
 }
 
+function EventList({
+  events,
+  compact,
+  animated,
+}: {
+  events: EventDto[];
+  compact?: boolean;
+  animated: boolean;
+}) {
+  return (
+    <Stack gap={0}>
+      <AnimatePresence initial={false}>
+        {events.map((e) => (
+          <motion.div
+            key={e.id}
+            initial={animated ? { opacity: 0, x: -12, height: 0 } : false}
+            animate={{ opacity: 1, x: 0, height: "auto" }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            style={{ borderBottom: "1px solid var(--mantine-color-default-border)" }}
+          >
+            <EventItem event={e} compact={compact} />
+          </motion.div>
+        ))}
+      </AnimatePresence>
+    </Stack>
+  );
+}
+
+/** Live feed of the results' events, in the current round and time. */
 export function EventFeed({ tipos, limite = 50, cargo, nivel, id, compacto, alturaMax }: EventFeedProps) {
   const f = useEffectiveFilter();
-  const animacoes = usePrefs((s) => s.animacoes);
-  const q = useEventos(
+  const animated = usePrefs((s) => s.animacoes);
+  const q = useEvents(
     f.turno,
-    { tipos: tipos as EventType[], limite, cargo: cargo ?? null, nivel: nivel ?? null, id: id ?? null },
+    {
+      types: tipos as EventType[],
+      limit: limite,
+      office: cargo ?? null,
+      level: nivel ?? null,
+      id: id ?? null,
+    },
     f.t,
   );
   useLive([topic.events(f.turno)]);
@@ -121,29 +163,12 @@ export function EventFeed({ tipos, limite = 50, cargo, nivel, id, compacto, altu
         Viradas, marcos da apuração e eleitos aparecem aqui em tempo real.
       </NoData>
     );
-  const lista = (
-    <Stack gap={0}>
-      <AnimatePresence initial={false}>
-        {q.data.map((e) => (
-          <motion.div
-            key={e.id}
-            initial={animacoes ? { opacity: 0, x: -12, height: 0 } : false}
-            animate={{ opacity: 1, x: 0, height: "auto" }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            style={{ borderBottom: "1px solid var(--mantine-color-default-border)" }}
-          >
-            <EventItem e={e} compacto={compacto} />
-          </motion.div>
-        ))}
-      </AnimatePresence>
-    </Stack>
-  );
+  const list = <EventList events={q.data} compact={compacto} animated={animated} />;
   return alturaMax ? (
     <ScrollArea.Autosize mah={alturaMax} className="scroll-fino">
-      {lista}
+      {list}
     </ScrollArea.Autosize>
   ) : (
-    lista
+    list
   );
 }

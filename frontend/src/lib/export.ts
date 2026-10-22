@@ -3,6 +3,7 @@ import { notifications } from "@mantine/notifications";
 import { BASE, qs } from "../api/client";
 import type { Level } from "../api/models";
 import { slug } from "./formatting";
+import { DARK_BACKGROUND } from "./palettes";
 
 export function downloadUrl(url: string, nome?: string) {
   const a = document.createElement("a");
@@ -14,15 +15,15 @@ export function downloadUrl(url: string, nome?: string) {
   a.remove();
 }
 
-/** Exporta dados via /export (CSV ou JSON). */
+/** Downloads data from /exports (CSV or JSON): the results of an area, or its children. */
 export function exportData(
-  recurso: "resultados" | "filhos",
-  formato: "csv" | "json",
+  kind: "resultados" | "filhos",
+  format: "csv" | "json",
   p: { turno: number; cargo: number; nivel: Level; id: string; t: string | null; filhos?: Level | null },
 ) {
   const url = `${BASE}/exports${qs({
-    resource: recurso === "resultados" ? "results" : "children",
-    format: formato,
+    resource: kind === "resultados" ? "results" : "children",
+    format,
     round: p.turno,
     office: p.cargo,
     level: p.nivel,
@@ -30,7 +31,7 @@ export function exportData(
     at: p.t,
     child_level: p.filhos ?? undefined,
   })}`;
-  downloadUrl(url, `${recurso}-${p.nivel}-${p.id}-c${p.cargo}.${formato}`);
+  downloadUrl(url, `${kind}-${p.nivel}-${p.id}-c${p.cargo}.${format}`);
 }
 
 export function downloadJson(obj: unknown, nome: string) {
@@ -40,18 +41,18 @@ export function downloadJson(obj: unknown, nome: string) {
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
-/** Exporta um elemento (widget) como PNG. */
-export async function exportarPng(el: HTMLElement | null, titulo: string) {
+/** Exports an element (a widget) as PNG. */
+export async function exportarPng(el: HTMLElement | null, title: string) {
   if (!el) return;
   try {
-    const fundo = getComputedStyle(document.body).backgroundColor || "#0B1220";
+    const background = getComputedStyle(document.body).backgroundColor || DARK_BACKGROUND;
     const dataUrl = await toPng(el, {
-      backgroundColor: fundo,
+      backgroundColor: background,
       pixelRatio: Math.min(2, window.devicePixelRatio || 1),
       cacheBust: true,
       filter: (n) => !(n instanceof HTMLElement && n.dataset.exportIgnore === "true"),
     });
-    downloadUrl(dataUrl, `${slug(titulo) || "widget"}.png`);
+    downloadUrl(dataUrl, `${slug(title) || "widget"}.png`);
   } catch (e) {
     notifications.show({
       color: "red",

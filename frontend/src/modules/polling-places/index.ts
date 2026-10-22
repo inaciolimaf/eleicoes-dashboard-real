@@ -1,3 +1,3 @@
-export * from "./components/PollingPlaceDetail";
-export * from "./components/PollingPlaceScreen";
-export * from "./hooks";
+export { BadgeStatus, PollingPlaceDetail } from "./components/PollingPlaceDetail";
+export { PollingPlaceScreen } from "./components/PollingPlaceScreen";
+export { usePollingPlace } from "./hooks";

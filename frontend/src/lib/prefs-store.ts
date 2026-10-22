@@ -21,7 +21,7 @@ interface PrefsState extends Preferences {
   carregar: (p: Partial<Preferences>) => void;
 }
 
-/** Tipos de evento salvos no navegador com os nomes antigos. */
+/** Event types saved in the browser under the old (Portuguese) names. */
 const TOASTS_LEGADO: Record<string, string> = {
   virada: "lead_change",
   marco: "milestone",
@@ -58,7 +58,7 @@ export const usePrefs = create<PrefsState>()(
     }),
     {
       name: "eleicoes.prefs",
-      // tipos de evento salvos antes da migração para os nomes da API
+      // event types saved before the migration to the API names
       merge: (salvo, atual) => {
         const p = salvo as Partial<Preferences>;
         const toasts = p.toasts?.map((t) => TOASTS_LEGADO[t] ?? t);

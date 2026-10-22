@@ -18,38 +18,39 @@ export type PartialFilter = Partial<EffectiveFilter> & { tFixo?: boolean };
 
 const Ctx = createContext<PartialFilter | null>(null);
 
-/** Sobrescreve partes do filtro global para uma subárvore (widget fixado, painel compartilhado congelado…). */
+/** Overrides parts of the global filter for a subtree (pinned widget, frozen shared dashboard...). */
 export function FilterProvider({ value, children }: { value: PartialFilter; children: ReactNode }) {
-  const pai = useContext(Ctx);
-  const merged = useMemo(() => ({ ...(pai ?? {}), ...stripUndef(value) }), [pai, value]);
+  const parent = useContext(Ctx);
+  const merged = useMemo(() => ({ ...(parent ?? {}), ...stripUndef(value) }), [parent, value]);
   return <Ctx.Provider value={merged}>{children}</Ctx.Provider>;
 }
 
 function stripUndef(o: PartialFilter): PartialFilter {
   const r: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(o)) if (v !== undefined) r[k] = v;
+  for (const [key, value] of Object.entries(o)) if (value !== undefined) r[key] = value;
   return r as PartialFilter;
 }
 
+/** The filter the current screen or widget works with: the global one, overridden by its provider. */
 export function useEffectiveFilter(): EffectiveFilter {
-  const g = useFilter();
-  const tGlobal = useTime((s) => s.t);
+  const globalFilter = useFilter();
+  const globalTime = useTime((s) => s.t);
   const ctx = useContext(Ctx);
   return useMemo(() => {
-    const nivel = ctx?.nivel ?? g.nivel;
-    const id = ctx?.id ?? g.id;
-    const cargo = officeForState(ctx?.cargo ?? g.cargo, stateOfId(nivel, id));
+    const level = ctx?.nivel ?? globalFilter.nivel;
+    const id = ctx?.id ?? globalFilter.id;
+    const office = officeForState(ctx?.cargo ?? globalFilter.cargo, stateOfId(level, id));
     return {
-      turno: ctx?.turno ?? g.turno,
-      cargo,
-      nivel,
+      turno: ctx?.turno ?? globalFilter.turno,
+      cargo: office,
+      nivel: level,
       id,
-      t: ctx && "t" in ctx && ctx.t !== undefined ? ctx.t : tGlobal,
+      t: ctx && "t" in ctx && ctx.t !== undefined ? ctx.t : globalTime,
     };
-  }, [ctx, g.nivel, g.id, g.cargo, g.turno, tGlobal]);
+  }, [ctx, globalFilter.nivel, globalFilter.id, globalFilter.cargo, globalFilter.turno, globalTime]);
 }
 
-/** true se o contexto atual congela o tempo (painel compartilhado congelado / widget com tempo fixo) */
+/** true when the current context freezes time (frozen shared dashboard or widget with a fixed time) */
 export function useFixedTime(): boolean {
   const ctx = useContext(Ctx);
   return !!ctx?.tFixo;

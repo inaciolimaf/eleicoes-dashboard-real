@@ -3,12 +3,13 @@ import { api } from "../../api/client";
 import type { PollingPlaceDto } from "../../api/models";
 import { qk } from "../../api/query-keys";
 
-export function usePollingPlace(id: string | null | undefined, turno: number) {
+/** A polling place with its sections, for one round. */
+export function usePollingPlace(id: string | null | undefined, round: number) {
   return useQuery({
-    queryKey: qk.local(id ?? "", turno),
+    queryKey: qk.local(id ?? "", round),
     queryFn: ({ signal }) =>
       api<PollingPlaceDto>(`/polling-places/${encodeURIComponent(id ?? "")}`, {
-        params: { round: turno },
+        params: { round },
         signal,
       }),
     enabled: !!id,

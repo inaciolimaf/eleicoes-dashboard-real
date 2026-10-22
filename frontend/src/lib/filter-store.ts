@@ -2,14 +2,14 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Level } from "../api/models";
 
-/** Filtro global da aplicação (eleição/turno/cargo/recorte). O tempo fica em `tempo.ts`. */
+/** Global filter (election round, office, geo area). Time lives in `time-store.ts`. */
 export interface GlobalFilter {
   ciclo: string | null;
   turno: number;
   cargo: number;
   nivel: Level;
   id: string;
-  /** nome do recorte (para exibir no chip antes de carregar o breadcrumb) */
+  /** geo area name (shown in the chip before the breadcrumb loads) */
   nome?: string;
 }
 

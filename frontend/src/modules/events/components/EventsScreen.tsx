@@ -6,12 +6,13 @@ import { usePrefs } from "../../../lib/prefs-store";
 import { OFFICE_NAME } from "../../../lib/offices";
 import { defaultGeoAreaName } from "../../../lib/geo-areas";
 
+/** Events screen (`/eventos`): the feed with filters, and which event types pop up as notifications. */
 export function EventsScreen() {
-  const f = useFilter();
-  const [tipos, setTipos] = useState<string[]>([]);
-  const [soCargo, setSoCargo] = useState(false);
-  const [soRecorte, setSoRecorte] = useState(false);
-  const [limite, setLimite] = useState(100);
+  const filter = useFilter();
+  const [types, setTypes] = useState<string[]>([]);
+  const [onlyOffice, setOnlyOffice] = useState(false);
+  const [onlyGeoArea, setOnlyGeoArea] = useState(false);
+  const [limit, setLimit] = useState(100);
   const toasts = usePrefs((s) => s.toasts);
   const setPrefs = usePrefs((s) => s.set);
   return (
@@ -28,29 +29,29 @@ export function EventsScreen() {
             label="Tipos"
             placeholder="Todos"
             data={EVENT_TYPES}
-            value={tipos}
-            onChange={setTipos}
+            value={types}
+            onChange={setTypes}
             clearable
             w={320}
           />
           <NumberInput
             label="Quantidade"
-            value={limite}
-            onChange={(v) => setLimite(Number(v) || 100)}
+            value={limit}
+            onChange={(v) => setLimit(Number(v) || 100)}
             min={10}
             max={500}
             step={50}
             w={120}
           />
           <Switch
-            label={`Só ${OFFICE_NAME[f.cargo] ?? "cargo atual"}`}
-            checked={soCargo}
-            onChange={(e) => setSoCargo(e.currentTarget.checked)}
+            label={`Só ${OFFICE_NAME[filter.cargo] ?? "cargo atual"}`}
+            checked={onlyOffice}
+            onChange={(e) => setOnlyOffice(e.currentTarget.checked)}
           />
           <Switch
-            label={`Só ${f.nome ?? defaultGeoAreaName(f.nivel, f.id)}`}
-            checked={soRecorte}
-            onChange={(e) => setSoRecorte(e.currentTarget.checked)}
+            label={`Só ${filter.nome ?? defaultGeoAreaName(filter.nivel, filter.id)}`}
+            checked={onlyGeoArea}
+            onChange={(e) => setOnlyGeoArea(e.currentTarget.checked)}
           />
         </Group>
         <MultiSelect
@@ -65,11 +66,11 @@ export function EventsScreen() {
       </Card>
       <Card p="md">
         <EventFeed
-          tipos={tipos}
-          limite={limite}
-          cargo={soCargo ? f.cargo : null}
-          nivel={soRecorte ? f.nivel : null}
-          id={soRecorte ? f.id : null}
+          tipos={types}
+          limite={limit}
+          cargo={onlyOffice ? filter.cargo : null}
+          nivel={onlyGeoArea ? filter.nivel : null}
+          id={onlyGeoArea ? filter.id : null}
         />
       </Card>
     </Stack>
