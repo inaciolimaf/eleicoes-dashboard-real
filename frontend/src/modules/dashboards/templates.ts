@@ -4,75 +4,75 @@ import type { Level } from "../../api/models";
 
 export interface Template {
   id: string;
-  nome: string;
-  descricao: string;
-  /** recorte que o usuário precisa escolher ao criar */
-  pede?: "uf" | "municipio" | "local";
-  criar: (p: { nivel?: Level; recorte?: string; nome?: string; turno?: number }) => DashboardConfig;
+  name: string;
+  description: string;
+  /** Area the user has to pick when creating the dashboard from this template. */
+  needs?: "state" | "municipality" | "polling_place";
+  create: (choice: { areaId?: string; name?: string; round?: number }) => DashboardConfig;
 }
 
-const w = (
+const makeWidget = (
   id: string,
-  tipo: WidgetCfg["tipo"],
+  type: WidgetCfg["tipo"],
   x: number,
   y: number,
-  ww: number,
-  h: number,
+  width: number,
+  height: number,
   config: Record<string, unknown> = {},
   extra: Partial<WidgetCfg> = {},
 ): WidgetCfg => ({
   id,
-  tipo,
-  pos: { x, y, w: ww, h },
+  tipo: type,
+  pos: { x, y, w: width, h: height },
   herda: true,
   config,
   ...extra,
 });
 
-const filtro = (cargo: number, nivel: Level, recorte: string, turno = 1) => ({
+const globalFilter = (office: number, level: Level, areaId: string, round = 1) => ({
   ambiente: "oficial",
   ciclo: "ele2026",
-  turno,
-  cargo,
-  nivel,
-  recorte,
+  turno: round,
+  cargo: office,
+  nivel: level,
+  recorte: areaId,
   tempo: "agora",
 });
 
 export const TEMPLATES: Template[] = [
   {
     id: "noite-eleicao",
-    nome: "Noite da eleição – Presidente",
-    descricao: "Placar nacional, totais, mapa de vencedores por UF, evolução, progresso e feed de eventos.",
-    criar: ({ turno = 1 } = {}) => ({
+    name: "Noite da eleição – Presidente",
+    description: "Placar nacional, totais, mapa de vencedores por UF, evolução, progresso e feed de eventos.",
+    create: ({ round = 1 } = {}) => ({
       schemaVersion: SCHEMA_VERSION,
       nome: "Noite da eleição",
-      filtroGlobal: filtro(1, "country", "br", turno),
+      filtroGlobal: globalFilter(1, "country", "br", round),
       widgets: [
-        w("w1", "placar", 0, 0, 5, 10, { titulo: "Presidente", topN: 0 }),
-        w("w2", "mapa", 5, 0, 7, 14, { tipo: "vencedores" }),
-        w("w3", "totais", 0, 10, 5, 7, {}),
-        w("w4", "evolucao", 0, 17, 7, 8, { eixoX: "t", metrica: "pct" }),
-        w("w5", "heatmap", 5, 14, 7, 9, { metrica: "pct_secoes" }),
-        w("w6", "eventos", 7, 23, 5, 9, { limite: 30 }),
-        w("w7", "relogio", 0, 25, 3, 4, { modo: "relogio" }),
-        w("w8", "kpi", 3, 25, 4, 4, { metrica: "pct_secoes", compararMin: 15 }),
+        makeWidget("w1", "placar", 0, 0, 5, 10, { titulo: "Presidente", topN: 0 }),
+        makeWidget("w2", "mapa", 5, 0, 7, 14, { tipo: "vencedores" }),
+        makeWidget("w3", "totais", 0, 10, 5, 7, {}),
+        makeWidget("w4", "evolucao", 0, 17, 7, 8, { eixoX: "t", metrica: "pct" }),
+        makeWidget("w5", "heatmap", 5, 14, 7, 9, { metrica: "pct_secoes" }),
+        makeWidget("w6", "eventos", 7, 23, 5, 9, { limite: 30 }),
+        makeWidget("w7", "relogio", 0, 25, 3, 4, { modo: "relogio" }),
+        makeWidget("w8", "kpi", 3, 25, 4, 4, { metrica: "pct_secoes", compararMin: 15 }),
       ],
     }),
   },
   {
     id: "meu-estado",
-    nome: "Meu estado",
-    descricao: "Governador e Senado da sua UF, mapa dos municípios e tabela com filtros.",
-    pede: "uf",
-    criar: ({ recorte = "sp", nome } = {}) => ({
+    name: "Meu estado",
+    description: "Governador e Senado da sua UF, mapa dos municípios e tabela com filtros.",
+    needs: "state",
+    create: ({ areaId = "sp", name } = {}) => ({
       schemaVersion: SCHEMA_VERSION,
-      nome: nome ? `Meu estado – ${nome}` : "Meu estado",
-      filtroGlobal: filtro(3, "state", recorte),
+      nome: name ? `Meu estado – ${name}` : "Meu estado",
+      filtroGlobal: globalFilter(3, "state", areaId),
       widgets: [
-        w("w1", "placar", 0, 0, 5, 9, { titulo: "Governador" }),
-        w("w2", "mapa", 5, 0, 7, 13, { tipo: "vencedores" }),
-        w(
+        makeWidget("w1", "placar", 0, 0, 5, 9, { titulo: "Governador" }),
+        makeWidget("w2", "mapa", 5, 0, 7, 13, { tipo: "vencedores" }),
+        makeWidget(
           "w3",
           "placar",
           0,
@@ -80,13 +80,13 @@ export const TEMPLATES: Template[] = [
           5,
           9,
           { titulo: "Senado" },
-          { herda: false, filtros: { cargo: 5, nivel: "state", recorte } },
+          { herda: false, filtros: { cargo: 5, nivel: "state", recorte: areaId } },
         ),
-        w("w4", "totais", 5, 13, 7, 6, {}),
-        w("w5", "tabela", 0, 19, 12, 10, {
+        makeWidget("w4", "totais", 5, 13, 7, 6, {}),
+        makeWidget("w5", "tabela", 0, 19, 12, 10, {
           colunas: ["nome", "pct_secoes", "lider", "segundo", "margem_pp", "votos_validos", "eleitorado"],
         }),
-        w(
+        makeWidget(
           "w6",
           "placar",
           0,
@@ -94,25 +94,25 @@ export const TEMPLATES: Template[] = [
           6,
           8,
           { titulo: "Presidente na UF", topN: 4 },
-          { herda: false, filtros: { cargo: 1, nivel: "state", recorte } },
+          { herda: false, filtros: { cargo: 1, nivel: "state", recorte: areaId } },
         ),
-        w("w7", "evolucao", 6, 29, 6, 8, {}),
+        makeWidget("w7", "evolucao", 6, 29, 6, 8, {}),
       ],
     }),
   },
   {
     id: "minha-cidade",
-    nome: "Minha cidade",
-    descricao: "Resultados do seu município: presidente, governador, mapa dos locais de votação e zonas.",
-    pede: "municipio",
-    criar: ({ recorte = "sp71072", nome } = {}) => ({
+    name: "Minha cidade",
+    description: "Resultados do seu município: presidente, governador, mapa dos locais de votação e zonas.",
+    needs: "municipality",
+    create: ({ areaId = "sp71072", name } = {}) => ({
       schemaVersion: SCHEMA_VERSION,
-      nome: nome ? `Minha cidade – ${nome}` : "Minha cidade",
-      filtroGlobal: filtro(1, "municipality", recorte),
+      nome: name ? `Minha cidade – ${name}` : "Minha cidade",
+      filtroGlobal: globalFilter(1, "municipality", areaId),
       widgets: [
-        w("w1", "placar", 0, 0, 5, 9, { titulo: "Presidente" }),
-        w("w2", "mapa", 5, 0, 7, 13, { tipo: "vencedores" }),
-        w(
+        makeWidget("w1", "placar", 0, 0, 5, 9, { titulo: "Presidente" }),
+        makeWidget("w2", "mapa", 5, 0, 7, 13, { tipo: "vencedores" }),
+        makeWidget(
           "w3",
           "placar",
           0,
@@ -120,28 +120,28 @@ export const TEMPLATES: Template[] = [
           5,
           8,
           { titulo: "Governador" },
-          { herda: false, filtros: { cargo: 3, nivel: "municipality", recorte } },
+          { herda: false, filtros: { cargo: 3, nivel: "municipality", recorte: areaId } },
         ),
-        w("w4", "totais", 5, 13, 7, 6, {}),
-        w("w5", "tabela", 0, 19, 12, 9, {}),
-        w("w6", "mapa", 0, 28, 12, 11, { tipo: "locais", titulo: "Locais apurados" }),
+        makeWidget("w4", "totais", 5, 13, 7, 6, {}),
+        makeWidget("w5", "tabela", 0, 19, 12, 9, {}),
+        makeWidget("w6", "mapa", 0, 28, 12, 11, { tipo: "locais", titulo: "Locais apurados" }),
       ],
     }),
   },
   {
     id: "meu-colegio",
-    nome: "Meu colégio",
-    descricao: "Seu local de votação: seções, cobertura dos boletins de urna e resultado agregado.",
-    pede: "local",
-    criar: ({ recorte = "sp71072-z0001-l1015", nome } = {}) => ({
+    name: "Meu colégio",
+    description: "Seu local de votação: seções, cobertura dos boletins de urna e resultado agregado.",
+    needs: "polling_place",
+    create: ({ areaId = "sp71072-z0001-l1015", name } = {}) => ({
       schemaVersion: SCHEMA_VERSION,
-      nome: nome ? `Meu colégio – ${nome}` : "Meu colégio",
-      filtroGlobal: filtro(1, "polling_place", recorte),
+      nome: name ? `Meu colégio – ${name}` : "Meu colégio",
+      filtroGlobal: globalFilter(1, "polling_place", areaId),
       widgets: [
-        w("w1", "local", 0, 0, 5, 12, { localId: recorte }),
-        w("w2", "placar", 5, 0, 7, 9, { titulo: "Presidente no local" }),
-        w("w3", "totais", 5, 9, 7, 6, {}),
-        w(
+        makeWidget("w1", "local", 0, 0, 5, 12, { localId: areaId }),
+        makeWidget("w2", "placar", 5, 0, 7, 9, { titulo: "Presidente no local" }),
+        makeWidget("w3", "totais", 5, 9, 7, 6, {}),
+        makeWidget(
           "w4",
           "placar",
           0,
@@ -149,9 +149,9 @@ export const TEMPLATES: Template[] = [
           5,
           8,
           { titulo: "Governador no local" },
-          { herda: false, filtros: { cargo: 3, nivel: "polling_place", recorte } },
+          { herda: false, filtros: { cargo: 3, nivel: "polling_place", recorte: areaId } },
         ),
-        w(
+        makeWidget(
           "w5",
           "placar",
           5,
@@ -159,40 +159,40 @@ export const TEMPLATES: Template[] = [
           7,
           8,
           { titulo: "Senado no local" },
-          { herda: false, filtros: { cargo: 5, nivel: "polling_place", recorte } },
+          { herda: false, filtros: { cargo: 5, nivel: "polling_place", recorte: areaId } },
         ),
       ],
     }),
   },
   {
     id: "camara",
-    nome: "Câmara dos Deputados",
-    descricao: "Deputado Federal: hemiciclo de vagas, partidos/federações e eleitos.",
-    pede: "uf",
-    criar: ({ recorte = "sp", nome } = {}) => ({
+    name: "Câmara dos Deputados",
+    description: "Deputado Federal: hemiciclo de vagas, partidos/federações e eleitos.",
+    needs: "state",
+    create: ({ areaId = "sp", name } = {}) => ({
       schemaVersion: SCHEMA_VERSION,
-      nome: nome ? `Câmara – ${nome}` : "Câmara dos Deputados",
-      filtroGlobal: filtro(6, "state", recorte),
+      nome: name ? `Câmara – ${name}` : "Câmara dos Deputados",
+      filtroGlobal: globalFilter(6, "state", areaId),
       widgets: [
-        w("w1", "hemiciclo", 0, 0, 6, 10, {}),
-        w("w2", "placar", 6, 0, 6, 14, { titulo: "Candidatos mais votados", topN: 25 }),
-        w("w3", "totais", 0, 10, 6, 6, { compacto: true }),
-        w("w4", "mapa", 0, 16, 6, 11, { tipo: "partido" }),
-        w("w5", "rosca", 6, 14, 6, 9, { topN: 8 }),
+        makeWidget("w1", "hemiciclo", 0, 0, 6, 10, {}),
+        makeWidget("w2", "placar", 6, 0, 6, 14, { titulo: "Candidatos mais votados", topN: 25 }),
+        makeWidget("w3", "totais", 0, 10, 6, 6, { compacto: true }),
+        makeWidget("w4", "mapa", 0, 16, 6, 11, { tipo: "partido" }),
+        makeWidget("w5", "rosca", 6, 14, 6, 9, { topN: 8 }),
       ],
     }),
   },
   {
     id: "senado",
-    nome: "Senado 2026",
-    descricao: "Duas vagas por UF: mapa de UFs, placar de uma UF e progresso nacional.",
-    criar: () => ({
+    name: "Senado 2026",
+    description: "Duas vagas por UF: mapa de UFs, placar de uma UF e progresso nacional.",
+    create: () => ({
       schemaVersion: SCHEMA_VERSION,
       nome: "Senado 2026",
-      filtroGlobal: filtro(5, "country", "br"),
+      filtroGlobal: globalFilter(5, "country", "br"),
       widgets: [
-        w("w1", "mapa", 0, 0, 7, 13, { tipo: "vencedores", titulo: "Líder por UF" }),
-        w(
+        makeWidget("w1", "mapa", 0, 0, 7, 13, { tipo: "vencedores", titulo: "Líder por UF" }),
+        makeWidget(
           "w2",
           "placar",
           7,
@@ -202,14 +202,14 @@ export const TEMPLATES: Template[] = [
           { titulo: "Senado em SP" },
           { herda: false, filtros: { cargo: 5, nivel: "state", recorte: "sp" } },
         ),
-        w("w3", "tabela", 0, 13, 7, 10, {
+        makeWidget("w3", "tabela", 0, 13, 7, 10, {
           colunas: ["nome", "pct_secoes", "lider", "segundo", "margem_pp", "votos_validos"],
         }),
-        w("w4", "heatmap", 7, 10, 5, 9, {}),
-        w("w5", "eventos", 7, 19, 5, 8, { tipos: ["elected", "lead_change"] }),
+        makeWidget("w4", "heatmap", 7, 10, 5, 9, {}),
+        makeWidget("w5", "eventos", 7, 19, 5, 8, { tipos: ["elected", "lead_change"] }),
       ],
     }),
   },
 ];
 
-export const defaultTemplate = () => TEMPLATES[0].criar({});
+export const defaultTemplate = () => TEMPLATES[0].create({});

@@ -5,61 +5,69 @@ import type { WidgetType, WidgetCfg } from "../schema";
 
 export interface WidgetProps {
   widget: WidgetCfg;
-  cfg: Record<string, unknown>;
-  /** altura útil (px) do corpo do widget */
-  altura: number;
-  /** clique em mapa/tabela: filtra o painel (cross-filtering) ou navega, conforme a configuração */
-  selecionar: (nivel: Level, id: string, nome: string) => void;
+  /** Widget configuration with the defaults of its type applied. */
+  config: Record<string, unknown>;
+  /** Usable height (px) of the widget body. */
+  height: number;
+  /** Click on a map or table: filters the dashboard (cross-filtering) or navigates, per configuration. */
+  onSelect: (level: Level, id: string, name: string) => void;
 }
 
+/** Kinds of input the configuration drawer knows how to render. */
 export type FieldType =
-  | "texto"
+  | "text"
   | "textarea"
-  | "numero"
+  | "number"
   | "switch"
   | "select"
   | "multiselect"
-  | "cor"
-  | "candidato"
-  | "candidatos"
-  | "recorte"
-  | "recortes"
-  | "local"
-  | "secao"
-  | "datahora";
+  | "color"
+  | "candidate"
+  | "candidates"
+  | "geoArea"
+  | "geoAreas"
+  | "pollingPlace"
+  | "section"
+  | "datetime";
 
 export interface FieldConfig {
-  chave: string;
-  rotulo: string;
-  tipo: FieldType;
-  opcoes?: { value: string; label: string }[];
+  /** Key of the widget's `config` object (saved in the dashboard JSON). */
+  key: string;
+  label: string;
+  type: FieldType;
+  options?: { value: string; label: string }[];
   min?: number;
   max?: number;
-  descricao?: string;
-  /** mostra o campo só quando a condição for verdadeira */
-  quando?: (cfg: Record<string, unknown>) => boolean;
+  description?: string;
+  /** Shows the field only when this returns true for the current configuration. */
+  when?: (config: Record<string, unknown>) => boolean;
 }
 
 export interface DefWidget {
-  tipo: WidgetType;
-  nome: string;
-  descricao: string;
-  icone: Icon;
-  tamanho: { w: number; h: number; minW?: number; minH?: number };
-  padrao: Record<string, unknown>;
-  campos: FieldConfig[];
-  Componente: ComponentType<WidgetProps>;
-  /** recurso de /export para CSV/JSON */
-  exporta?: "resultados" | "filhos";
+  type: WidgetType;
+  name: string;
+  description: string;
+  icon: Icon;
+  size: { w: number; h: number; minW?: number; minH?: number };
+  defaults: Record<string, unknown>;
+  fields: FieldConfig[];
+  Component: ComponentType<WidgetProps>;
+  /** Which data the CSV/JSON export of the widget uses (`/export`). */
+  exportKind?: "resultados" | "filhos";
 }
 
-export const configNumber = (c: Record<string, unknown>, k: string, d: number) =>
-  typeof c[k] === "number" ? (c[k] as number) : d;
-export const configString = (c: Record<string, unknown>, k: string, d: string): string =>
-  typeof c[k] === "string" && c[k] !== "" ? (c[k] as string) : d;
-export const configBool = (c: Record<string, unknown>, k: string, d: boolean) =>
-  typeof c[k] === "boolean" ? (c[k] as boolean) : d;
-export const configArray = (c: Record<string, unknown>, k: string): string[] =>
-  Array.isArray(c[k]) ? (c[k] as unknown[]).filter((x): x is string => typeof x === "string") : [];
-export const configStringOrNull = (c: Record<string, unknown>, k: string): string | null =>
-  typeof c[k] === "string" && c[k] !== "" ? (c[k] as string) : null;
+/** Option list for a select field, from `[value, label]` pairs. */
+export const optionPairs = (values: [string, string][]) => values.map(([value, label]) => ({ value, label }));
+
+export const configNumber = (config: Record<string, unknown>, key: string, fallback: number) =>
+  typeof config[key] === "number" ? (config[key] as number) : fallback;
+export const configString = (config: Record<string, unknown>, key: string, fallback: string): string =>
+  typeof config[key] === "string" && config[key] !== "" ? (config[key] as string) : fallback;
+export const configBool = (config: Record<string, unknown>, key: string, fallback: boolean) =>
+  typeof config[key] === "boolean" ? (config[key] as boolean) : fallback;
+export const configArray = (config: Record<string, unknown>, key: string): string[] =>
+  Array.isArray(config[key])
+    ? (config[key] as unknown[]).filter((item): item is string => typeof item === "string")
+    : [];
+export const configStringOrNull = (config: Record<string, unknown>, key: string): string | null =>
+  typeof config[key] === "string" && config[key] !== "" ? (config[key] as string) : null;
