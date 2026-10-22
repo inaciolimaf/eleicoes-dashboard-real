@@ -13,19 +13,30 @@ from typing import Any
 import httpx
 import orjson
 from fastapi import Response
+from redis.asyncio import Redis
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.errors import AppError
 from app.core.redis import get_redis
 from app.infra.tse.urls import MontadorUrls
+from app.modules.ballot_reports import BallotBoxReport
 from app.modules.ballot_reports import demand as demanda
 from app.modules.elections import Candidate, Election
-from app.modules.geography import GeoArea, GeoAreaInvalid, parse
-from app.modules.public.schemas import CollectorStatusDto, FiltroExport, StatusDto
+from app.modules.geography import GeoArea, GeoAreaInvalid, Municipality, PollingPlace, PollingSection, parse
+from app.modules.public.schemas import (
+    CollectorStatusDto,
+    FiltroExport,
+    PollingPlaceDiagnosticsDto,
+    SectionDiagnosticDto,
+    StatusDto,
+)
 from app.modules.results import queries as resultados
 
 log = logging.getLogger(__name__)
+
+COLLECTOR_DIAGNOSTIC_FIELDS = ("section_mode", "section_queue", "sections_collected", "updated_at", "paused")
 
 
 async def pedir_secoes(turno: int, nivel: str, rid: str) -> None:
@@ -206,3 +217,58 @@ async def export(session: AsyncSession, t: datetime | None, f: FiltroExport) -> 
         media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": f'attachment; filename="{nome}.csv"'},
     )
+
+
+async def polling_place_diagnostics(
+    session: AsyncSession, turno: int, polling_place_id: str
+) -> PollingPlaceDiagnosticsDto:
+    """Why the sections of a polling place do not show: what the collector and the worker did with each one.
+
+    Only reads the database and Redis (no request to the TSE). Open the polling place page first, so the
+    collector receives the request, and wait about 30 s.
+    """
+    lid = polling_place_id.strip().lower()
+    redis = get_redis()
+    place = await session.get(PollingPlace, lid)
+    sections = (
+        (await session.execute(select(PollingSection).where(PollingSection.polling_place_id == lid)))
+        .scalars()
+        .all()
+    )
+    reported = set(
+        (
+            await session.execute(
+                select(BallotBoxReport.polling_section_id).where(
+                    BallotBoxReport.round == turno, BallotBoxReport.polling_place_id == lid
+                )
+            )
+        ).scalars()
+    )
+    requests = await demanda.pending(redis)
+    return PollingPlaceDiagnosticsDto(
+        polling_place_id=lid,
+        polling_place_in_db=place is not None,
+        municipality_in_db=bool(place and await session.get(Municipality, place.municipality_id)),
+        request_registered=(turno, "polling_place", lid) in requests,
+        collector=await _collector_diagnostic(redis),
+        sections=[
+            SectionDiagnosticDto(
+                id=sec.id,
+                ballot_in_db=sec.id in reported,
+                collector=await _read_json(redis, f"diag:section:{sec.id}"),
+                worker=await _read_json(redis, f"diag:section:{sec.id}:worker"),
+            )
+            for sec in sections
+        ],
+    )
+
+
+async def _collector_diagnostic(redis: Redis) -> dict[str, Any]:
+    raw = await redis.get("collector:metrics")
+    metrics = orjson.loads(raw) if raw else {}
+    return {k: metrics.get(k) for k in COLLECTOR_DIAGNOSTIC_FIELDS}
+
+
+async def _read_json(redis: Redis, key: str) -> dict[str, Any] | None:
+    raw = await redis.get(key)
+    return orjson.loads(raw) if raw else None

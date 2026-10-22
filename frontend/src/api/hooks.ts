@@ -72,13 +72,13 @@ export interface EventosFiltro {
   limite?: number;
 }
 
-/** Opções comuns: ao vivo = cache patchado pelo WS + polling de segurança se o WS cair; com t = histórico imutável */
+/** Opções comuns: ao vivo = cache patchado pelo WS + polling de segurança (mais frequente se o WS cair); com t = histórico imutável */
 function opcoesTempo(t: string | null, wsAberto: boolean) {
   return t
     ? { staleTime: Infinity, gcTime: 5 * 60_000, placeholderData: keepPreviousData }
     : {
         staleTime: 20_000,
-        refetchInterval: wsAberto ? (false as const) : 30_000,
+        refetchInterval: wsAberto ? 60_000 : 30_000,
         placeholderData: keepPreviousData,
       };
 }

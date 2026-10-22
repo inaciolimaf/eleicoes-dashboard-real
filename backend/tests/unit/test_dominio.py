@@ -127,5 +127,20 @@ def test_eventos_elected_e_runoff():
 
 
 def test_cores_estaveis():
-    assert cores.cores_por_numero([22, 13, 13]) == {13: cores.PALETA[0], 22: cores.PALETA[1]}
-    assert cores.cor_texto("Federação Aurora") == cores.cor_texto("Federação Aurora")
+    assert cores.colors_by_number([22, 13, 13]) == {13: cores.party_color(13), 22: cores.party_color(22)}
+    assert cores.color_for_text("Federação Aurora") == cores.color_for_text("Federação Aurora")
+
+
+def test_cores_por_partido():
+    vermelho_pt = cores.PARTIES[13][1]
+    assert cores.party_color(13) == vermelho_pt
+    assert cores.party_color(13123) == vermelho_pt  # candidato a vereador do PT
+    assert cores.candidate_color(13, None, None) == vermelho_pt
+    assert cores.candidate_color(99, 13, None) == vermelho_pt
+    assert cores.candidate_color(99, None, "pt") == vermelho_pt
+    assert cores.alliance_color("Federação Brasil da Esperança - FE BRASIL (PT/PC do B/PV)") in {
+        vermelho_pt,
+        cores.PARTIES[65][1],
+        cores.PARTIES[43][1],
+    }
+    assert cores.alliance_color("PT/PCdoB/PV") == vermelho_pt

@@ -11,18 +11,27 @@ import httpx
 
 
 class TokenBucket:
-    """Limita requisições por segundo (um 304 também consome token — regra do TSE)."""
+    """Limita requisições por segundo (um 304 também consome token — regra do TSE).
+
+    Pedidos de alta prioridade (high_priority) passam na frente: enquanto um esperar, os de baixa não pegam.
+    """
 
     def __init__(self, taxa: float, capacidade: float | None = None) -> None:
         self.taxa = taxa
-        self.capacidade = capacidade if capacidade is not None else max(1.0, taxa)
+        # Burst curto (10% da taxa): sem isso, um balde cheio + a taxa sustentada quase dobrariam
+        # o número de requisições num mesmo segundo.
+        self.capacidade = capacidade if capacidade is not None else max(1.0, taxa * 0.1)
         self.tokens = self.capacidade
         self.ultimo = time.monotonic()
-        self._lock = asyncio.Lock()
+        self._lock_high = asyncio.Lock()
+        self._lock_low = asyncio.Lock()
 
-    async def adquirir(self) -> None:
-        async with self._lock:
+    async def adquirir(self, high_priority: bool = False) -> None:
+        async with self._lock_high if high_priority else self._lock_low:
             while True:
+                if not high_priority and self._lock_high.locked():
+                    await asyncio.sleep(1 / self.taxa)
+                    continue
                 agora = time.monotonic()
                 self.tokens = min(self.capacidade, self.tokens + (agora - self.ultimo) * self.taxa)
                 self.ultimo = agora
@@ -66,6 +75,7 @@ class Fetcher:
     ) -> None:
         self.bucket = TokenBucket(max_rps)
         self.sem = asyncio.Semaphore(concorrencia)
+        self.sem_high = asyncio.Semaphore(max(4, concorrencia // 3))
         self.cliente = cliente or httpx.AsyncClient(
             timeout=httpx.Timeout(20.0),
             follow_redirects=True,
@@ -75,11 +85,14 @@ class Fetcher:
         self.nao_encontrados: dict[str, float] = {}
         self.ttl_404 = ttl_404
         self.metricas = Metricas()
+        self.pausa_ate = 0.0
 
     def limpar_404(self) -> None:
         self.nao_encontrados.clear()
 
-    async def get(self, url: str, usar_etag: bool = True, tentativas: int = 3) -> Resposta:
+    async def get(
+        self, url: str, usar_etag: bool = True, tentativas: int = 3, high_priority: bool = True
+    ) -> Resposta:
         visto = self.nao_encontrados.get(url)
         if visto is not None and time.monotonic() - visto < self.ttl_404:
             return Resposta(404, None, None, url)
@@ -88,9 +101,12 @@ class Fetcher:
             headers["If-None-Match"] = self.etags[url]
         atraso = 1.0
         for tentativa in range(tentativas):
-            await self.bucket.adquirir()
+            espera = self.pausa_ate - time.monotonic()
+            if espera > 0:
+                await asyncio.sleep(espera)
+            await self.bucket.adquirir(high_priority)
             try:
-                async with self.sem:
+                async with self.sem_high if high_priority else self.sem:
                     r = await self.cliente.get(url, headers=headers)
             except httpx.HTTPError:
                 self.metricas.erros_rede += 1
@@ -105,6 +121,9 @@ class Fetcher:
             if r.status_code == 404:
                 self.nao_encontrados[url] = time.monotonic()
                 return Resposta(404, None, None, url)
+            if r.status_code == 429:
+                # Excesso de requisições: segura todo o coletor por um tempo em vez de insistir.
+                self.pausa_ate = max(self.pausa_ate, time.monotonic() + 30.0)
             if r.status_code >= 500 or r.status_code == 429:
                 if tentativa == tentativas - 1:
                     return Resposta(r.status_code, None, None, url)

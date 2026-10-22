@@ -349,7 +349,7 @@ def cand_curto(c: Candidate | None, sq: str | None, votos: int = 0, p: float = 0
     return {
         "tse_candidate_id": sq,
         "ballot_name": c.ballot_name if c else sq,
-        "color": c.color if c else "#888888",
+        "color": cores.color_of(c),
         "ballot_number": c.ballot_number if c else None,
         "party_abbreviation": c.party_abbreviation if c else "",
         "votes": votos,
@@ -402,7 +402,11 @@ async def montar_resultado(
                 "party_abbreviation": m.party_abbreviation if m else "",
                 "party_number": m.party_number if m else None,
                 "alliance": m.alliance if m else "",
-                "color": m.color if m else "#888888",
+                "color": cores.color_of(m)
+                if m
+                else cores.party_color(c["num"])
+                if c.get("num")
+                else "#888888",
                 "photo_url": foto_url(c["sq"]),
                 "votes": int(c["v"]),
                 "valid_pct": float(c.get("p") or 0),
@@ -423,7 +427,7 @@ async def montar_resultado(
                     "parties": a.get("partidos", []),
                     "votes": a.get("v", 0),
                     "seats": a.get("vag"),
-                    "color": cores.cor_texto(a["nome"]),
+                    "color": cores.alliance_color(a["nome"]),
                 }
             )
     lider = linha.get("leader_candidate_id")
@@ -535,7 +539,7 @@ async def serie(
         {
             "tse_candidate_id": sq,
             "ballot_name": meta[sq].ballot_name if sq in meta else sq,
-            "color": meta[sq].color if sq in meta else "#888",
+            "color": cores.color_of(meta.get(sq)),
             "ballot_number": meta[sq].ballot_number if sq in meta else None,
             "party_abbreviation": meta[sq].party_abbreviation if sq in meta else "",
         }
@@ -633,7 +637,7 @@ def montar_item(
     if ln.get("leader_party"):
         item["leader_party"] = {
             "abbreviation": ln["leader_party"],
-            "color": cores.cor_texto(ln["leader_party"]),
+            "color": cores.alliance_color(ln["leader_party"]),
         }
     if candidatos and ln.get("candidates") is not None:
         mapa = {c["sq"]: c.get("p", 0) for c in ln["candidates"]}
@@ -825,7 +829,7 @@ async def filhos(
             {
                 "tse_candidate_id": sq,
                 "ballot_name": m.ballot_name if m else sq,
-                "color": m.color if m else "#888",
+                "color": cores.color_of(m),
                 "ballot_number": m.ballot_number if m else None,
                 "party_abbreviation": m.party_abbreviation if m else "",
                 "wins": vitorias.get(sq, 0),
@@ -1211,7 +1215,7 @@ def _votos_secao(v: dict, por_num: dict) -> list[dict[str, Any]]:
                 "tse_candidate_id": c.tse_candidate_id if c else None,
                 "ballot_name": c.ballot_name if c else f"Nº {num}",
                 "party_abbreviation": c.party_abbreviation if c else "",
-                "color": c.color if c else "#888",
+                "color": cores.color_of(c) if c else cores.party_color(int(num)),
                 "votes": q,
             }
         )
@@ -1223,7 +1227,7 @@ def _votos_secao(v: dict, por_num: dict) -> list[dict[str, Any]]:
                 "tse_candidate_id": None,
                 "ballot_name": f"Legenda {num}",
                 "party_abbreviation": "",
-                "color": cores.cor_partido(int(num)),
+                "color": cores.party_color(int(num)),
                 "votes": q,
             }
         )
@@ -1305,7 +1309,7 @@ def candidato_json(c: Candidate) -> dict[str, Any]:
         "ballot_name": c.ballot_name,
         "party_abbreviation": c.party_abbreviation,
         "alliance": c.alliance,
-        "color": c.color,
+        "color": cores.color_of(c),
         "photo_url": foto_url(c.tse_candidate_id),
         "state_code": None if c.state_code == "br" else c.state_code,
         "office_code": c.office_code,

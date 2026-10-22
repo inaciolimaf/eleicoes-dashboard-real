@@ -19,6 +19,7 @@ from app.modules.public.schemas import (
     FiltroEventos,
     FiltroExport,
     MapPollingPlacesDto,
+    PollingPlaceDiagnosticsDto,
     PollingPlaceDto,
     PollingSectionDto,
     ProgressDto,
@@ -124,6 +125,17 @@ async def polling_place(
     if d is None:
         raise AppError(404, "Não encontrado", "local não encontrado", "polling_places/not_found")
     return d
+
+
+@router.get(
+    "/diagnostics/polling-places/{polling_place_id}",
+    response_model=PollingPlaceDiagnosticsDto,
+    tags=["diagnostics"],
+)
+async def polling_place_diagnostics(
+    session: DbSession, polling_place_id: str, turno: int = Query(1, alias="round")
+) -> PollingPlaceDiagnosticsDto:
+    return await service.polling_place_diagnostics(session, turno, polling_place_id)
 
 
 @router.get(

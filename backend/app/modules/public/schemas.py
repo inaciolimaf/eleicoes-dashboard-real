@@ -406,6 +406,24 @@ class CandidateResultSummaryDto(BaseModel):
     status: str
 
 
+class SectionDiagnosticDto(BaseModel):
+    """What the collector and the worker did with one section of a polling place (Redis, 1 h)."""
+
+    id: str
+    ballot_in_db: bool
+    collector: dict[str, Any] | None
+    worker: dict[str, Any] | None
+
+
+class PollingPlaceDiagnosticsDto(BaseModel):
+    polling_place_id: str
+    polling_place_in_db: bool
+    municipality_in_db: bool
+    request_registered: bool
+    collector: dict[str, Any]
+    sections: list[SectionDiagnosticDto]
+
+
 class CandidateDetailDto(CandidateDto):
     office: OfficeDto
     result: CandidateResultSummaryDto | None

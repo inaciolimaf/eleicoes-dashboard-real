@@ -44,7 +44,7 @@ frontend/nginx.conf       # SPA fallback, gzip, cache de assets, proxy /api e We
 | Comando | O que faz |
 |---|---|
 | `make up` | Sobe tudo contra o mock do TSE |
-| `make up-oficial` | Sobe contra o TSE real (`TSE_AMBIENTE=oficial`, 60 req/s), sem o mock |
+| `make up-oficial` | Sobe contra o TSE real (`TSE_AMBIENTE=oficial`, 90 req/s), sem o mock |
 | `make dev` | Modo desenvolvimento (reload no backend, Vite em http://localhost:5173) |
 | `make test` | **Testes do backend** (ruff + pytest com cobertura mínima de 85%) em containers |
 | `make logs s=collector` | Logs de um serviço |
@@ -87,7 +87,7 @@ projeto).
 
 ## 10.7 Dia da eleição (TSE real)
 
-1. Em `.env`: `TSE_AMBIENTE=oficial`, `TSE_BASE_URL=https://resultados.tse.jus.br/oficial`, `TSE_MAX_RPS=60`
+1. Em `.env`: `TSE_AMBIENTE=oficial`, `TSE_BASE_URL=https://resultados.tse.jus.br/oficial`, `TSE_MAX_RPS=90`
    (nunca acima de 100) e `LOCAIS_VOTACAO_URL` com o CSV/ZIP de locais de votação de 2026 dos Dados Abertos.
 2. `make up-oficial`.
 3. Acompanhe a página Admin (req/s, 304/404, falhas de JWS, filas). Se algo der errado no formato, os brutos
@@ -100,7 +100,7 @@ projeto).
 1. New Resource → seu repositório Git → Build Pack **Docker Compose**.
 2. Docker Compose Location: `/docker-compose.coolify.yml` → Deploy.
 
-- Roda contra o **TSE oficial** (60 req/s), sem o mock.
+- Roda contra o **TSE oficial** (90 req/s), sem o mock.
 - Senha do Postgres e `JWT_SECRET` são gerados pelo Coolify (`SERVICE_PASSWORD_*`) e mantidos entre deploys.
 - O domínio é gerado automaticamente para o serviço `web` (porta 80); para usar o seu, edite em *Domains* do `web`.
 - Nada publica porta no host: o acesso é só pelo proxy do Coolify. A API fica em `/api` no mesmo domínio.

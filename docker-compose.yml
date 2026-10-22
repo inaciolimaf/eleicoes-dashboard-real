@@ -10,6 +10,8 @@ x-backend: &backend
     DATABASE_URL: postgresql+asyncpg://eleicoes:eleicoes@db:5432/eleicoes
     REDIS_URL: redis://redis:6379/0
   restart: unless-stopped
+  init: true  # repassa o SIGTERM ao Python (senão o docker stop espera 30 s)
+  stop_grace_period: 10s
 
 services:
   db:

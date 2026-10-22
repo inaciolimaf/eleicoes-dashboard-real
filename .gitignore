@@ -28,3 +28,4 @@ openapi.json
 
 *.log
 dump.rdb
+*.egg-info/

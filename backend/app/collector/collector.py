@@ -13,6 +13,7 @@ from collections import defaultdict
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import orjson
 from redis.asyncio import Redis
@@ -106,7 +107,7 @@ class Coletor:
         self.ufs_secoes_carregadas: set[str] = set()
         self.estado_mun: dict[tuple[int, str], tuple] = {}
         self.estado_uf: dict[tuple[int, str], tuple] = {}
-        self.secoes_feitas: set[str] = set()
+        self.secoes_feitas: dict[str, float] = {}
         self.tentativa_sec: dict[str, float] = {}
         self.fila_mun: asyncio.PriorityQueue = asyncio.PriorityQueue()
         self.fila_sec: asyncio.PriorityQueue = asyncio.PriorityQueue()
@@ -115,6 +116,7 @@ class Coletor:
         self.vigiados: set[str] = set()
         self.ultima_coleta_mun: dict[tuple[int, str], float] = {}
         self.pausado = False
+        self.jws_desligado = False
         self.id = uuid.uuid4().hex[:8]
         self._contador = 0
 
@@ -133,11 +135,13 @@ class Coletor:
         except OSError:
             pass
 
-    async def obter(self, url_json: str, arquivar: bool = True) -> tuple[int, bytes | None, bool]:
+    async def obter(
+        self, url_json: str, arquivar: bool = True, high_priority: bool = True
+    ) -> tuple[int, bytes | None, bool]:
         """Busca o .jws (verificando a assinatura) e cai para o .json se o .jws não existir."""
-        if self.s.tse_usar_jws and url_json.endswith(".json"):
+        if self.s.tse_usar_jws and not self.jws_desligado and url_json.endswith(".json"):
             url = url_json[:-5] + ".jws"
-            r = await self.fetcher.get(url)
+            r = await self.fetcher.get(url, high_priority=high_priority)
             if r.status == 200 and r.corpo is not None:
                 if arquivar:
                     self._arquivar(url, r.etag, r.corpo)
@@ -146,13 +150,17 @@ class Coletor:
                 try:
                     return 200, jws.verificar(r.corpo.decode(), self.chave), True
                 except jws.ErroJWS as exc:
+                    # Chave/kid diferente da esperada: em vez de descartar o resultado (e o site parar de
+                    # atualizar), passa a usar o .json, sem a marca de verificado.
                     self.fetcher.metricas.falhas_jws += 1
                     self.fetcher.etags.pop(url, None)
-                    log.error("JWS inválido em %s: %s", url, exc)
-                    return 498, None, False
-            if r.status != 404:
+                    self.jws_desligado = True
+                    log.error(
+                        "JWS inválido em %s: %s — coletando pelo .json sem verificar assinatura", url, exc
+                    )
+            elif r.status != 404:
                 return r.status, None, False
-        r = await self.fetcher.get(url_json)
+        r = await self.fetcher.get(url_json, high_priority=high_priority)
         if r.status == 200 and r.corpo is not None and arquivar:
             self._arquivar(url_json, r.etag, r.corpo)
         return r.status, r.corpo, False
@@ -224,7 +232,7 @@ class Coletor:
         if uf in self.ufs_secoes_carregadas or self.urls is None:
             return
         self.ufs_secoes_carregadas.add(uf)
-        _status, corpo, _ = await self.obter(self.urls.secoes(uf), arquivar=False)
+        _status, corpo, _ = await self.obter(self.urls.secoes(uf), arquivar=False, high_priority=False)
         if corpo is None:
             self.ufs_secoes_carregadas.discard(uf)
             return
@@ -240,7 +248,9 @@ class Coletor:
     ) -> None:
         assert self.urls is not None
         url = self.urls.resultado(e.election_code, cd, uf, mun, zona)
-        status, corpo, jws_ok = await self.obter(url)
+        # Brazil/UF totals and municipalities open in the dashboard go first (TSE request limit and queue)
+        high_priority = mun is None or f"{uf}{mun:05d}" in self.vigiados
+        status, corpo, jws_ok = await self.obter(url, high_priority=high_priority)
         if status != 200 or corpo is None:
             return
         if uf == "br":
@@ -255,6 +265,8 @@ class Coletor:
             self.redis,
             queue.TYPE_RESULT,
             corpo,
+            high_priority=high_priority,
+            key=url,
             round=turno,
             election_id=e.id,
             office_code=cd,
@@ -313,7 +325,14 @@ class Coletor:
         if corpo is None:
             return
         await queue.enqueue(
-            self.redis, queue.TYPE_TRACKING, corpo, round=turno, state_code=uf, captured_at=agora_iso()
+            self.redis,
+            queue.TYPE_TRACKING,
+            corpo,
+            high_priority=True,
+            key=f"tracking:{turno}:{uf}",
+            round=turno,
+            state_code=uf,
+            captured_at=agora_iso(),
         )
         if uf == "br":
             return
@@ -372,42 +391,80 @@ class Coletor:
             prio = 0 if mid in self.vigiados else 2
             for zona, secao in self.secoes_mun.get(mid, []):
                 sid = f"{mid}-z{zona:04d}-s{secao:04d}"
-                if sid in self.secoes_feitas or sid in self.pendentes_sec:
+                if self._secao_feita(sid) or sid in self.pendentes_sec:
                     continue
                 self.pendentes_sec.add(sid)
                 self.fila_sec.put_nowait((prio, self._ordem(), turno, uf, cd_mun, zona, secao))
 
-    async def processar_secao(self, turno: int, uf: str, cd_mun: int, zona: int, secao: int) -> None:
+    async def processar_secao(
+        self, turno: int, uf: str, cd_mun: int, zona: int, secao: int, high_priority: bool = False
+    ) -> None:
         assert self.urls is not None
         sid = f"{uf}{cd_mun:05d}-z{zona:04d}-s{secao:04d}"
         self.tentativa_sec[sid] = time.monotonic()
+        diag: dict[str, Any] = {"at": agora_iso(), "round": turno, "high_priority": high_priority}
+        try:
+            await self._processar_secao(turno, uf, cd_mun, zona, secao, diag)
+        except Exception as exc:
+            diag["error"] = f"{type(exc).__name__}: {exc}"
+            raise
+        finally:
+            log.info("seção %s: %s", sid, diag)
+            with contextlib.suppress(Exception):
+                await self.redis.set(f"diag:section:{sid}", orjson.dumps(diag), ex=3600)
+
+    async def _processar_secao(
+        self, turno: int, uf: str, cd_mun: int, zona: int, secao: int, diag: dict[str, Any]
+    ) -> None:
+        assert self.urls is not None
+        sid = f"{uf}{cd_mun:05d}-z{zona:04d}-s{secao:04d}"
+        high_priority = bool(diag["high_priority"])
         url = self.urls.auxiliar_secao(uf, cd_mun, zona, secao)
-        r = await self.fetcher.get(url)
+        # No ETag: with one, a BU that failed once would keep the auxiliary answering 304 and the
+        # section would never be downloaded
+        r = await self.fetcher.get(url, usar_etag=False, high_priority=high_priority)
+        diag.update(aux_url=url, aux_status=r.status)
         if r.status != 200 or not r.corpo:
+            diag["step"] = "auxiliar indisponível"
             return
         aux = parse_auxiliar(orjson.loads(r.corpo))
+        diag["aux"] = {
+            "status": aux.status,
+            "urns": [{"hash": u.hash[:16], "status": u.status, "files": u.arquivos} for u in aux.urnas],
+        }
         urna = aux.urna_totalizada()
         if urna is None:
+            diag["step"] = "nenhuma urna totalizada com .bu no auxiliar"
             return
         nome = urna.nome_bu()
         assert nome is not None
         url_bu = self.urls.arquivo_urna(uf, cd_mun, zona, secao, urna.hash, nome)
-        rb = await self.fetcher.get(url_bu, usar_etag=False)
+        rb = await self.fetcher.get(url_bu, usar_etag=False, high_priority=high_priority)
+        diag.update(bu_url=url_bu, bu_status=rb.status)
         if rb.status != 200 or not rb.corpo:
+            diag["step"] = "BU indisponível"
             return
         self._arquivar(url_bu, urna.hash[:16], rb.corpo)
-        self.secoes_feitas.add(sid)
+        # Marked only for a while: if the worker fails, the section is tried again (the database is the truth)
+        self.secoes_feitas[sid] = time.monotonic()
         await queue.enqueue(
             self.redis,
             queue.TYPE_BALLOT,
             rb.corpo,
+            high_priority=high_priority,
             round=turno,
             state_code=uf,
             hash=urna.hash,
             status=urna.status,
+            polling_section_id=sid,
             tallied_at=urna.recebido_em.isoformat() if urna.recebido_em else None,
             url=url_bu,
         )
+        diag["step"] = "BU enviado ao worker"
+
+    def _secao_feita(self, sid: str) -> bool:
+        t = self.secoes_feitas.get(sid)
+        return t is not None and (self.s.modo_secoes == "todas" or time.monotonic() - t < 120)
 
     async def ciclo_sob_demanda(self) -> None:
         """Enfileira só os boletins dos locais/seções abertos no dashboard ou com alerta de "local apurado".
@@ -457,7 +514,7 @@ class Coletor:
         agora = time.monotonic()
         for turno, ids in secoes.items():
             for sid in ids:
-                if (turno, sid) in feitas or sid in self.secoes_feitas or sid in self.pendentes_sec:
+                if (turno, sid) in feitas or self._secao_feita(sid) or sid in self.pendentes_sec:
                     continue
                 if agora - self.tentativa_sec.get(sid, -1e9) < intervalo:
                     continue
@@ -487,12 +544,23 @@ class Coletor:
                     log.exception("falha no laço %s", nome)
             await asyncio.sleep(max(0.5, intervalo - (time.monotonic() - inicio)))
 
+    async def _fila_cheia(self) -> bool:
+        """Freio: se o worker não está dando conta, para de baixar municípios até a fila baixar.
+
+        Sem isso a fila do Redis cresce sem limite (e pode estourar a memória). Nada se perde: o arquivo não é
+        baixado, então o ETag não muda e ele é buscado de novo quando a fila esvaziar.
+        """
+        try:
+            return await queue.low_priority_size(self.redis) > self.s.fila_max
+        except Exception:
+            return False
+
     async def _consumir_municipios(self) -> None:
         while True:
             _, _, turno, mid = await self.fila_mun.get()
             self.pendentes_mun.discard((turno, mid))
-            while self.pausado:
-                await asyncio.sleep(1)
+            while self.pausado or (mid not in self.vigiados and await self._fila_cheia()):
+                await asyncio.sleep(2)
             try:
                 await self.processar_municipio(turno, mid)
             except Exception:
@@ -500,13 +568,14 @@ class Coletor:
 
     async def _consumir_secoes(self) -> None:
         while True:
-            _, _, turno, uf, cd_mun, zona, secao = await self.fila_sec.get()
+            prio, _, turno, uf, cd_mun, zona, secao = await self.fila_sec.get()
             sid = f"{uf}{cd_mun:05d}-z{zona:04d}-s{secao:04d}"
             self.pendentes_sec.discard(sid)
             while self.pausado:
                 await asyncio.sleep(1)
             try:
-                await self.processar_secao(turno, uf, cd_mun, zona, secao)
+                # prio 0 = seção/local aberto no dashboard: passa na frente no TSE e na fila do worker
+                await self.processar_secao(turno, uf, cd_mun, zona, secao, high_priority=prio == 0)
             except Exception:
                 log.exception("falha na seção %s", sid)
 

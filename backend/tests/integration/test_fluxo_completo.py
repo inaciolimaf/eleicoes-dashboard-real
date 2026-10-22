@@ -28,10 +28,10 @@ UF_TESTE = "ac"
 async def drenar_fila(redis, proc: Processor) -> int:
     n = 0
     while True:
-        item = await redis.rpop(queue.QUEUE)
+        item = await queue.dequeue(redis, timeout=0)
         if item is None:
             return n
-        await proc.process(*queue.read(item))
+        await proc.process(*item)
         n += 1
 
 
@@ -246,6 +246,16 @@ async def test_secoes_sob_demanda(ambiente, api, redis_cliente):
             coletor.pendentes_sec.discard(f"{uf}{mun:05d}-z{zona:04d}-s{sec:04d}")
             await coletor.processar_secao(turno, uf, mun, zona, sec)
         await drenar_fila(redis_cliente, proc)
+
+        # diagnostics of the polling place: what the collector and the worker did with each section
+        d = (await api.get(f"/api/v1/diagnostics/polling-places/{feito.polling_place_id}")).json()
+        assert d["polling_place_in_db"] and d["municipality_in_db"] and d["request_registered"]
+        por_id = {x["id"]: x for x in d["sections"]}
+        assert set(por_id) == do_local
+        for sid in do_local - com_bu:
+            assert por_id[sid]["collector"]["aux_status"] in (200, 404)
+            if por_id[sid]["collector"].get("step") == "BU enviado ao worker":
+                assert por_id[sid]["worker"]["ok"] and por_id[sid]["ballot_in_db"]
     finally:
         coletor.s = s_original
         await redis_cliente.delete("sections:demand")

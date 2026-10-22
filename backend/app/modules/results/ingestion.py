@@ -413,7 +413,6 @@ def _linha_resultado(ctx: Contexto, res: ResultadoTSE, sistema: str) -> dict:
 
 
 async def _upsert_candidatos(session: AsyncSession, ctx: Contexto, res: ResultadoTSE, vagas: int) -> None:
-    paleta = cores.cores_por_numero([c.numero for c in res.candidatos])
     sit = situacao.calcular(
         [
             {"sq": c.sqcand, "v": c.votos, "e": c.eleito, "st": c.situacao_tse, "d": c.destinacao}
@@ -439,7 +438,7 @@ async def _upsert_candidatos(session: AsyncSession, ctx: Contexto, res: Resultad
                 "party_abbreviation": c.partido_sigla,
                 "party_number": c.partido_numero,
                 "alliance": c.agremiacao,
-                "color": paleta.get(c.numero, cores.PALETA[0]),
+                "color": cores.candidate_color(c.numero, c.partido_numero, c.partido_sigla),
                 "vice_and_substitutes": [
                     {"nome": v.nome, "tipo": "vice" if v.tipo == "v" else "suplente"} for v in c.vices
                 ],

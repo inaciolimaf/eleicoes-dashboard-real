@@ -15,12 +15,15 @@ x-backend: &backend
     TSE_AMBIENTE: oficial
     TSE_BASE_URL: https://resultados.tse.jus.br/oficial
     # o TSE bloqueia o IP por 10 min acima de 100 req/s
-    TSE_MAX_RPS: "60"
-    TSE_CONCORRENCIA: "32"
+    TSE_MAX_RPS: "90"
+    TSE_CONCORRENCIA: "24"
     TSE_VERIFICAR_JWS: "true"
     COLETAR_SECOES: "true"
     MODO_SECOES: sob_demanda
-    COLETAR_ZONAS: "true"
+    # Zonas multiplicam o volume (cada zona de cada município × cada cargo) e travavam o worker
+    COLETAR_ZONAS: "false"
+    # Freio: acima disso na fila do worker, o coletor para de baixar municípios até ela esvaziar
+    FILA_MAX: "3000"
     INTERVALO_CATALOGO: "30"
     INTERVALO_PRINCIPAL: "5"
     INTERVALO_ACOMPANHAMENTO: "5"
@@ -32,6 +35,10 @@ x-backend: &backend
     WORKER_CONCORRENCIA: "6"
     LOG_LEVEL: INFO
   restart: unless-stopped
+  # Processo init (tini) como PID 1: repassa o SIGTERM ao Python. Sem isso, coletor e workers ignoram o
+  # sinal e o Docker espera 30 s por container antes de matá-los, o que deixava o deploy ~1,5 min mais lento.
+  init: true
+  stop_grace_period: 10s
 
 services:
   db:
@@ -50,8 +57,10 @@ services:
 
   redis:
     image: redis:7-alpine
-    command: ["redis-server", "--appendonly", "yes"]
-    volumes: [redisdata:/data]
+    # Sem persistência: tudo no Redis é temporário (fila do worker, métricas, tópicos do tempo real) e o coletor
+    # rebaixa o que precisar. Assim o Redis sempre sobe vazio e na hora, em vez de passar minutos lendo (ou não
+    # conseguindo ler) um AOF de vários GB. Teto de memória: recusa escritas em vez de derrubar a máquina.
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "1500mb", "--maxmemory-policy", "noeviction"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 3s
@@ -103,6 +112,5 @@ services:
 
 volumes:
   pgdata:
-  redisdata:
   brutos:
   fotos:

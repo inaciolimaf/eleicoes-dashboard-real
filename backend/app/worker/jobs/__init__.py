@@ -5,9 +5,11 @@ Cada mensagem é uma unidade de trabalho (`unit_of_work`): ou tudo é gravado, o
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import time
 from datetime import datetime
+from typing import Any
 
 import orjson
 from redis.asyncio import Redis
@@ -166,6 +168,24 @@ class Processor:
         return self._numeros[chave][1]
 
     async def ballot(self, body: bytes, context: dict) -> None:
+        section_id = context.get("polling_section_id")
+        try:
+            await self._ballot(body, context)
+        except Exception as exc:
+            if section_id:
+                await self._worker_diag(section_id, {"error": f"{type(exc).__name__}: {exc}"})
+            raise
+
+    async def _worker_diag(self, section_id: str, data: dict[str, Any]) -> None:
+        """What the worker did with the ballot of a section, read by the diagnostics route. Best effort."""
+        with contextlib.suppress(Exception):
+            await self.redis.set(
+                f"diag:section:{section_id}:worker",
+                orjson.dumps({"at": datetime.now().isoformat(), **data}),
+                ex=3600,
+            )
+
+    async def _ballot(self, body: bytes, context: dict[str, Any]) -> None:
         turno = int(context["round"])
         uf = context["state_code"]
         bu = bu_mod.decodificar(body)
@@ -184,6 +204,25 @@ class Processor:
                     numeros=numeros,
                 ),
             )
+            if context.get("polling_section_id"):
+                mid = f"{uf}{bu.municipio:05d}"
+                await self._worker_diag(
+                    context["polling_section_id"],
+                    {
+                        "ok": True,
+                        "ballot": {
+                            "municipality": bu.municipio,
+                            "zone": bu.zona,
+                            "polling_place": bu.local,
+                            "section": bu.secao,
+                        },
+                        "section_saved": f"{mid}-z{bu.zona:04d}-s{bu.secao:04d}",
+                        "polling_places_recalculated": alterados,
+                        "warning": None
+                        if alterados
+                        else "município do BU não está no banco ou o local não foi recalculado",
+                    },
+                )
             await self._publicar_boletim(session, turno, uf, bu, alterados)
 
     async def _publicar_boletim(

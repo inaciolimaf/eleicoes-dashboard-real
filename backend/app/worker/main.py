@@ -16,14 +16,14 @@ async def consumer(nome: str, proc: Processor) -> None:
     redis = get_redis()
     while True:
         try:
-            item = await redis.brpop(queue.QUEUE, timeout=5)
+            item = await queue.dequeue(redis, timeout=5)
         except Exception:
             log.exception("[%s] falha ao ler a fila", nome)
             await asyncio.sleep(1)
             continue
         if not item:
             continue
-        type_, body, context = queue.read(item[1])
+        type_, body, context = item
         try:
             await proc.process(type_, body, context)
             await redis.hincrby("worker:metrics", f"ok:{type_}", 1)
