@@ -1,6 +1,22 @@
-import { ActionIcon, Badge, Box, Button, Group, SegmentedControl, Slider, Text, Tooltip } from "@mantine/core";
+import {
+  ActionIcon,
+  Badge,
+  Box,
+  Button,
+  Group,
+  SegmentedControl,
+  Slider,
+  Text,
+  Tooltip,
+} from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
-import { IconPlayerPauseFilled, IconPlayerPlayFilled, IconPlayerTrackNext, IconPlayerTrackPrev, IconBroadcast } from "@tabler/icons-react";
+import {
+  IconPlayerPauseFilled,
+  IconPlayerPlayFilled,
+  IconPlayerTrackNext,
+  IconPlayerTrackPrev,
+  IconBroadcast,
+} from "@tabler/icons-react";
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLinhaDoTempo } from "../../api/hooks";
@@ -10,7 +26,13 @@ import { brt, fmtHora } from "../../lib/time";
 import { COR_EVENTO, ROTULO_EVENTO } from "../../realtime/aplicar";
 
 const COR_HEX: Record<string, string> = {
-  orange: "#F97316", blue: "#3D7BFF", green: "#22C55E", yellow: "#EAB308", teal: "#14B8A6", grape: "#A855F7", cyan: "#06B6D4",
+  orange: "#F97316",
+  blue: "#3D7BFF",
+  green: "#22C55E",
+  yellow: "#EAB308",
+  teal: "#14B8A6",
+  grape: "#A855F7",
+  cyan: "#06B6D4",
 };
 const PASSO_MS = 2000;
 
@@ -23,7 +45,7 @@ export function TimeSlider() {
   const celular = useMediaQuery("(max-width: 48em)");
   const inicio = q.data?.inicio ? new Date(q.data.inicio).getTime() : null;
   const fim = q.data?.fim ? new Date(q.data.fim).getTime() : null;
-  const valorAtual = t ? new Date(t).getTime() : fim ?? 0;
+  const valorAtual = t ? new Date(t).getTime() : (fim ?? 0);
   const [arrastando, setArrastando] = useState<number | null>(null);
 
   // replay
@@ -49,7 +71,9 @@ export function TimeSlider() {
     qc.invalidateQueries({
       predicate: (qq) => {
         const k = qq.queryKey;
-        return ["resultados", "filhos", "locais", "progresso"].includes(String(k[0])) && k[k.length - 1] === null;
+        return (
+          ["resultados", "filhos", "locais", "progresso"].includes(String(k[0])) && k[k.length - 1] === null
+        );
       },
     });
   };
@@ -64,7 +88,10 @@ export function TimeSlider() {
 
   const saltar = (dir: 1 | -1) => {
     const ref = valorAtual;
-    const alvo = dir === 1 ? eventos.find((x) => x.ms > ref + 1000) : [...eventos].reverse().find((x) => x.ms < ref - 1000);
+    const alvo =
+      dir === 1
+        ? eventos.find((x) => x.ms > ref + 1000)
+        : [...eventos].reverse().find((x) => x.ms < ref - 1000);
     if (alvo) setT(new Date(alvo.ms).toISOString());
   };
 
@@ -72,9 +99,17 @@ export function TimeSlider() {
     return (
       <Group h="100%" px="md" gap="sm" justify="space-between">
         <Text size="sm" c="dimmed">
-          {q.isLoading ? "Carregando linha do tempo…" : q.error ? "Linha do tempo indisponível" : "A linha do tempo aparece com os primeiros snapshots da apuração."}
+          {q.isLoading
+            ? "Carregando linha do tempo…"
+            : q.error
+              ? "Linha do tempo indisponível"
+              : "A linha do tempo aparece com os primeiros snapshots da apuração."}
         </Text>
-        <Badge variant="light" color="red" leftSection={<span className="ao-vivo-dot" style={{ width: 6, height: 6 }} />}>
+        <Badge
+          variant="light"
+          color="red"
+          leftSection={<span className="ao-vivo-dot" style={{ width: 6, height: 6 }} />}
+        >
           Ao vivo
         </Badge>
       </Group>
@@ -88,12 +123,23 @@ export function TimeSlider() {
     <Group h="100%" px={{ base: "xs", sm: "md" }} gap="sm" wrap="nowrap">
       <Group gap={4} wrap="nowrap">
         <Tooltip label="Evento anterior">
-          <ActionIcon variant="subtle" onClick={() => saltar(-1)} aria-label="Evento anterior" visibleFrom="sm">
+          <ActionIcon
+            variant="subtle"
+            onClick={() => saltar(-1)}
+            aria-label="Evento anterior"
+            visibleFrom="sm"
+          >
             <IconPlayerTrackPrev size={16} />
           </ActionIcon>
         </Tooltip>
         <Tooltip label={tocando ? "Pausar replay" : "Reproduzir a apuração (replay)"}>
-          <ActionIcon variant="filled" radius="xl" size="lg" onClick={() => setTocando(!tocando)} aria-label={tocando ? "Pausar" : "Reproduzir"}>
+          <ActionIcon
+            variant="filled"
+            radius="xl"
+            size="lg"
+            onClick={() => setTocando(!tocando)}
+            aria-label={tocando ? "Pausar" : "Reproduzir"}
+          >
             {tocando ? <IconPlayerPauseFilled size={16} /> : <IconPlayerPlayFilled size={16} />}
           </ActionIcon>
         </Tooltip>
@@ -114,10 +160,17 @@ export function TimeSlider() {
       <Box style={{ flex: 1, minWidth: 80 }} pt={14} pos="relative">
         <Box pos="absolute" top={0} left={8} right={8} h={12} style={{ pointerEvents: "none" }}>
           {eventos.map(({ e, ms }) => (
-            <Tooltip key={e.id} label={`${fmtHora(e.ocorrido_em, false)} · ${ROTULO_EVENTO[e.tipo] ?? e.tipo}: ${e.titulo}`}>
+            <Tooltip
+              key={e.id}
+              label={`${fmtHora(e.ocorrido_em, false)} · ${ROTULO_EVENTO[e.tipo] ?? e.tipo}: ${e.titulo}`}
+            >
               <Box
                 className="marcador-evento"
-                style={{ left: `${((ms - inicio) / (fim - inicio)) * 100}%`, background: COR_HEX[COR_EVENTO[e.tipo] ?? "blue"], pointerEvents: "auto" }}
+                style={{
+                  left: `${((ms - inicio) / (fim - inicio)) * 100}%`,
+                  background: COR_HEX[COR_EVENTO[e.tipo] ?? "blue"],
+                  pointerEvents: "auto",
+                }}
                 onClick={() => setT(new Date(ms).toISOString())}
               />
             </Tooltip>
@@ -148,11 +201,23 @@ export function TimeSlider() {
           </Text>
         </Group>
       </Box>
-      <Text size="sm" fw={700} className="num" style={{ whiteSpace: "nowrap" }} c={aoVivoAgora ? undefined : "yellow.5"}>
+      <Text
+        size="sm"
+        fw={700}
+        className="num"
+        style={{ whiteSpace: "nowrap" }}
+        c={aoVivoAgora ? undefined : "yellow.5"}
+      >
         {brt(exibido).format(celular ? "HH:mm" : "HH:mm:ss")}
       </Text>
       {!aoVivoAgora && novidades > 0 && (
-        <Badge color="red" variant="light" style={{ cursor: "pointer" }} onClick={voltarAoVivo} visibleFrom="sm">
+        <Badge
+          color="red"
+          variant="light"
+          style={{ cursor: "pointer" }}
+          onClick={voltarAoVivo}
+          visibleFrom="sm"
+        >
           {novidades} novidade{novidades > 1 ? "s" : ""} — voltar ao vivo
         </Badge>
       )}
@@ -160,7 +225,13 @@ export function TimeSlider() {
         size="xs"
         color="red"
         variant={aoVivoAgora ? "filled" : "outline"}
-        leftSection={aoVivoAgora ? <span className="ao-vivo-dot" style={{ background: "#fff", width: 7, height: 7 }} /> : <IconBroadcast size={14} />}
+        leftSection={
+          aoVivoAgora ? (
+            <span className="ao-vivo-dot" style={{ background: "#fff", width: 7, height: 7 }} />
+          ) : (
+            <IconBroadcast size={14} />
+          )
+        }
         onClick={voltarAoVivo}
         px={celular ? 8 : undefined}
       >

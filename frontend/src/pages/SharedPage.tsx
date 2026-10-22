@@ -1,4 +1,14 @@
-import { ActionIcon, AppShell, Badge, Box, Button, Group, Text, Title, useComputedColorScheme } from "@mantine/core";
+import {
+  ActionIcon,
+  AppShell,
+  Badge,
+  Box,
+  Button,
+  Group,
+  Text,
+  Title,
+  useComputedColorScheme,
+} from "@mantine/core";
 import { IconChartBar, IconClockHour4, IconExternalLink, IconMoonStars, IconSun } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo } from "react";
@@ -24,7 +34,8 @@ export default function SharedPage() {
   const token = useParams().token ?? "";
   const q = useQuery({
     queryKey: ["compartilhado", token],
-    queryFn: ({ signal }) => api<CompartilhadoResp>(`/compartilhados/${encodeURIComponent(token)}`, { signal }),
+    queryFn: ({ signal }) =>
+      api<CompartilhadoResp>(`/compartilhados/${encodeURIComponent(token)}`, { signal }),
     staleTime: 60_000,
     retry: 1,
   });
@@ -36,7 +47,11 @@ export default function SharedPage() {
   const setPrefs = usePrefs((s) => s.set);
 
   useEffect(() => {
-    if (painel) aplicarFiltroDoPainel({ ...painel.config, filtroGlobal: { ...painel.config.filtroGlobal, tempo: "agora" } });
+    if (painel)
+      aplicarFiltroDoPainel({
+        ...painel.config,
+        filtroGlobal: { ...painel.config.filtroGlobal, tempo: "agora" },
+      });
   }, [painel]);
 
   return (
@@ -59,10 +74,22 @@ export default function SharedPage() {
           </Group>
           <Group gap="xs" wrap="nowrap">
             {!congelado && <LiveIndicator compacto />}
-            <ActionIcon variant="default" size="lg" onClick={() => setPrefs({ tema: esquema === "dark" ? "claro" : "escuro" })} aria-label="Alternar tema">
+            <ActionIcon
+              variant="default"
+              size="lg"
+              onClick={() => setPrefs({ tema: esquema === "dark" ? "claro" : "escuro" })}
+              aria-label="Alternar tema"
+            >
               {esquema === "dark" ? <IconSun size={18} /> : <IconMoonStars size={18} />}
             </ActionIcon>
-            <Button component={Link} to="/" size="xs" variant="light" rightSection={<IconExternalLink size={14} />} visibleFrom="sm">
+            <Button
+              component={Link}
+              to="/"
+              size="xs"
+              variant="light"
+              rightSection={<IconExternalLink size={14} />}
+              visibleFrom="sm"
+            >
               Abrir o app
             </Button>
           </Group>

@@ -1,4 +1,17 @@
-import { Button, Card, ColorInput, Group, MultiSelect, ScrollArea, SegmentedControl, Stack, Switch, Table, Text, Title } from "@mantine/core";
+import {
+  Button,
+  Card,
+  ColorInput,
+  Group,
+  MultiSelect,
+  ScrollArea,
+  SegmentedControl,
+  Stack,
+  Switch,
+  Table,
+  Text,
+  Title,
+} from "@mantine/core";
 import { IconRestore } from "@tabler/icons-react";
 import { useCandidatos } from "../api/hooks";
 import { AvatarCandidato } from "../components/resultados/AvatarCandidato";
@@ -13,7 +26,7 @@ import { useUi } from "../store/ui";
 
 function CoresCandidatos() {
   const f = useFiltro();
-  const q = useCandidatos(f.turno, f.cargo, f.cargo === 1 ? null : ufDoId(f.nivel, f.id) ?? "sp");
+  const q = useCandidatos(f.turno, f.cargo, f.cargo === 1 ? null : (ufDoId(f.nivel, f.id) ?? "sp"));
   const cores = usePrefs((s) => s.coresCandidatos);
   const setCor = usePrefs((s) => s.setCor);
   return (
@@ -25,7 +38,12 @@ function CoresCandidatos() {
             {NOME_CARGO[f.cargo]} · paleta neutra por padrão. Vale para todos os placares, mapas e gráficos.
           </Text>
         </Stack>
-        <Button size="xs" variant="subtle" leftSection={<IconRestore size={14} />} onClick={() => usePrefs.getState().set({ coresCandidatos: {} })}>
+        <Button
+          size="xs"
+          variant="subtle"
+          leftSection={<IconRestore size={14} />}
+          onClick={() => usePrefs.getState().set({ coresCandidatos: {} })}
+        >
           Restaurar padrão
         </Button>
       </Group>
@@ -35,7 +53,12 @@ function CoresCandidatos() {
             {(q.data ?? []).slice(0, 80).map((c) => (
               <Table.Tr key={c.sqcand}>
                 <Table.Td w={50}>
-                  <AvatarCandidato fotoUrl={c.foto_url} nome={c.nome_urna} cor={cores[c.sqcand] ?? c.cor} size={32} />
+                  <AvatarCandidato
+                    fotoUrl={c.foto_url}
+                    nome={c.nome_urna}
+                    cor={cores[c.sqcand] ?? c.cor}
+                    size={32}
+                  />
                 </Table.Td>
                 <Table.Td>
                   <Text size="sm" fw={600}>
@@ -46,7 +69,13 @@ function CoresCandidatos() {
                   </Text>
                 </Table.Td>
                 <Table.Td w={170}>
-                  <ColorInput size="xs" value={cores[c.sqcand] ?? c.cor} onChange={(v) => setCor(c.sqcand, v || null)} swatches={PALETA} swatchesPerRow={6} />
+                  <ColorInput
+                    size="xs"
+                    value={cores[c.sqcand] ?? c.cor}
+                    onChange={(v) => setCor(c.sqcand, v || null)}
+                    swatches={PALETA}
+                    swatchesPerRow={6}
+                  />
                 </Table.Td>
               </Table.Tr>
             ))}
@@ -99,9 +128,23 @@ export default function ContaPage() {
               ]}
             />
           </Group>
-          <Switch label="Animações (números que rolam, ranking que reordena, brilho nas mudanças)" checked={p.animacoes} onChange={(e) => p.set({ animacoes: e.currentTarget.checked })} />
-          <Switch label="Mapa de fundo (ruas e rótulos) nos mapas" checked={p.basemap} onChange={(e) => p.set({ basemap: e.currentTarget.checked })} />
-          <MultiSelect label="Toasts para eventos" data={TIPOS_EVENTO} value={p.toasts} onChange={(v) => p.set({ toasts: v })} clearable />
+          <Switch
+            label="Animações (números que rolam, ranking que reordena, brilho nas mudanças)"
+            checked={p.animacoes}
+            onChange={(e) => p.set({ animacoes: e.currentTarget.checked })}
+          />
+          <Switch
+            label="Mapa de fundo (ruas e rótulos) nos mapas"
+            checked={p.basemap}
+            onChange={(e) => p.set({ basemap: e.currentTarget.checked })}
+          />
+          <MultiSelect
+            label="Toasts para eventos"
+            data={TIPOS_EVENTO}
+            value={p.toasts}
+            onChange={(v) => p.set({ toasts: v })}
+            clearable
+          />
           <Group justify="flex-end">
             <Button
               variant="subtle"

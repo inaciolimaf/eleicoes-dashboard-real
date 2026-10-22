@@ -34,7 +34,10 @@ liveSocket.iniciar(queryClient);
 function Raiz() {
   const densidade = usePrefs((s) => s.densidade);
   const modoTv = useUi((s) => s.modoTv);
-  const tema = useMemo(() => criarTema(modoTv ? 1.3 : densidade === "compacta" ? 0.92 : 1), [densidade, modoTv]);
+  const tema = useMemo(
+    () => criarTema(modoTv ? 1.3 : densidade === "compacta" ? 0.92 : 1),
+    [densidade, modoTv],
+  );
   return (
     <MantineProvider theme={tema} defaultColorScheme="dark">
       <DatesProvider settings={{ locale: "pt-br", timezone: "America/Sao_Paulo", firstDayOfWeek: 0 }}>

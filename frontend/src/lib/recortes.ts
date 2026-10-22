@@ -22,12 +22,18 @@ export const NIVEL_PLURAL: Record<Nivel, string> = {
 
 export function nivelFilho(n: Nivel): Nivel | null {
   switch (n) {
-    case "br": return "uf";
-    case "uf": return "municipio";
-    case "municipio": return "zona";
-    case "zona": return "local";
-    case "local": return "secao";
-    default: return null;
+    case "br":
+      return "uf";
+    case "uf":
+      return "municipio";
+    case "municipio":
+      return "zona";
+    case "zona":
+      return "local";
+    case "local":
+      return "secao";
+    default:
+      return null;
   }
 }
 
@@ -87,12 +93,14 @@ export const UFS: { uf: string; nome: string; regiao: string; capital: string }[
   { uf: "to", nome: "Tocantins", regiao: "Norte", capital: "Palmas" },
 ];
 
-export const UF_POR_SIGLA: Record<string, (typeof UFS)[number]> = Object.fromEntries(UFS.map((u) => [u.uf, u]));
+export const UF_POR_SIGLA: Record<string, (typeof UFS)[number]> = Object.fromEntries(
+  UFS.map((u) => [u.uf, u]),
+);
 export const REGIOES = ["Norte", "Nordeste", "Centro-Oeste", "Sudeste", "Sul"];
 
 export function nomeRecortePadrao(nivel: Nivel, id: string): string {
   if (nivel === "br") return "Brasil";
-  if (nivel === "uf") return id === "zz" ? "Exterior" : UF_POR_SIGLA[id]?.nome ?? id.toUpperCase();
+  if (nivel === "uf") return id === "zz" ? "Exterior" : (UF_POR_SIGLA[id]?.nome ?? id.toUpperCase());
   if (nivel === "zona") return `Zona ${Number(id.split("-z")[1] ?? "")}`;
   if (nivel === "secao") return `Seção ${Number(id.split("-s")[1] ?? "")}`;
   return id;

@@ -73,13 +73,19 @@ export function usePaineis() {
   });
 
   const lista = useMemo(
-    () => [...(logado ? remoto.data ?? [] : locais)].sort((a, b) => a.ordem - b.ordem || a.nome.localeCompare(b.nome)),
+    () =>
+      [...(logado ? (remoto.data ?? []) : locais)].sort(
+        (a, b) => a.ordem - b.ordem || a.nome.localeCompare(b.nome),
+      ),
     [logado, remoto.data, locais],
   );
 
   const mCriar = useMutation({
     mutationFn: (b: { nome: string; config: ConfigPainel; padrao?: boolean }) =>
-      api<PainelApi>("/paineis", { method: "POST", body: { ...b, config: { ...b.config, schemaVersion: SCHEMA_VERSION } } }),
+      api<PainelApi>("/paineis", {
+        method: "POST",
+        body: { ...b, config: { ...b.config, schemaVersion: SCHEMA_VERSION } },
+      }),
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.paineis() }),
   });
   const mSalvar = useMutation({
@@ -96,7 +102,9 @@ export function usePaineis() {
       }),
     onSuccess: (r) => {
       const novo = deApi(r);
-      qc.setQueryData<PainelApi[]>(qk.paineis(), (old) => old?.map((x) => (String(x.id) === novo.id ? r : x)));
+      qc.setQueryData<PainelApi[]>(qk.paineis(), (old) =>
+        old?.map((x) => (String(x.id) === novo.id ? r : x)),
+      );
     },
   });
   const mApagar = useMutation({
@@ -134,7 +142,9 @@ export function usePaineis() {
         await mSalvar.mutateAsync({ p, m });
         return;
       }
-      setLocais((l) => l.map((x) => (x.id === id ? { ...x, ...m, atualizado_em: new Date().toISOString() } : x)));
+      setLocais((l) =>
+        l.map((x) => (x.id === id ? { ...x, ...m, atualizado_em: new Date().toISOString() } : x)),
+      );
     },
     [lista, logado, mSalvar, setLocais],
   );
@@ -142,7 +152,8 @@ export function usePaineis() {
   const definirPadrao = useCallback(
     async (id: string) => {
       if (logado) {
-        for (const p of lista) if (p.padrao !== (p.id === id)) await mSalvar.mutateAsync({ p, m: { padrao: p.id === id } });
+        for (const p of lista)
+          if (p.padrao !== (p.id === id)) await mSalvar.mutateAsync({ p, m: { padrao: p.id === id } });
         return;
       }
       setLocais((l) => l.map((x) => ({ ...x, padrao: x.id === id })));

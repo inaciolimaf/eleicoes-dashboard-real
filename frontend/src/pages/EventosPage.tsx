@@ -24,10 +24,34 @@ export default function EventosPage() {
       </Stack>
       <Card p="md">
         <Group gap="md" align="flex-end" wrap="wrap">
-          <MultiSelect label="Tipos" placeholder="Todos" data={TIPOS_EVENTO} value={tipos} onChange={setTipos} clearable w={320} />
-          <NumberInput label="Quantidade" value={limite} onChange={(v) => setLimite(Number(v) || 100)} min={10} max={500} step={50} w={120} />
-          <Switch label={`Só ${NOME_CARGO[f.cargo] ?? "cargo atual"}`} checked={soCargo} onChange={(e) => setSoCargo(e.currentTarget.checked)} />
-          <Switch label={`Só ${f.nome ?? nomeRecortePadrao(f.nivel, f.id)}`} checked={soRecorte} onChange={(e) => setSoRecorte(e.currentTarget.checked)} />
+          <MultiSelect
+            label="Tipos"
+            placeholder="Todos"
+            data={TIPOS_EVENTO}
+            value={tipos}
+            onChange={setTipos}
+            clearable
+            w={320}
+          />
+          <NumberInput
+            label="Quantidade"
+            value={limite}
+            onChange={(v) => setLimite(Number(v) || 100)}
+            min={10}
+            max={500}
+            step={50}
+            w={120}
+          />
+          <Switch
+            label={`Só ${NOME_CARGO[f.cargo] ?? "cargo atual"}`}
+            checked={soCargo}
+            onChange={(e) => setSoCargo(e.currentTarget.checked)}
+          />
+          <Switch
+            label={`Só ${f.nome ?? nomeRecortePadrao(f.nivel, f.id)}`}
+            checked={soRecorte}
+            onChange={(e) => setSoRecorte(e.currentTarget.checked)}
+          />
         </Group>
         <MultiSelect
           mt="sm"

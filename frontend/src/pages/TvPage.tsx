@@ -34,10 +34,16 @@ export default function TvPage() {
   const turno = useFiltro((s) => s.turno);
   useLive([topico.eventos(turno), topico.status()]);
   const lista = useMemo(
-    () => (repo.paineis.length ? repo.paineis : [{ id: "template", nome: "Noite da eleição", config: templatePadrao() }]),
+    () =>
+      repo.paineis.length
+        ? repo.paineis
+        : [{ id: "template", nome: "Noite da eleição", config: templatePadrao() }],
     [repo.paineis],
   );
-  const inicio = Math.max(0, lista.findIndex((p) => p.id === sp.get("inicio")));
+  const inicio = Math.max(
+    0,
+    lista.findIndex((p) => p.id === sp.get("inicio")),
+  );
   const [idx, setIdx] = useState(inicio);
   const [rodando, setRodando] = useState(true);
   const [segundos, setSegundos] = useState(30);
@@ -101,13 +107,26 @@ export default function TvPage() {
         }}
       >
         <Group gap={6} wrap="nowrap">
-          <ActionIcon variant="subtle" onClick={() => setIdx((i) => (i - 1 + lista.length) % lista.length)} aria-label="Painel anterior">
+          <ActionIcon
+            variant="subtle"
+            onClick={() => setIdx((i) => (i - 1 + lista.length) % lista.length)}
+            aria-label="Painel anterior"
+          >
             <IconChevronLeft size={18} />
           </ActionIcon>
-          <ActionIcon variant="filled" radius="xl" onClick={() => setRodando(!rodando)} aria-label={rodando ? "Pausar rotação" : "Retomar rotação"}>
+          <ActionIcon
+            variant="filled"
+            radius="xl"
+            onClick={() => setRodando(!rodando)}
+            aria-label={rodando ? "Pausar rotação" : "Retomar rotação"}
+          >
             {rodando ? <IconPlayerPauseFilled size={16} /> : <IconPlayerPlayFilled size={16} />}
           </ActionIcon>
-          <ActionIcon variant="subtle" onClick={() => setIdx((i) => (i + 1) % lista.length)} aria-label="Próximo painel">
+          <ActionIcon
+            variant="subtle"
+            onClick={() => setIdx((i) => (i + 1) % lista.length)}
+            aria-label="Próximo painel"
+          >
             <IconChevronRight size={18} />
           </ActionIcon>
           <SegmentedControl

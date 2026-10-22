@@ -10,7 +10,7 @@ function posicoes(total: number): { x: number; y: number }[] {
   let fileiras = 1;
   while (true) {
     let cap = 0;
-    for (let i = 0; i < fileiras; i++) cap += Math.floor(Math.PI * (fileiras + i) / 1.0);
+    for (let i = 0; i < fileiras; i++) cap += Math.floor((Math.PI * (fileiras + i)) / 1.0);
     if (cap >= total || fileiras > 30) break;
     fileiras++;
   }
@@ -30,7 +30,13 @@ function posicoes(total: number): { x: number; y: number }[] {
   return pontos.sort((a, b) => b.ang - a.ang).map(({ x, y }) => ({ x, y }));
 }
 
-export function Hemiciclo({ agremiacoes, height = 260 }: { agremiacoes: Agremiacao[]; height?: number | string }) {
+export function Hemiciclo({
+  agremiacoes,
+  height = 260,
+}: {
+  agremiacoes: Agremiacao[];
+  height?: number | string;
+}) {
   const option = useMemo<EChartsOption>(() => {
     const comVagas = agremiacoes.filter((a) => a.vagas > 0).sort((a, b) => b.vagas - a.vagas);
     const total = comVagas.reduce((s, a) => s + a.vagas, 0);
@@ -47,7 +53,8 @@ export function Hemiciclo({ agremiacoes, height = 260 }: { agremiacoes: Agremiac
         itemStyle: { color: a.cor },
         emphasis: { scale: 1.4 },
         tooltip: {
-          formatter: () => `<b>${a.nome}</b><br/>${a.partidos.join(" · ")}<br/>${a.vagas} vaga(s) · ${fmtInt(a.votos)} votos`,
+          formatter: () =>
+            `<b>${a.nome}</b><br/>${a.partidos.join(" · ")}<br/>${a.vagas} vaga(s) · ${fmtInt(a.votos)} votos`,
         },
       };
     });

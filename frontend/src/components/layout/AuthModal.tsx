@@ -22,8 +22,15 @@ export function AuthModal() {
   const erro = (aba === "entrar" ? login.error : registro.error) as Error | null;
   const enviar = form.onSubmit(async (v) => {
     try {
-      const r = aba === "entrar" ? await login.mutateAsync({ email: v.email, senha: v.senha }) : await registro.mutateAsync(v);
-      notifications.show({ color: "teal", title: `Olá, ${r.usuario.nome.split(" ")[0]}!`, message: r.usuario.is_admin ? "Você é administrador." : "Sessão iniciada." });
+      const r =
+        aba === "entrar"
+          ? await login.mutateAsync({ email: v.email, senha: v.senha })
+          : await registro.mutateAsync(v);
+      notifications.show({
+        color: "teal",
+        title: `Olá, ${r.usuario.nome.split(" ")[0]}!`,
+        message: r.usuario.is_admin ? "Você é administrador." : "Sessão iniciada.",
+      });
       form.reset();
       setAberto(false);
     } catch {
@@ -40,9 +47,21 @@ export function AuthModal() {
       </Tabs>
       <form onSubmit={enviar}>
         <Stack>
-          {aba === "registro" && <TextInput label="Nome" autoComplete="name" {...form.getInputProps("nome")} />}
-          <TextInput label="E-mail" type="email" autoComplete="email" {...form.getInputProps("email")} data-autofocus />
-          <PasswordInput label="Senha" autoComplete={aba === "entrar" ? "current-password" : "new-password"} {...form.getInputProps("senha")} />
+          {aba === "registro" && (
+            <TextInput label="Nome" autoComplete="name" {...form.getInputProps("nome")} />
+          )}
+          <TextInput
+            label="E-mail"
+            type="email"
+            autoComplete="email"
+            {...form.getInputProps("email")}
+            data-autofocus
+          />
+          <PasswordInput
+            label="Senha"
+            autoComplete={aba === "entrar" ? "current-password" : "new-password"}
+            {...form.getInputProps("senha")}
+          />
           {erro && (
             <Alert color="red" variant="light">
               {erro.message}
@@ -52,7 +71,8 @@ export function AuthModal() {
             {aba === "entrar" ? "Entrar" : "Criar conta"}
           </Button>
           <Text size="xs" c="dimmed">
-            Sem conta, seus painéis ficam salvos neste navegador. Com conta, ficam disponíveis em qualquer lugar e podem ser compartilhados.
+            Sem conta, seus painéis ficam salvos neste navegador. Com conta, ficam disponíveis em qualquer
+            lugar e podem ser compartilhados.
           </Text>
         </Stack>
       </form>

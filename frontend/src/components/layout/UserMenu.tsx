@@ -14,10 +14,23 @@ export function UserMenu() {
   if (!usuario)
     return (
       <>
-        <Button size="sm" variant="light" leftSection={<IconLogin size={16} />} onClick={() => setAuth(true)} visibleFrom="sm">
+        <Button
+          size="sm"
+          variant="light"
+          leftSection={<IconLogin size={16} />}
+          onClick={() => setAuth(true)}
+          visibleFrom="sm"
+        >
           Entrar
         </Button>
-        <Button size="sm" variant="light" px={8} onClick={() => setAuth(true)} hiddenFrom="sm" aria-label="Entrar">
+        <Button
+          size="sm"
+          variant="light"
+          px={8}
+          onClick={() => setAuth(true)}
+          hiddenFrom="sm"
+          aria-label="Entrar"
+        >
           <IconUser size={16} />
         </Button>
       </>
@@ -25,7 +38,14 @@ export function UserMenu() {
   return (
     <Menu position="bottom-end" width={220} shadow="md">
       <Menu.Target>
-        <Avatar component="button" radius="xl" color="eleicao" variant="filled" style={{ cursor: "pointer", border: 0 }} aria-label="Menu do usuário">
+        <Avatar
+          component="button"
+          radius="xl"
+          color="eleicao"
+          variant="filled"
+          style={{ cursor: "pointer", border: 0 }}
+          aria-label="Menu do usuário"
+        >
           {iniciais(usuario.nome || usuario.email)}
         </Avatar>
       </Menu.Target>

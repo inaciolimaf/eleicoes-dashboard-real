@@ -22,11 +22,26 @@ export interface EvolucaoProps {
 }
 
 const COR_MANTINE: Record<string, string> = {
-  orange: "#F97316", blue: "#3D7BFF", green: "#22C55E", yellow: "#EAB308", teal: "#14B8A6", grape: "#A855F7", cyan: "#06B6D4",
+  orange: "#F97316",
+  blue: "#3D7BFF",
+  green: "#22C55E",
+  yellow: "#EAB308",
+  teal: "#14B8A6",
+  grape: "#A855F7",
+  cyan: "#06B6D4",
 };
 
 /** Gráfico de evolução: % de cada candidato × horário ou × % de seções, com marcadores de eventos. */
-export function Evolucao({ nivel, id, eixoX = "t", metrica = "pct", estilo = "linha", topN = 6, altura = 300, mostrarEventos = true }: EvolucaoProps) {
+export function Evolucao({
+  nivel,
+  id,
+  eixoX = "t",
+  metrica = "pct",
+  estilo = "linha",
+  topN = 6,
+  altura = 300,
+  mostrarEventos = true,
+}: EvolucaoProps) {
   const f = useFiltroEfetivo();
   const q = useSerie({ turno: f.turno, cargo: f.cargo, nivel: nivel ?? f.nivel, id: id ?? f.id, t: f.t });
   const corCand = useCorCandidato();
@@ -54,7 +69,10 @@ export function Evolucao({ nivel, id, eixoX = "t", metrica = "pct", estilo = "li
           lineStyle: { width: 2.5, color: corCand(a.sqcand, a.cor) },
           itemStyle: { color: corCand(a.sqcand, a.cor) },
           areaStyle: area ? { opacity: 0.15 } : undefined,
-          data: s.pontos.map((p) => [x(p), (p.candidatos[a.sqcand]?.pct ?? 0) - (p.candidatos[b.sqcand]?.pct ?? 0)]),
+          data: s.pontos.map((p) => [
+            x(p),
+            (p.candidatos[a.sqcand]?.pct ?? 0) - (p.candidatos[b.sqcand]?.pct ?? 0),
+          ]),
         },
       ];
     } else {
@@ -67,7 +85,10 @@ export function Evolucao({ nivel, id, eixoX = "t", metrica = "pct", estilo = "li
         itemStyle: { color: corCand(cd.sqcand, cd.cor, cd.numero) },
         areaStyle: area ? { opacity: 0.12 } : undefined,
         emphasis: { focus: "series" as const },
-        data: s.pontos.map((p) => [x(p), metrica === "votos" ? p.candidatos[cd.sqcand]?.votos ?? 0 : p.candidatos[cd.sqcand]?.pct ?? 0]),
+        data: s.pontos.map((p) => [
+          x(p),
+          metrica === "votos" ? (p.candidatos[cd.sqcand]?.votos ?? 0) : (p.candidatos[cd.sqcand]?.pct ?? 0),
+        ]),
       }));
     }
 
@@ -89,26 +110,45 @@ export function Evolucao({ nivel, id, eixoX = "t", metrica = "pct", estilo = "li
           xAxis: posX(e.ocorrido_em),
           name: e.titulo,
           lineStyle: { color: COR_MANTINE[COR_EVENTO[e.tipo] ?? "blue"] ?? "#888" },
-          tooltip: { formatter: `<b>${ROTULO_EVENTO[e.tipo] ?? e.tipo}</b><br/>${e.titulo}<br/>${brt(e.ocorrido_em).format("HH:mm")}` },
+          tooltip: {
+            formatter: `<b>${ROTULO_EVENTO[e.tipo] ?? e.tipo}</b><br/>${e.titulo}<br/>${brt(e.ocorrido_em).format("HH:mm")}`,
+          },
           label: { show: false },
         })),
       };
     }
 
-    const yFmt = (v: number) => (metrica === "votos" ? fmtNum(v / 1_000_000, 1) + " mi" : `${fmtNum(v, 0)}${metrica === "diferenca" ? " p.p." : "%"}`);
+    const yFmt = (v: number) =>
+      metrica === "votos"
+        ? fmtNum(v / 1_000_000, 1) + " mi"
+        : `${fmtNum(v, 0)}${metrica === "diferenca" ? " p.p." : "%"}`;
     return {
       grid: { left: 8, right: 16, top: 36, bottom: 8, containLabel: true },
-      legend: { type: "scroll", top: 0, textStyle: { color: c.texto, fontSize: 11 }, icon: "roundRect", itemWidth: 12, itemHeight: 6 },
+      legend: {
+        type: "scroll",
+        top: 0,
+        textStyle: { color: c.texto, fontSize: 11 },
+        icon: "roundRect",
+        itemWidth: 12,
+        itemHeight: 6,
+      },
       tooltip: {
         trigger: "axis",
-        valueFormatter: (v) => (metrica === "votos" ? fmtInt(Number(v)) : `${fmtNum(Number(v), 2)}${metrica === "diferenca" ? " p.p." : "%"}`),
+        valueFormatter: (v) =>
+          metrica === "votos"
+            ? fmtInt(Number(v))
+            : `${fmtNum(Number(v), 2)}${metrica === "diferenca" ? " p.p." : "%"}`,
         axisPointer: { type: "line" },
       },
       xAxis:
         eixoX === "t"
           ? {
               type: "time",
-              axisLabel: { color: c.textoFraco, formatter: (v: number) => brt(v).format("HH:mm"), hideOverlap: true },
+              axisLabel: {
+                color: c.textoFraco,
+                formatter: (v: number) => brt(v).format("HH:mm"),
+                hideOverlap: true,
+              },
               axisLine: { lineStyle: { color: c.linha } },
               splitLine: { show: false },
             }
@@ -135,6 +175,11 @@ export function Evolucao({ nivel, id, eixoX = "t", metrica = "pct", estilo = "li
 
   if (q.isLoading) return <Carregando altura={altura} />;
   if (q.error) return <ErroView erro={q.error} onRetry={() => q.refetch()} />;
-  if (!option) return <SemDados titulo="Sem série histórica ainda">A evolução aparece depois dos primeiros snapshots.</SemDados>;
+  if (!option)
+    return (
+      <SemDados titulo="Sem série histórica ainda">
+        A evolução aparece depois dos primeiros snapshots.
+      </SemDados>
+    );
   return <EChart option={option} height={altura} />;
 }

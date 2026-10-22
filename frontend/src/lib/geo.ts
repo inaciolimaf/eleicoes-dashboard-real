@@ -28,7 +28,8 @@ function estenderBBox(b: BBox, coords: unknown) {
 
 function bboxGeometria(g: Geometry): BBox {
   const b: BBox = [Infinity, Infinity, -Infinity, -Infinity];
-  if (g.type === "GeometryCollection") for (const gg of g.geometries) estenderBBox(b, (gg as { coordinates?: unknown }).coordinates);
+  if (g.type === "GeometryCollection")
+    for (const gg of g.geometries) estenderBBox(b, (gg as { coordinates?: unknown }).coordinates);
   else estenderBBox(b, (g as { coordinates: unknown }).coordinates);
   return b;
 }
@@ -83,7 +84,10 @@ async function baixar(url: string): Promise<FeatureCollection<Geometry | null, P
   return r.json();
 }
 
-function preparar(fc: FeatureCollection<Geometry | null, PropsGeo>, chave: (p: PropsGeo) => string): FeatureGeo[] {
+function preparar(
+  fc: FeatureCollection<Geometry | null, PropsGeo>,
+  chave: (p: PropsGeo) => string,
+): FeatureGeo[] {
   const out: FeatureGeo[] = [];
   for (const f of fc.features) {
     if (!f.geometry) continue; // feições sem geometria são ignoradas

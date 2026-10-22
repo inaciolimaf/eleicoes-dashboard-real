@@ -19,36 +19,45 @@ const ContaPage = lazy(() => import("./pages/ContaPage"));
 const AdminPage = lazy(() => import("./pages/AdminPage"));
 const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
 
-const router = createBrowserRouter([
-  { path: "/p/:token", element: <SharedPage /> },
-  { path: "/tv", element: <TvPage /> },
+const router = createBrowserRouter(
+  [
+    { path: "/p/:token", element: <SharedPage /> },
+    { path: "/tv", element: <TvPage /> },
+    {
+      path: "/",
+      element: <AppLayout />,
+      children: [
+        { index: true, element: <HomePage /> },
+        { path: "paineis", element: <PaineisPage /> },
+        { path: "paineis/:id", element: <PainelPage /> },
+        { path: "explorar", element: <ExplorarPage /> },
+        { path: "explorar/:nivel", element: <ExplorarPage /> },
+        { path: "explorar/:nivel/:id", element: <ExplorarPage /> },
+        { path: "mapas", element: <MapasPage /> },
+        { path: "locais/:id", element: <LocalPage /> },
+        { path: "secoes/:id", element: <SecaoPage /> },
+        { path: "secoes/:uf/:mun/:zona/:secao", element: <SecaoPage /> },
+        { path: "candidatos", element: <CandidatosPage /> },
+        { path: "candidatos/:sqcand", element: <CandidatoPage /> },
+        { path: "eventos", element: <EventosPage /> },
+        { path: "alertas", element: <AlertasPage /> },
+        { path: "conta", element: <ContaPage /> },
+        { path: "entrar", element: <Navigate to="/conta" replace /> },
+        { path: "admin", element: <AdminPage /> },
+        { path: "*", element: <NotFoundPage /> },
+      ],
+    },
+  ],
   {
-    path: "/",
-    element: <AppLayout />,
-    children: [
-      { index: true, element: <HomePage /> },
-      { path: "paineis", element: <PaineisPage /> },
-      { path: "paineis/:id", element: <PainelPage /> },
-      { path: "explorar", element: <ExplorarPage /> },
-      { path: "explorar/:nivel", element: <ExplorarPage /> },
-      { path: "explorar/:nivel/:id", element: <ExplorarPage /> },
-      { path: "mapas", element: <MapasPage /> },
-      { path: "locais/:id", element: <LocalPage /> },
-      { path: "secoes/:id", element: <SecaoPage /> },
-      { path: "secoes/:uf/:mun/:zona/:secao", element: <SecaoPage /> },
-      { path: "candidatos", element: <CandidatosPage /> },
-      { path: "candidatos/:sqcand", element: <CandidatoPage /> },
-      { path: "eventos", element: <EventosPage /> },
-      { path: "alertas", element: <AlertasPage /> },
-      { path: "conta", element: <ContaPage /> },
-      { path: "entrar", element: <Navigate to="/conta" replace /> },
-      { path: "admin", element: <AdminPage /> },
-      { path: "*", element: <NotFoundPage /> },
-    ],
+    future: {
+      v7_relativeSplatPath: true,
+      v7_fetcherPersist: true,
+      v7_normalizeFormMethod: true,
+      v7_partialHydration: true,
+      v7_skipActionErrorRevalidation: true,
+    },
   },
-], {
-  future: { v7_relativeSplatPath: true, v7_fetcherPersist: true, v7_normalizeFormMethod: true, v7_partialHydration: true, v7_skipActionErrorRevalidation: true },
-});
+);
 
 export default function App() {
   return <RouterProvider router={router} future={{ v7_startTransition: true }} />;

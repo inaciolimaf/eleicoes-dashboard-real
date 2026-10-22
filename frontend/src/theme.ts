@@ -15,8 +15,16 @@ const dark: MantineColorsTuple = [
 ];
 
 const eleicao: MantineColorsTuple = [
-  "#E8F0FF", "#CFDDFF", "#9DBAFF", "#6894FF", "#3D7BFF",
-  "#2468FF", "#155CF5", "#064CDB", "#0043C4", "#0039AD",
+  "#E8F0FF",
+  "#CFDDFF",
+  "#9DBAFF",
+  "#6894FF",
+  "#3D7BFF",
+  "#2468FF",
+  "#155CF5",
+  "#064CDB",
+  "#0043C4",
+  "#0039AD",
 ];
 
 export function criarTema(scale = 1): MantineThemeOverride {

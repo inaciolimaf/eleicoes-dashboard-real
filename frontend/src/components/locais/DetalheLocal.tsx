@@ -1,4 +1,15 @@
-import { Anchor, Badge, Box, Group, ScrollArea, SimpleGrid, Stack, Table, Text, Tooltip } from "@mantine/core";
+import {
+  Anchor,
+  Badge,
+  Box,
+  Group,
+  ScrollArea,
+  SimpleGrid,
+  Stack,
+  Table,
+  Text,
+  Tooltip,
+} from "@mantine/core";
 import { IconMapPin } from "@tabler/icons-react";
 import { Link } from "react-router-dom";
 import { useLocal } from "../../api/hooks";
@@ -12,16 +23,32 @@ import type { StatusApuracao } from "../../api/types";
 
 export function BadgeStatus({ s }: { s: StatusApuracao }) {
   return (
-    <Badge size="sm" variant="light" color={s === "apurado" ? "green" : s === "parcial" ? "yellow" : "gray"} leftSection={<Box w={6} h={6} style={{ borderRadius: 6, background: COR_STATUS[s] }} />}>
+    <Badge
+      size="sm"
+      variant="light"
+      color={s === "apurado" ? "green" : s === "parcial" ? "yellow" : "gray"}
+      leftSection={<Box w={6} h={6} style={{ borderRadius: 6, background: COR_STATUS[s] }} />}
+    >
       {ROTULO_STATUS[s]}
     </Badge>
   );
 }
 
-export function DetalheLocal({ localId, mapa = true, alturaLista }: { localId: string | null | undefined; mapa?: boolean; alturaLista?: number | string }) {
+export function DetalheLocal({
+  localId,
+  mapa = true,
+  alturaLista,
+}: {
+  localId: string | null | undefined;
+  mapa?: boolean;
+  alturaLista?: number | string;
+}) {
   const f = useFiltroEfetivo();
   const q = useLocal(localId, f.turno);
-  if (!localId) return <SemDados titulo="Escolha um local de votação">Use a busca (Ctrl+K) ou configure o widget.</SemDados>;
+  if (!localId)
+    return (
+      <SemDados titulo="Escolha um local de votação">Use a busca (Ctrl+K) ou configure o widget.</SemDados>
+    );
   if (q.isLoading) return <Carregando linhas={4} />;
   if (q.error) return <ErroView erro={q.error} onRetry={() => q.refetch()} />;
   const l = q.data;
@@ -53,7 +80,14 @@ export function DetalheLocal({ localId, mapa = true, alturaLista }: { localId: s
       </Stack>
       <SimpleGrid cols={{ base: 1, xl: mapa ? 2 : 1 }} spacing="sm">
         {mapa && (
-          <Box h={220} style={{ borderRadius: 12, overflow: "hidden", border: "1px solid var(--mantine-color-default-border)" }}>
+          <Box
+            h={220}
+            style={{
+              borderRadius: 12,
+              overflow: "hidden",
+              border: "1px solid var(--mantine-color-default-border)",
+            }}
+          >
             <MapaEleitoral tipo="locais" nivel="local" id={l.id} legenda={false} altura={220} />
           </Box>
         )}
@@ -89,7 +123,11 @@ export function DetalheLocal({ localId, mapa = true, alturaLista }: { localId: s
                       </Table.Td>
                       <Table.Td>
                         <Group gap={6} wrap="nowrap">
-                          <Box w={8} h={8} style={{ borderRadius: 8, background: COR_STATUS[s.status], flexShrink: 0 }} />
+                          <Box
+                            w={8}
+                            h={8}
+                            style={{ borderRadius: 8, background: COR_STATUS[s.status], flexShrink: 0 }}
+                          />
                           <Text size="xs" style={{ whiteSpace: "nowrap" }}>
                             {ROTULO_STATUS[s.status]}
                           </Text>

@@ -5,7 +5,12 @@ import { fmtDataHora, fmtHora } from "../../lib/time";
 
 /** Rodapé de transparência (RF-10): fonte, idg, horário e assinatura JWS. */
 export function FonteDados({ res }: { res: ResultadosComDados }) {
-  const Icone = res.jws_verificado === true ? IconShieldCheck : res.jws_verificado === false ? IconShieldX : IconShieldQuestion;
+  const Icone =
+    res.jws_verificado === true
+      ? IconShieldCheck
+      : res.jws_verificado === false
+        ? IconShieldX
+        : IconShieldQuestion;
   const cor = res.jws_verificado === true ? "teal" : res.jws_verificado === false ? "red" : "gray";
   return (
     <Tooltip
@@ -17,7 +22,11 @@ export function FonteDados({ res }: { res: ResultadosComDados }) {
           Totalizado em {fmtDataHora(res.totalizado_em)} · capturado em {fmtDataHora(res.capturado_em)}
           <br />
           Assinatura JWS:{" "}
-          {res.jws_verificado === true ? "verificada" : res.jws_verificado === false ? "FALHOU" : "não verificada"}
+          {res.jws_verificado === true
+            ? "verificada"
+            : res.jws_verificado === false
+              ? "FALHOU"
+              : "não verificada"}
         </>
       }
     >

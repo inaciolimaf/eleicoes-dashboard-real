@@ -80,7 +80,10 @@ export function Busca() {
         rightSection={<Kbd size="xs">Ctrl K</Kbd>}
         onClick={spotlight.open}
         visibleFrom="lg"
-        styles={{ inner: { justifyContent: "space-between" }, label: { fontWeight: 400, color: "var(--mantine-color-dimmed)" } }}
+        styles={{
+          inner: { justifyContent: "space-between" },
+          label: { fontWeight: 400, color: "var(--mantine-color-dimmed)" },
+        }}
         w={170}
       >
         Buscar…
@@ -108,7 +111,10 @@ export function Busca() {
         highlightQuery
         scrollable
         maxHeight={460}
-        searchProps={{ leftSection: r.isFetching ? <Loader size={16} /> : <IconSearch size={18} />, placeholder: "Buscar município, escola, candidato…" }}
+        searchProps={{
+          leftSection: r.isFetching ? <Loader size={16} /> : <IconSearch size={18} />,
+          placeholder: "Buscar município, escola, candidato…",
+        }}
       />
     </>
   );

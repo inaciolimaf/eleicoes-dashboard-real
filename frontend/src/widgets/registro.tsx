@@ -61,7 +61,8 @@ export const REGISTRO: Record<TipoWidget, DefWidget> = {
   placar: {
     tipo: "placar",
     nome: "Placar de candidatos",
-    descricao: "Ranking com barras, votos, % dos válidos e selos de situação. Abas de partidos e hemiciclo nos proporcionais.",
+    descricao:
+      "Ranking com barras, votos, % dos válidos e selos de situação. Abas de partidos e hemiciclo nos proporcionais.",
     icone: IconListNumbers,
     tamanho: { w: 5, h: 9, minW: 3, minH: 4 },
     padrao: { topN: 0, soEleitos: false, mostrarFotos: true },
@@ -93,8 +94,19 @@ export const REGISTRO: Record<TipoWidget, DefWidget> = {
     padrao: { metrica: "votos_validos", compararMin: 15 },
     campos: [
       { chave: "metrica", rotulo: "Métrica", tipo: "select", opcoes: OPCOES_KPI },
-      { chave: "sqcand", rotulo: "Candidato", tipo: "candidato", quando: (c) => String(c.metrica ?? "").startsWith("candidato") },
-      { chave: "compararMin", rotulo: "Comparar com há N minutos (0 = não comparar)", tipo: "numero", min: 0, max: 600 },
+      {
+        chave: "sqcand",
+        rotulo: "Candidato",
+        tipo: "candidato",
+        quando: (c) => String(c.metrica ?? "").startsWith("candidato"),
+      },
+      {
+        chave: "compararMin",
+        rotulo: "Comparar com há N minutos (0 = não comparar)",
+        tipo: "numero",
+        min: 0,
+        max: 600,
+      },
       { chave: "corDestaque", rotulo: "Cor do número", tipo: "cor" },
     ],
     Componente: WKpi,
@@ -103,12 +115,18 @@ export const REGISTRO: Record<TipoWidget, DefWidget> = {
   mapa: {
     tipo: "mapa",
     nome: "Mapa",
-    descricao: "Vencedores, desempenho, comparativo A×B, progresso, locais apurados, comparecimento ou partido mais votado.",
+    descricao:
+      "Vencedores, desempenho, comparativo A×B, progresso, locais apurados, comparecimento ou partido mais votado.",
     icone: IconMap2,
     tamanho: { w: 7, h: 12, minW: 3, minH: 6 },
     padrao: { tipo: "vencedores", nivelFilhos: "auto", basemap: "padrao" },
     campos: [
-      { chave: "tipo", rotulo: "Tipo de mapa", tipo: "select", opcoes: TIPOS_MAPA.map((t) => ({ value: t.valor, label: t.rotulo })) },
+      {
+        chave: "tipo",
+        rotulo: "Tipo de mapa",
+        tipo: "select",
+        opcoes: TIPOS_MAPA.map((t) => ({ value: t.valor, label: t.rotulo })),
+      },
       {
         chave: "nivelFilhos",
         rotulo: "No Brasil, desenhar",
@@ -118,8 +136,18 @@ export const REGISTRO: Record<TipoWidget, DefWidget> = {
           ["municipio", "Todos os municípios"],
         ]),
       },
-      { chave: "candidatoA", rotulo: "Candidato (A)", tipo: "candidato", quando: (c) => c.tipo === "desempenho" || c.tipo === "comparativo" },
-      { chave: "candidatoB", rotulo: "Candidato B", tipo: "candidato", quando: (c) => c.tipo === "comparativo" },
+      {
+        chave: "candidatoA",
+        rotulo: "Candidato (A)",
+        tipo: "candidato",
+        quando: (c) => c.tipo === "desempenho" || c.tipo === "comparativo",
+      },
+      {
+        chave: "candidatoB",
+        rotulo: "Candidato B",
+        tipo: "candidato",
+        quando: (c) => c.tipo === "comparativo",
+      },
       {
         chave: "basemap",
         rotulo: "Mapa de fundo",
@@ -137,14 +165,40 @@ export const REGISTRO: Record<TipoWidget, DefWidget> = {
   evolucao: {
     tipo: "evolucao",
     nome: "Evolução temporal",
-    descricao: "% de cada candidato × horário ou × % de seções, votos ou diferença entre os 2 primeiros, com eventos marcados.",
+    descricao:
+      "% de cada candidato × horário ou × % de seções, votos ou diferença entre os 2 primeiros, com eventos marcados.",
     icone: IconChartLine,
     tamanho: { w: 6, h: 8, minW: 3, minH: 5 },
     padrao: { eixoX: "t", metrica: "pct", estilo: "linha", topN: 6 },
     campos: [
-      { chave: "eixoX", rotulo: "Eixo X", tipo: "select", opcoes: ddl([["t", "Horário"], ["pct_secoes", "% de seções apuradas"]]) },
-      { chave: "metrica", rotulo: "Métrica", tipo: "select", opcoes: ddl([["pct", "% dos válidos"], ["votos", "Votos"], ["diferenca", "Diferença 1º − 2º (p.p.)"]]) },
-      { chave: "estilo", rotulo: "Estilo", tipo: "select", opcoes: ddl([["linha", "Linha"], ["area", "Área"]]) },
+      {
+        chave: "eixoX",
+        rotulo: "Eixo X",
+        tipo: "select",
+        opcoes: ddl([
+          ["t", "Horário"],
+          ["pct_secoes", "% de seções apuradas"],
+        ]),
+      },
+      {
+        chave: "metrica",
+        rotulo: "Métrica",
+        tipo: "select",
+        opcoes: ddl([
+          ["pct", "% dos válidos"],
+          ["votos", "Votos"],
+          ["diferenca", "Diferença 1º − 2º (p.p.)"],
+        ]),
+      },
+      {
+        chave: "estilo",
+        rotulo: "Estilo",
+        tipo: "select",
+        opcoes: ddl([
+          ["linha", "Linha"],
+          ["area", "Área"],
+        ]),
+      },
       { chave: "topN", rotulo: "Candidatos exibidos", tipo: "numero", min: 2, max: 20 },
     ],
     Componente: WEvolucao,
@@ -152,13 +206,27 @@ export const REGISTRO: Record<TipoWidget, DefWidget> = {
   tabela: {
     tipo: "tabela",
     nome: "Tabela de recortes",
-    descricao: "Filhos do recorte com vencedor, margem, % apurado e mini-barras. Filtros combináveis e agrupamentos.",
+    descricao:
+      "Filhos do recorte com vencedor, margem, % apurado e mini-barras. Filtros combináveis e agrupamentos.",
     icone: IconTable,
     tamanho: { w: 12, h: 10, minW: 4, minH: 5 },
     padrao: { mostrarFiltros: true, nivelFilhos: "auto", topN: 0 },
     campos: [
-      { chave: "colunas", rotulo: "Colunas", tipo: "multiselect", opcoes: COLUNAS.map((c) => ({ value: c.id, label: c.rotulo })) },
-      { chave: "nivelFilhos", rotulo: "No Brasil, listar", tipo: "select", opcoes: ddl([["auto", "UFs"], ["municipio", "Todos os municípios"]]) },
+      {
+        chave: "colunas",
+        rotulo: "Colunas",
+        tipo: "multiselect",
+        opcoes: COLUNAS.map((c) => ({ value: c.id, label: c.rotulo })),
+      },
+      {
+        chave: "nivelFilhos",
+        rotulo: "No Brasil, listar",
+        tipo: "select",
+        opcoes: ddl([
+          ["auto", "UFs"],
+          ["municipio", "Todos os municípios"],
+        ]),
+      },
       { chave: "topN", rotulo: "Limitar a N linhas (0 = todas)", tipo: "numero", min: 0, max: 6000 },
       { chave: "mostrarFiltros", rotulo: "Mostrar barra de filtros", tipo: "switch" },
     ],
@@ -173,9 +241,27 @@ export const REGISTRO: Record<TipoWidget, DefWidget> = {
     tamanho: { w: 8, h: 8, minW: 4, minH: 5 },
     padrao: { modo: "recortes", recortes: ["uf:sp", "uf:mg", "uf:rj"] },
     campos: [
-      { chave: "modo", rotulo: "Comparar", tipo: "select", opcoes: ddl([["recortes", "Recortes"], ["candidatos", "Candidatos"]]) },
-      { chave: "recortes", rotulo: "Recortes (até 4)", tipo: "recortes", quando: (c) => c.modo !== "candidatos" },
-      { chave: "candidatos", rotulo: "Candidatos (até 4)", tipo: "candidatos", quando: (c) => c.modo === "candidatos" },
+      {
+        chave: "modo",
+        rotulo: "Comparar",
+        tipo: "select",
+        opcoes: ddl([
+          ["recortes", "Recortes"],
+          ["candidatos", "Candidatos"],
+        ]),
+      },
+      {
+        chave: "recortes",
+        rotulo: "Recortes (até 4)",
+        tipo: "recortes",
+        quando: (c) => c.modo !== "candidatos",
+      },
+      {
+        chave: "candidatos",
+        rotulo: "Candidatos (até 4)",
+        tipo: "candidatos",
+        quando: (c) => c.modo === "candidatos",
+      },
     ],
     Componente: WComparativo,
   },
@@ -212,7 +298,15 @@ export const REGISTRO: Record<TipoWidget, DefWidget> = {
     tamanho: { w: 5, h: 9, minW: 3, minH: 6 },
     padrao: { metrica: "pct_secoes" },
     campos: [
-      { chave: "metrica", rotulo: "Métrica", tipo: "select", opcoes: ddl([["pct_secoes", "% de seções apuradas"], ["pct_comparecimento", "% de comparecimento"]]) },
+      {
+        chave: "metrica",
+        rotulo: "Métrica",
+        tipo: "select",
+        opcoes: ddl([
+          ["pct_secoes", "% de seções apuradas"],
+          ["pct_comparecimento", "% de comparecimento"],
+        ]),
+      },
     ],
     Componente: WHeatmap,
   },
@@ -224,7 +318,12 @@ export const REGISTRO: Record<TipoWidget, DefWidget> = {
     tamanho: { w: 4, h: 9, minW: 3, minH: 4 },
     padrao: { limite: 50, soRecorte: false, soCargo: false },
     campos: [
-      { chave: "tipos", rotulo: "Tipos de evento (vazio = todos)", tipo: "multiselect", opcoes: TIPOS_EVENTO },
+      {
+        chave: "tipos",
+        rotulo: "Tipos de evento (vazio = todos)",
+        tipo: "multiselect",
+        opcoes: TIPOS_EVENTO,
+      },
       { chave: "limite", rotulo: "Quantidade máxima", tipo: "numero", min: 5, max: 200 },
       { chave: "soCargo", rotulo: "Só do cargo do filtro", tipo: "switch" },
       { chave: "soRecorte", rotulo: "Só do recorte do filtro", tipo: "switch" },
@@ -269,7 +368,15 @@ export const REGISTRO: Record<TipoWidget, DefWidget> = {
     tamanho: { w: 3, h: 4, minW: 2, minH: 3 },
     padrao: { modo: "relogio" },
     campos: [
-      { chave: "modo", rotulo: "Modo", tipo: "select", opcoes: ddl([["relogio", "Relógio de Brasília"], ["contagem", "Contagem regressiva"]]) },
+      {
+        chave: "modo",
+        rotulo: "Modo",
+        tipo: "select",
+        opcoes: ddl([
+          ["relogio", "Relógio de Brasília"],
+          ["contagem", "Contagem regressiva"],
+        ]),
+      },
       { chave: "alvo", rotulo: "Contar até", tipo: "datahora", quando: (c) => c.modo === "contagem" },
       { chave: "rotulo", rotulo: "Rótulo", tipo: "texto" },
     ],

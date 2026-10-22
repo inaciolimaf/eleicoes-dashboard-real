@@ -13,7 +13,17 @@ interface Props {
   size?: "xs" | "sm" | "md";
 }
 
-function Selo({ s, sufixo, totalizadoEm, size }: { s: Situacao; sufixo?: string; totalizadoEm?: string | null; size: "xs" | "sm" | "md" }) {
+function Selo({
+  s,
+  sufixo,
+  totalizadoEm,
+  size,
+}: {
+  s: Situacao;
+  sufixo?: string;
+  totalizadoEm?: string | null;
+  size: "xs" | "sm" | "md";
+}) {
   const est = SITUACAO[s] ?? SITUACAO.EM_APURACAO;
   if (s === "EM_APURACAO" && !sufixo) return null;
   const doTse = s !== "LIDERANDO" && s !== "EM_APURACAO";

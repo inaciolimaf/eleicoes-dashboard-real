@@ -30,5 +30,7 @@ interface NavDesktopState {
   toggle: () => void;
 }
 export const useNavDesktop = create<NavDesktopState>()(
-  persistNav((set) => ({ aberta: true, toggle: () => set((s) => ({ aberta: !s.aberta })) }), { name: "eleicoes.nav" }),
+  persistNav((set) => ({ aberta: true, toggle: () => set((s) => ({ aberta: !s.aberta })) }), {
+    name: "eleicoes.nav",
+  }),
 );

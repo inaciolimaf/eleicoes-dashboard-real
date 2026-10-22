@@ -36,7 +36,14 @@ export const useFiltro = create<FiltroState>()(
     }),
     {
       name: "eleicoes.filtro",
-      partialize: (s) => ({ ciclo: s.ciclo, turno: s.turno, cargo: s.cargo, nivel: s.nivel, id: s.id, nome: s.nome }),
+      partialize: (s) => ({
+        ciclo: s.ciclo,
+        turno: s.turno,
+        cargo: s.cargo,
+        nivel: s.nivel,
+        id: s.id,
+        nome: s.nome,
+      }),
     },
   ),
 );

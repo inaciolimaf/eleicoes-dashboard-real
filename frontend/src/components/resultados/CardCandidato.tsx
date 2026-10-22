@@ -10,11 +10,20 @@ import { AvatarCandidato } from "./AvatarCandidato";
 import { SeloSituacao } from "./SeloSituacao";
 import { rgba } from "../../lib/cores";
 
-export function CardCandidato({ sqcand, grande, link = true }: { sqcand: string | null | undefined; grande?: boolean; link?: boolean }) {
+export function CardCandidato({
+  sqcand,
+  grande,
+  link = true,
+}: {
+  sqcand: string | null | undefined;
+  grande?: boolean;
+  link?: boolean;
+}) {
   const f = useFiltroEfetivo();
   const q = useCandidato(sqcand, f.turno, f.t);
   const corCand = useCorCandidato();
-  if (!sqcand) return <SemDados titulo="Escolha um candidato">Configure o widget para escolher o candidato.</SemDados>;
+  if (!sqcand)
+    return <SemDados titulo="Escolha um candidato">Configure o widget para escolher o candidato.</SemDados>;
   if (q.isLoading) return <Carregando linhas={2} />;
   if (q.error) return <ErroView erro={q.error} onRetry={() => q.refetch()} />;
   const c = q.data;
@@ -25,17 +34,33 @@ export function CardCandidato({ sqcand, grande, link = true }: { sqcand: string 
     <Paper
       p={grande ? "lg" : "sm"}
       radius="lg"
-      style={{ background: `linear-gradient(135deg, ${rgba(cor, 0.22)}, transparent 65%)`, border: `1px solid ${rgba(cor, 0.35)}` }}
+      style={{
+        background: `linear-gradient(135deg, ${rgba(cor, 0.22)}, transparent 65%)`,
+        border: `1px solid ${rgba(cor, 0.35)}`,
+      }}
     >
       <Group gap="md" wrap="nowrap" align="flex-start">
         <AvatarCandidato fotoUrl={c.foto_url} nome={c.nome_urna} cor={cor} size={grande ? 96 : 64} />
         <Stack gap={4} style={{ flex: 1, minWidth: 0 }}>
           <Group gap={6} wrap="wrap">
-            <Badge size={grande ? "lg" : "md"} color={cor} variant="filled" className="num" styles={{ root: { color: "#fff" } }}>
+            <Badge
+              size={grande ? "lg" : "md"}
+              color={cor}
+              variant="filled"
+              className="num"
+              styles={{ root: { color: "#fff" } }}
+            >
               {c.numero}
             </Badge>
             {link ? (
-              <Text fw={800} size={grande ? "xl" : "md"} lineClamp={1} component={Link} to={`/candidatos/${c.sqcand}`} c="inherit">
+              <Text
+                fw={800}
+                size={grande ? "xl" : "md"}
+                lineClamp={1}
+                component={Link}
+                to={`/candidatos/${c.sqcand}`}
+                c="inherit"
+              >
                 {c.nome_urna}
               </Text>
             ) : (
@@ -49,12 +74,18 @@ export function CardCandidato({ sqcand, grande, link = true }: { sqcand: string 
           </Text>
           <Text size="sm">
             {c.partido_sigla}
-            {c.agremiacao && c.agremiacao !== c.partido_sigla ? ` · ${c.agremiacao}` : ""} · {"nome" in c.cargo ? c.cargo.nome : ""}
+            {c.agremiacao && c.agremiacao !== c.partido_sigla ? ` · ${c.agremiacao}` : ""} ·{" "}
+            {"nome" in c.cargo ? c.cargo.nome : ""}
             {c.uf ? ` · ${UF_POR_SIGLA[c.uf]?.nome ?? c.uf.toUpperCase()}` : ""}
           </Text>
           {c.vices?.length > 0 && (
             <Text size="xs" c="dimmed">
-              {c.vices.map((v) => `${v.tipo === "vice" ? "Vice" : v.tipo.charAt(0).toUpperCase() + v.tipo.slice(1)}: ${v.nome}`).join(" · ")}
+              {c.vices
+                .map(
+                  (v) =>
+                    `${v.tipo === "vice" ? "Vice" : v.tipo.charAt(0).toUpperCase() + v.tipo.slice(1)}: ${v.nome}`,
+                )
+                .join(" · ")}
             </Text>
           )}
           {c.resultado ? (
@@ -63,13 +94,20 @@ export function CardCandidato({ sqcand, grande, link = true }: { sqcand: string 
                 <Text size="xs" c="dimmed" tt="uppercase" fw={600}>
                   % válidos
                 </Text>
-                <Num valor={c.resultado.pct_validos} tipo="pct" style={{ fontSize: grande ? "2rem" : "1.4rem", fontWeight: 800 }} />
+                <Num
+                  valor={c.resultado.pct_validos}
+                  tipo="pct"
+                  style={{ fontSize: grande ? "2rem" : "1.4rem", fontWeight: 800 }}
+                />
               </Stack>
               <Stack gap={0}>
                 <Text size="xs" c="dimmed" tt="uppercase" fw={600}>
                   Votos
                 </Text>
-                <Num valor={c.resultado.votos} style={{ fontSize: grande ? "1.3rem" : "1rem", fontWeight: 600 }} />
+                <Num
+                  valor={c.resultado.votos}
+                  style={{ fontSize: grande ? "1.3rem" : "1rem", fontWeight: 600 }}
+                />
               </Stack>
               <Stack gap={0}>
                 <Text size="xs" c="dimmed" tt="uppercase" fw={600}>

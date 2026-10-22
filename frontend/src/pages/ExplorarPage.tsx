@@ -1,4 +1,20 @@
-import { ActionIcon, Badge, Box, Button, Card, Grid, Group, Menu, SegmentedControl, Select, Stack, Switch, Text, Title, Tooltip } from "@mantine/core";
+import {
+  ActionIcon,
+  Badge,
+  Box,
+  Button,
+  Card,
+  Grid,
+  Group,
+  Menu,
+  SegmentedControl,
+  Select,
+  Stack,
+  Switch,
+  Text,
+  Title,
+  Tooltip,
+} from "@mantine/core";
 import { IconArrowUp, IconDownload, IconMaximize, IconStar, IconStarFilled } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
@@ -13,13 +29,28 @@ import { Evolucao } from "../components/graficos/Evolucao";
 import { HeatmapProgresso } from "../components/graficos/HeatmapProgresso";
 import { FeedEventos } from "../components/eventos/FeedEventos";
 import { FiltroProvider, useFiltroEfetivo } from "../lib/filtro-efetivo";
-import { NIVEL_PLURAL, NIVEL_ROTULO, isNivel, linkRecorte, nivelFilho, nomeRecortePadrao } from "../lib/recortes";
+import {
+  NIVEL_PLURAL,
+  NIVEL_ROTULO,
+  isNivel,
+  linkRecorte,
+  nivelFilho,
+  nomeRecortePadrao,
+} from "../lib/recortes";
 import { NOME_CARGO, sistemaPadrao } from "../lib/cargos";
 import { exportarDados } from "../lib/exportar";
 import { useFiltro } from "../store/filtro";
 import { useFavoritos } from "../store/favoritos";
 
-function Secao({ titulo, children, extra }: { titulo: string; children: React.ReactNode; extra?: React.ReactNode }) {
+function Secao({
+  titulo,
+  children,
+  extra,
+}: {
+  titulo: string;
+  children: React.ReactNode;
+  extra?: React.ReactNode;
+}) {
   return (
     <Card p="md">
       <Group justify="space-between" mb="sm" wrap="wrap" gap="xs">
@@ -58,7 +89,14 @@ function ConteudoExplorar({ nivel, id }: { nivel: Nivel; id: string }) {
       titulo={`Mapa · ${nivel === "br" ? (todosMun ? "municípios" : "UFs") : nivel === "uf" ? "municípios" : "locais de votação"}`}
       extra={
         <Group gap="xs">
-          {nivel === "br" && <Switch size="xs" label="Todos os municípios" checked={todosMun} onChange={(e) => setTodosMun(e.currentTarget.checked)} />}
+          {nivel === "br" && (
+            <Switch
+              size="xs"
+              label="Todos os municípios"
+              checked={todosMun}
+              onChange={(e) => setTodosMun(e.currentTarget.checked)}
+            />
+          )}
           <Select
             size="xs"
             w={190}
@@ -69,7 +107,11 @@ function ConteudoExplorar({ nivel, id }: { nivel: Nivel; id: string }) {
             aria-label="Tipo de mapa"
           />
           <Tooltip label="Abrir em tela cheia">
-            <ActionIcon variant="default" onClick={() => navigate(`/mapas?tipo=${tipoMapa}${todosMun ? "&mun=1" : ""}`)} aria-label="Mapa em tela cheia">
+            <ActionIcon
+              variant="default"
+              onClick={() => navigate(`/mapas?tipo=${tipoMapa}${todosMun ? "&mun=1" : ""}`)}
+              aria-label="Mapa em tela cheia"
+            >
               <IconMaximize size={16} />
             </ActionIcon>
           </Tooltip>
@@ -93,8 +135,16 @@ function ConteudoExplorar({ nivel, id }: { nivel: Nivel; id: string }) {
             </Button>
           </Menu.Target>
           <Menu.Dropdown>
-            <Menu.Item onClick={() => exportarDados("filhos", "csv", { ...f, nivel, id, filhos: filhosParam })}>CSV</Menu.Item>
-            <Menu.Item onClick={() => exportarDados("filhos", "json", { ...f, nivel, id, filhos: filhosParam })}>JSON</Menu.Item>
+            <Menu.Item
+              onClick={() => exportarDados("filhos", "csv", { ...f, nivel, id, filhos: filhosParam })}
+            >
+              CSV
+            </Menu.Item>
+            <Menu.Item
+              onClick={() => exportarDados("filhos", "json", { ...f, nivel, id, filhos: filhosParam })}
+            >
+              JSON
+            </Menu.Item>
           </Menu.Dropdown>
         </Menu>
       }
@@ -105,10 +155,30 @@ function ConteudoExplorar({ nivel, id }: { nivel: Nivel; id: string }) {
         filhos={filhosParam}
         colunas={
           nivel === "br" && !todosMun
-            ? ["nome", "regiao", "pct_secoes", "lider", "segundo", "margem_pp", "votos_validos", "eleitorado", "comparecimento"]
+            ? [
+                "nome",
+                "regiao",
+                "pct_secoes",
+                "lider",
+                "segundo",
+                "margem_pp",
+                "votos_validos",
+                "eleitorado",
+                "comparecimento",
+              ]
             : proporcional
               ? ["nome", "pct_secoes", "lider", "partido", "votos_validos", "eleitorado", "abstencao"]
-              : ["nome", "pct_secoes", "lider", "segundo", "margem_pp", "votos_validos", "eleitorado", "capital", "abstencao"]
+              : [
+                  "nome",
+                  "pct_secoes",
+                  "lider",
+                  "segundo",
+                  "margem_pp",
+                  "votos_validos",
+                  "eleitorado",
+                  "capital",
+                  "abstencao",
+                ]
         }
         onSelecionar={ir}
       />
@@ -130,7 +200,12 @@ function ConteudoExplorar({ nivel, id }: { nivel: Nivel; id: string }) {
               {nome}
             </Title>
             <Tooltip label={fav ? "Remover dos favoritos" : "Favoritar"}>
-              <ActionIcon variant="subtle" color="yellow" onClick={() => alternar({ tipo: "recorte", ref: `${nivel}:${id}`, rotulo: nome })} aria-label="Favoritar">
+              <ActionIcon
+                variant="subtle"
+                color="yellow"
+                onClick={() => alternar({ tipo: "recorte", ref: `${nivel}:${id}`, rotulo: nome })}
+                aria-label="Favoritar"
+              >
                 {fav ? <IconStarFilled size={18} /> : <IconStar size={18} />}
               </ActionIcon>
             </Tooltip>
@@ -138,7 +213,12 @@ function ConteudoExplorar({ nivel, id }: { nivel: Nivel; id: string }) {
         </Stack>
         <Group gap="xs">
           {pai && (
-            <Button size="xs" variant="default" leftSection={<IconArrowUp size={14} />} onClick={() => ir(pai.nivel, pai.id, pai.nome)}>
+            <Button
+              size="xs"
+              variant="default"
+              leftSection={<IconArrowUp size={14} />}
+              onClick={() => ir(pai.nivel, pai.id, pai.nome)}
+            >
               {pai.nome}
             </Button>
           )}
@@ -150,8 +230,12 @@ function ConteudoExplorar({ nivel, id }: { nivel: Nivel; id: string }) {
                 </Button>
               </Menu.Target>
               <Menu.Dropdown>
-                <Menu.Item onClick={() => exportarDados("resultados", "csv", { ...f, nivel, id })}>CSV</Menu.Item>
-                <Menu.Item onClick={() => exportarDados("resultados", "json", { ...f, nivel, id })}>JSON</Menu.Item>
+                <Menu.Item onClick={() => exportarDados("resultados", "csv", { ...f, nivel, id })}>
+                  CSV
+                </Menu.Item>
+                <Menu.Item onClick={() => exportarDados("resultados", "json", { ...f, nivel, id })}>
+                  JSON
+                </Menu.Item>
               </Menu.Dropdown>
             </Menu>
           )}
@@ -245,7 +329,16 @@ export default function ExplorarPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nivel, id]);
 
-  if (!nivel || !id) return <Navigate to={linkRecorte(g.nivel === "local" || g.nivel === "secao" ? "br" : g.nivel, g.nivel === "local" || g.nivel === "secao" ? "br" : g.id)} replace />;
+  if (!nivel || !id)
+    return (
+      <Navigate
+        to={linkRecorte(
+          g.nivel === "local" || g.nivel === "secao" ? "br" : g.nivel,
+          g.nivel === "local" || g.nivel === "secao" ? "br" : g.id,
+        )}
+        replace
+      />
+    );
   if (nivel === "local") return <Navigate to={`/locais/${encodeURIComponent(id)}`} replace />;
   if (nivel === "secao") return <Navigate to={`/secoes/${encodeURIComponent(id)}`} replace />;
   return (

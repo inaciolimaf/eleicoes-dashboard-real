@@ -1,9 +1,30 @@
-import { Alert, Badge, Button, Card, Code, Collapse, Group, NumberInput, Paper, SegmentedControl, SimpleGrid, Stack, Text, Title } from "@mantine/core";
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  Code,
+  Collapse,
+  Group,
+  NumberInput,
+  Paper,
+  SegmentedControl,
+  SimpleGrid,
+  Stack,
+  Text,
+  Title,
+} from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
 import { useDisclosure } from "@mantine/hooks";
 import { modals } from "@mantine/modals";
 import { notifications } from "@mantine/notifications";
-import { IconClockPlay, IconPlayerPauseFilled, IconPlayerPlayFilled, IconRefresh, IconShieldLock } from "@tabler/icons-react";
+import {
+  IconClockPlay,
+  IconPlayerPauseFilled,
+  IconPlayerPlayFilled,
+  IconRefresh,
+  IconShieldLock,
+} from "@tabler/icons-react";
 import { useState } from "react";
 import { useAdminAcao, useAdminFake, useAdminSaude, useStatus } from "../api/hooks";
 import { Carregando, ErroView } from "../components/common/Estados";
@@ -16,17 +37,33 @@ const rotulo = (k: string) => k.replace(/_/g, " ").replace(/^./, (c) => c.toUppe
 
 function Valor({ v }: { v: unknown }) {
   if (v === null || v === undefined) return <Text c="dimmed">—</Text>;
-  if (typeof v === "boolean") return <Badge color={v ? "teal" : "gray"} variant="light">{v ? "sim" : "não"}</Badge>;
-  if (typeof v === "number") return <Text fw={700} className="num" fz="lg">{fmtNum(v, 2)}</Text>;
+  if (typeof v === "boolean")
+    return (
+      <Badge color={v ? "teal" : "gray"} variant="light">
+        {v ? "sim" : "não"}
+      </Badge>
+    );
+  if (typeof v === "number")
+    return (
+      <Text fw={700} className="num" fz="lg">
+        {fmtNum(v, 2)}
+      </Text>
+    );
   if (ehIso(v)) return <Text className="num">{fmtDataHora(v as string)}</Text>;
   if (typeof v === "string") return <Text fw={600}>{v}</Text>;
-  return <Code block style={{ maxHeight: 180, overflow: "auto" }}>{JSON.stringify(v, null, 2)}</Code>;
+  return (
+    <Code block style={{ maxHeight: 180, overflow: "auto" }}>
+      {JSON.stringify(v, null, 2)}
+    </Code>
+  );
 }
 
 /** Renderiza métricas genéricas (o formato exato de /admin/saude é livre no contrato). */
 function Metricas({ dados }: { dados: Record<string, unknown> }) {
   const simples = Object.entries(dados).filter(([, v]) => v === null || typeof v !== "object");
-  const grupos = Object.entries(dados).filter(([, v]) => v !== null && typeof v === "object" && !Array.isArray(v)) as [string, Record<string, unknown>][];
+  const grupos = Object.entries(dados).filter(
+    ([, v]) => v !== null && typeof v === "object" && !Array.isArray(v),
+  ) as [string, Record<string, unknown>][];
   const listas = Object.entries(dados).filter(([, v]) => Array.isArray(v));
   return (
     <Stack gap="md">
@@ -75,7 +112,14 @@ export default function AdminPage() {
 
   if (!admin)
     return (
-      <Alert color="red" variant="light" icon={<IconShieldLock />} title="Acesso restrito" maw={600} mx="auto">
+      <Alert
+        color="red"
+        variant="light"
+        icon={<IconShieldLock />}
+        title="Acesso restrito"
+        maw={600}
+        mx="auto"
+      >
         Esta página é só para administradores. O primeiro usuário registrado vira admin.
       </Alert>
     );
@@ -132,7 +176,8 @@ export default function AdminPage() {
             </Button>
           </Group>
           <Text size="xs" c="dimmed" mt="sm">
-            Última coleta: {fmtDataHora(status.data?.ultima_coleta)} · última totalização: {fmtDataHora(status.data?.ultima_totalizacao)}
+            Última coleta: {fmtDataHora(status.data?.ultima_coleta)} · última totalização:{" "}
+            {fmtDataHora(status.data?.ultima_totalizacao)}
           </Text>
         </Card>
 
@@ -164,9 +209,25 @@ export default function AdminPage() {
                   ))}
               </SimpleGrid>
               <Group align="flex-end" gap="xs">
-                <SegmentedControl size="xs" value={String(vel)} onChange={(v) => setVel(Number(v))} data={["1", "10", "60", "300"].map((v) => ({ value: v, label: `${v}×` }))} />
-                <NumberInput size="xs" w={90} value={vel} onChange={(v) => setVel(Number(v) || 1)} min={0.1} max={10000} aria-label="Velocidade" />
-                <Button size="xs" onClick={() => executar({ tipo: "fake", body: { velocidade: vel } }, `Velocidade ${vel}×`)}>
+                <SegmentedControl
+                  size="xs"
+                  value={String(vel)}
+                  onChange={(v) => setVel(Number(v))}
+                  data={["1", "10", "60", "300"].map((v) => ({ value: v, label: `${v}×` }))}
+                />
+                <NumberInput
+                  size="xs"
+                  w={90}
+                  value={vel}
+                  onChange={(v) => setVel(Number(v) || 1)}
+                  min={0.1}
+                  max={10000}
+                  aria-label="Velocidade"
+                />
+                <Button
+                  size="xs"
+                  onClick={() => executar({ tipo: "fake", body: { velocidade: vel } }, `Velocidade ${vel}×`)}
+                >
                   Aplicar velocidade
                 </Button>
               </Group>
@@ -175,8 +236,15 @@ export default function AdminPage() {
                   size="xs"
                   variant="light"
                   color={fakePausado ? "teal" : "yellow"}
-                  leftSection={fakePausado ? <IconPlayerPlayFilled size={14} /> : <IconPlayerPauseFilled size={14} />}
-                  onClick={() => executar({ tipo: "fake", body: { pausado: !fakePausado } }, fakePausado ? "Relógio retomado" : "Relógio pausado")}
+                  leftSection={
+                    fakePausado ? <IconPlayerPlayFilled size={14} /> : <IconPlayerPauseFilled size={14} />
+                  }
+                  onClick={() =>
+                    executar(
+                      { tipo: "fake", body: { pausado: !fakePausado } },
+                      fakePausado ? "Relógio retomado" : "Relógio pausado",
+                    )
+                  }
                 >
                   {fakePausado ? "Retomar relógio" : "Pausar relógio"}
                 </Button>
@@ -188,10 +256,13 @@ export default function AdminPage() {
                   onClick={() =>
                     modals.openConfirmModal({
                       title: "Reiniciar a simulação",
-                      children: <Text size="sm">O relógio do tse-fake volta ao início da noite gravada.</Text>,
+                      children: (
+                        <Text size="sm">O relógio do tse-fake volta ao início da noite gravada.</Text>
+                      ),
                       labels: { confirm: "Reiniciar", cancel: "Cancelar" },
                       confirmProps: { color: "red" },
-                      onConfirm: () => executar({ tipo: "fake", body: { reiniciar: true } }, "Simulação reiniciada"),
+                      onConfirm: () =>
+                        executar({ tipo: "fake", body: { reiniciar: true } }, "Simulação reiniciada"),
                     })
                   }
                 >
@@ -199,12 +270,26 @@ export default function AdminPage() {
                 </Button>
               </Group>
               <Group align="flex-end" gap="xs">
-                <DateTimePicker size="xs" label="Ir para (horário de Brasília)" value={irPara} onChange={setIrPara} valueFormat="DD/MM/YYYY HH:mm" w={220} clearable />
+                <DateTimePicker
+                  size="xs"
+                  label="Ir para (horário de Brasília)"
+                  value={irPara}
+                  onChange={setIrPara}
+                  valueFormat="DD/MM/YYYY HH:mm"
+                  w={220}
+                  clearable
+                />
                 <Button
                   size="xs"
                   leftSection={<IconClockPlay size={14} />}
                   disabled={!irPara}
-                  onClick={() => irPara && executar({ tipo: "fake", body: { ir_para: dayjs(irPara).toISOString() } }, "Relógio reposicionado")}
+                  onClick={() =>
+                    irPara &&
+                    executar(
+                      { tipo: "fake", body: { ir_para: dayjs(irPara).toISOString() } },
+                      "Relógio reposicionado",
+                    )
+                  }
                 >
                   Ir
                 </Button>
@@ -221,7 +306,13 @@ export default function AdminPage() {
             {bruto ? "Ocultar JSON" : "Ver JSON bruto"}
           </Button>
         </Group>
-        {saude.isLoading ? <Carregando linhas={4} /> : saude.error ? <ErroView erro={saude.error} onRetry={() => saude.refetch()} /> : saude.data ? <Metricas dados={saude.data} /> : null}
+        {saude.isLoading ? (
+          <Carregando linhas={4} />
+        ) : saude.error ? (
+          <ErroView erro={saude.error} onRetry={() => saude.refetch()} />
+        ) : saude.data ? (
+          <Metricas dados={saude.data} />
+        ) : null}
         <Collapse in={bruto}>
           <Code block mt="sm">
             {JSON.stringify(saude.data, null, 2)}

@@ -76,7 +76,11 @@ export interface EventosFiltro {
 function opcoesTempo(t: string | null, wsAberto: boolean) {
   return t
     ? { staleTime: Infinity, gcTime: 5 * 60_000, placeholderData: keepPreviousData }
-    : { staleTime: 20_000, refetchInterval: wsAberto ? (false as const) : 30_000, placeholderData: keepPreviousData };
+    : {
+        staleTime: 20_000,
+        refetchInterval: wsAberto ? (false as const) : 30_000,
+        placeholderData: keepPreviousData,
+      };
 }
 
 const useWsAberto = () => useUi((s) => s.wsEstado === "aberto");
@@ -116,7 +120,10 @@ export function useResultados(
   });
 }
 
-export function useSerie(p: { turno: number; cargo: number; nivel: Nivel; id: string; t: string | null }, enabled = true) {
+export function useSerie(
+  p: { turno: number; cargo: number; nivel: Nivel; id: string; t: string | null },
+  enabled = true,
+) {
   return useQuery({
     queryKey: qk.serie(p.turno, p.cargo, p.nivel, p.id, p.t),
     queryFn: ({ signal }) =>
@@ -196,7 +203,8 @@ export function useLocaisMapa(
 export function useLocal(id: string | null | undefined, turno: number) {
   return useQuery({
     queryKey: qk.local(id ?? "", turno),
-    queryFn: ({ signal }) => api<LocalDetalhe>(`/locais/${encodeURIComponent(id ?? "")}`, { params: { turno }, signal }),
+    queryFn: ({ signal }) =>
+      api<LocalDetalhe>(`/locais/${encodeURIComponent(id ?? "")}`, { params: { turno }, signal }),
     enabled: !!id,
     staleTime: 30_000,
     refetchInterval: 60_000,
@@ -206,7 +214,8 @@ export function useLocal(id: string | null | undefined, turno: number) {
 export function useSecao(id: string | null | undefined, turno: number) {
   return useQuery({
     queryKey: qk.secao(id ?? "", turno),
-    queryFn: ({ signal }) => api<SecaoDetalhe>(`/secoes/${encodeURIComponent(id ?? "")}`, { params: { turno }, signal }),
+    queryFn: ({ signal }) =>
+      api<SecaoDetalhe>(`/secoes/${encodeURIComponent(id ?? "")}`, { params: { turno }, signal }),
     enabled: !!id,
     staleTime: 30_000,
     refetchInterval: 60_000,
@@ -292,7 +301,8 @@ export function useLogin() {
   const setSessao = useAuth((s) => s.setSessao);
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (b: { email: string; senha: string }) => api<AuthResp>("/auth/login", { method: "POST", body: b }),
+    mutationFn: (b: { email: string; senha: string }) =>
+      api<AuthResp>("/auth/login", { method: "POST", body: b }),
     onSuccess: (r) => {
       setSessao(r.access_token, r.usuario);
       qc.invalidateQueries({ queryKey: qk.paineis() });
@@ -334,8 +344,14 @@ export function useSalvarAlerta() {
   return useMutation({
     mutationFn: (a: Partial<Alerta> & Pick<Alerta, "tipo" | "params" | "ativo">) =>
       a.id
-        ? api<Alerta>(`/alertas/${a.id}`, { method: "PUT", body: { tipo: a.tipo, params: a.params, ativo: a.ativo } })
-        : api<Alerta>("/alertas", { method: "POST", body: { tipo: a.tipo, params: a.params, ativo: a.ativo } }),
+        ? api<Alerta>(`/alertas/${a.id}`, {
+            method: "PUT",
+            body: { tipo: a.tipo, params: a.params, ativo: a.ativo },
+          })
+        : api<Alerta>("/alertas", {
+            method: "POST",
+            body: { tipo: a.tipo, params: a.params, ativo: a.ativo },
+          }),
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.alertas() }),
   });
 }
@@ -393,4 +409,3 @@ export function useAdminAcao() {
     },
   });
 }
-

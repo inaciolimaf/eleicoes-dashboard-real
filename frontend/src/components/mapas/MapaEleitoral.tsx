@@ -14,9 +14,24 @@ import { useFilhos, useLocaisMapa } from "../../api/hooks";
 import { useFiltroEfetivo } from "../../lib/filtro-efetivo";
 import { useLive } from "../../realtime/useLive";
 import { topico } from "../../realtime/topicos";
-import { BBOX_BRASIL, bboxPontos, unirBBox, useMalhaMun, useMalhaUF, type BBox, type FeatureGeo } from "../../lib/geo";
+import {
+  BBOX_BRASIL,
+  bboxPontos,
+  unirBBox,
+  useMalhaMun,
+  useMalhaUF,
+  type BBox,
+  type FeatureGeo,
+} from "../../lib/geo";
 import { municipioDoId, ufDoId, zonaDoId, UF_POR_SIGLA } from "../../lib/recortes";
-import { COR_STATUS, ROTULO_STATUS, alphaMargem, corDivergente, corSequencial, hexToRgb } from "../../lib/cores";
+import {
+  COR_STATUS,
+  ROTULO_STATUS,
+  alphaMargem,
+  corDivergente,
+  corSequencial,
+  hexToRgb,
+} from "../../lib/cores";
 import { fmtInt, fmtPP, fmtPct } from "../../lib/format";
 import { useCorCandidato } from "../../lib/useCor";
 import { usePrefs } from "../../store/prefs";
@@ -33,12 +48,20 @@ function estiloFundo(escuro: boolean) {
   return {
     version: 8 as const,
     sources: {},
-    layers: [{ id: "fundo", type: "background" as const, paint: { "background-color": escuro ? "#0B1220" : "#EEF1F6" } }],
+    layers: [
+      {
+        id: "fundo",
+        type: "background" as const,
+        paint: { "background-color": escuro ? "#0B1220" : "#EEF1F6" },
+      },
+    ],
   };
 }
 
 function DeckOverlay(props: MapboxOverlayProps) {
-  const overlay = useControl(() => new MapboxOverlay(props) as unknown as IControl) as unknown as MapboxOverlay;
+  const overlay = useControl(
+    () => new MapboxOverlay(props) as unknown as IControl,
+  ) as unknown as MapboxOverlay;
   overlay.setProps(props);
   return null;
 }
@@ -89,7 +112,8 @@ export default function MapaEleitoral(props: MapaEleitoralProps) {
   const basemapPref = usePrefs((s) => s.basemap);
   const usarBasemap = props.basemap ?? basemapPref;
 
-  const modo: "uf" | "mun" | "pontos" = nivel === "br" ? (todosMunicipios ? "mun" : "uf") : nivel === "uf" ? "mun" : "pontos";
+  const modo: "uf" | "mun" | "pontos" =
+    nivel === "br" ? (todosMunicipios ? "mun" : "uf") : nivel === "uf" ? "mun" : "pontos";
   const uf = ufDoId(nivel, id);
   const munId = municipioDoId(nivel, id);
   const filhosNivel: Nivel | null = nivel === "br" && modo === "mun" ? "municipio" : null;
@@ -132,7 +156,10 @@ export default function MapaEleitoral(props: MapaEleitoralProps) {
   const [destaque, setDestaque] = useState<string | null>(null);
   useEffect(() => setDestaque(null), [nivel, id, cargo, tipo]);
   // contagem de municípios vencidos (só quando um candidato é destacado no mapa de UFs)
-  const munBr = useFilhos({ turno, cargo, nivel: "br", id: "br", t, filhos: "municipio" }, modo === "uf" && !!destaque && tipo === "vencedores");
+  const munBr = useFilhos(
+    { turno, cargo, nivel: "br", id: "br", t, filhos: "municipio" },
+    modo === "uf" && !!destaque && tipo === "vencedores",
+  );
 
   // ---------------------------------------------------------------- junção
   const chaveItem = useCallback(
@@ -149,7 +176,7 @@ export default function MapaEleitoral(props: MapaEleitoralProps) {
     if (modo === "uf") return malhaUF.data?.features ?? [];
     if (modo === "mun") {
       if (!malhaMun.data) return [];
-      return nivel === "br" ? malhaMun.data.features : malhaMun.data.porUf.get(uf ?? "") ?? [];
+      return nivel === "br" ? malhaMun.data.features : (malhaMun.data.porUf.get(uf ?? "") ?? []);
     }
     // pontos: só o contorno do município
     const item = munsDaUf.data?.itens.find((i) => i.id === munId);
@@ -165,11 +192,16 @@ export default function MapaEleitoral(props: MapaEleitoralProps) {
       return { min: 0, max: Math.ceil(max / 5) * 5, sufixo: "%" };
     }
     if (tipo === "comparativo" && efA && efB) {
-      const max = Math.max(1, ...itens.map((i) => Math.abs((i.valores?.[efA] ?? 0) - (i.valores?.[efB] ?? 0))));
+      const max = Math.max(
+        1,
+        ...itens.map((i) => Math.abs((i.valores?.[efA] ?? 0) - (i.valores?.[efB] ?? 0))),
+      );
       return { min: -Math.ceil(max), max: Math.ceil(max), sufixo: " p.p." };
     }
     if (tipo === "comparecimento") {
-      const v = itens.filter((i) => i.eleitorado > 0 && i.comparecimento > 0).map((i) => (i.comparecimento / i.eleitorado) * 100);
+      const v = itens
+        .filter((i) => i.eleitorado > 0 && i.comparecimento > 0)
+        .map((i) => (i.comparecimento / i.eleitorado) * 100);
       if (!v.length) return { min: 0, max: 100, sufixo: "%" };
       return { min: Math.floor(Math.min(...v)), max: Math.ceil(Math.max(...v)), sufixo: "%" };
     }
@@ -186,7 +218,8 @@ export default function MapaEleitoral(props: MapaEleitoralProps) {
       switch (tipo) {
         case "vencedores": {
           if (!it.lider) return [128, 128, 128, 60];
-          if (destaque && it.lider.sqcand !== destaque) return escuro ? [60, 68, 88, 90] : [200, 204, 212, 140];
+          if (destaque && it.lider.sqcand !== destaque)
+            return escuro ? [60, 68, 88, 90] : [200, 204, 212, 140];
           const [r, g, b] = hexToRgb(corCand(it.lider.sqcand, it.lider.cor));
           return [r, g, b, Math.round(alphaMargem(it.margem_pp) * 255)];
         }
@@ -270,7 +303,7 @@ export default function MapaEleitoral(props: MapaEleitoralProps) {
       return true;
     });
     if ((nivel === "local" || nivel === "zona") && pts.length) return bboxPontos(pts);
-    return features[0]?.bbox ?? bboxPontos(pts.length ? pts : locais.data?.itens ?? []);
+    return features[0]?.bbox ?? bboxPontos(pts.length ? pts : (locais.data?.itens ?? []));
   }, [modo, nivel, id, features, locais.data]);
   const alvoKey = alvo ? alvo.map((n) => n.toFixed(3)).join(",") : "";
   const [mapaPronto, setMapaPronto] = useState(false);
@@ -297,7 +330,8 @@ export default function MapaEleitoral(props: MapaEleitoralProps) {
   const linha = useMemo<RGBA>(() => (escuro ? [11, 18, 32, 220] : [255, 255, 255, 230]), [escuro]);
   const layers = useMemo(() => {
     const ls: Layer[] = [];
-    const semDadosFeats = tipo === "locais" ? [] : features.filter((f) => semDados(itensPorChave.get(f.chave)));
+    const semDadosFeats =
+      tipo === "locais" ? [] : features.filter((f) => semDados(itensPorChave.get(f.chave)));
     ls.push(
       new GeoJsonLayer<FeatureGeo["properties"]>({
         id: "regioes",
@@ -308,7 +342,16 @@ export default function MapaEleitoral(props: MapaEleitoralProps) {
         autoHighlight: modo !== "pontos",
         highlightColor: [255, 255, 255, 50],
         getFillColor: (ft) => corRegiao(itensPorChave.get((ft as unknown as FeatureGeo).chave)),
-        getLineColor: modo === "pontos" ? (escuro ? [140, 160, 200, 220] : [60, 70, 90, 220]) : tipo === "locais" ? (escuro ? [90, 110, 150, 160] : [120, 130, 150, 160]) : linha,
+        getLineColor:
+          modo === "pontos"
+            ? escuro
+              ? [140, 160, 200, 220]
+              : [60, 70, 90, 220]
+            : tipo === "locais"
+              ? escuro
+                ? [90, 110, 150, 160]
+                : [120, 130, 150, 160]
+              : linha,
         getLineWidth: modo === "pontos" ? 2 : 1,
         lineWidthUnits: "pixels",
         lineWidthMinPixels: modo === "mun" && nivel === "br" ? 0.2 : 0.6,
@@ -378,7 +421,10 @@ export default function MapaEleitoral(props: MapaEleitoralProps) {
             radiusUnits: "pixels",
             getFillColor: (d) => {
               const c = corLocal(d);
-              if ((nivel === "zona" && zonaSel && !d.id.startsWith(zonaSel)) || (nivel === "local" && d.id !== id))
+              if (
+                (nivel === "zona" && zonaSel && !d.id.startsWith(zonaSel)) ||
+                (nivel === "local" && d.id !== id)
+              )
                 return [c[0], c[1], c[2], 70];
               return c;
             },
@@ -388,14 +434,33 @@ export default function MapaEleitoral(props: MapaEleitoralProps) {
             pickable: true,
             autoHighlight: true,
             highlightColor: [255, 255, 255, 90],
-            updateTriggers: { getFillColor: [locais.dataUpdatedAt, corLocal, nivel, id], getRadius: [nivel, id] },
+            updateTriggers: {
+              getFillColor: [locais.dataUpdatedAt, corLocal, nivel, id],
+              getRadius: [nivel, id],
+            },
             transitions: { getFillColor: 400 },
           }),
         );
       }
     }
     return ls;
-  }, [features, itensPorChave, corRegiao, corLocal, locais.data, locais.dataUpdatedAt, precisaLocais, tipo, modo, zoom, nivel, id, escuro, versao, linha]);
+  }, [
+    features,
+    itensPorChave,
+    corRegiao,
+    corLocal,
+    locais.data,
+    locais.dataUpdatedAt,
+    precisaLocais,
+    tipo,
+    modo,
+    zoom,
+    nivel,
+    id,
+    escuro,
+    versao,
+    linha,
+  ]);
 
   const onHover = useCallback(
     (info: PickingInfo) => {
@@ -404,7 +469,8 @@ export default function MapaEleitoral(props: MapaEleitoralProps) {
         return;
       }
       const layerId = info.layer?.id;
-      if (layerId === "locais") setHover({ x: info.x, y: info.y, tipo: "local", local: info.object as LocalMapa });
+      if (layerId === "locais")
+        setHover({ x: info.x, y: info.y, tipo: "local", local: info.object as LocalMapa });
       else if (layerId === "hex") {
         const o = info.object as { colorValue?: number; count?: number };
         setHover({ x: info.x, y: info.y, tipo: "hex", pct: (o.colorValue ?? 0) * 100, n: o.count ?? 0 });
@@ -427,12 +493,14 @@ export default function MapaEleitoral(props: MapaEleitoralProps) {
         onSelecionar("local", l.id, l.nome);
       } else if (layerId === "hex") {
         const o = info.object as { position?: [number, number] };
-        if (o.position && mapRef.current) mapRef.current.flyTo({ center: o.position, zoom: 10, duration: 800 });
+        if (o.position && mapRef.current)
+          mapRef.current.flyTo({ center: o.position, zoom: 10, duration: 800 });
       } else if (layerId === "regioes") {
         const ft = info.object as FeatureGeo;
         const it = itensPorChave.get(ft.chave);
         if (it) onSelecionar(it.nivel, it.id, it.nome);
-        else if (modo === "uf") onSelecionar("uf", ft.chave, UF_POR_SIGLA[ft.chave]?.nome ?? ft.chave.toUpperCase());
+        else if (modo === "uf")
+          onSelecionar("uf", ft.chave, UF_POR_SIGLA[ft.chave]?.nome ?? ft.chave.toUpperCase());
       }
     },
     [onSelecionar, itensPorChave, modo],
@@ -446,12 +514,23 @@ export default function MapaEleitoral(props: MapaEleitoralProps) {
         if (!l.lider) continue;
         const x = m.get(l.lider.sqcand);
         if (x) x.vitorias++;
-        else m.set(l.lider.sqcand, { sqcand: l.lider.sqcand, rotulo: l.lider.nome_urna, cor: corCand(l.lider.sqcand, l.lider.cor), vitorias: 1 });
+        else
+          m.set(l.lider.sqcand, {
+            sqcand: l.lider.sqcand,
+            rotulo: l.lider.nome_urna,
+            cor: corCand(l.lider.sqcand, l.lider.cor),
+            vitorias: 1,
+          });
       }
       return [...m.values()].sort((a, b) => b.vitorias - a.vitorias);
     }
     return (dados?.candidatos ?? [])
-      .map((c) => ({ sqcand: c.sqcand, rotulo: `${c.nome_urna} (${c.numero})`, cor: corCand(c.sqcand, c.cor, c.numero), vitorias: c.vitorias }))
+      .map((c) => ({
+        sqcand: c.sqcand,
+        rotulo: `${c.nome_urna} (${c.numero})`,
+        cor: corCand(c.sqcand, c.cor, c.numero),
+        vitorias: c.vitorias,
+      }))
       .sort((a, b) => b.vitorias - a.vitorias);
   }, [modo, locais.data, dados, corCand]);
 
@@ -483,14 +562,32 @@ export default function MapaEleitoral(props: MapaEleitoralProps) {
     (modo !== "uf" && malhaMun.isLoading) ||
     (modo !== "pontos" && base.isLoading) ||
     (precisaLocais && locais.isLoading);
-  const erro = (modo !== "pontos" ? base.error : null) ?? (precisaLocais ? locais.error : null) ?? malhaUF.error ?? malhaMun.error;
-  const opcoesCand = (candsBase ?? []).map((c) => ({ value: c.sqcand, label: `${c.nome_urna} (${c.numero}) · ${c.partido_sigla}` }));
+  const erro =
+    (modo !== "pontos" ? base.error : null) ??
+    (precisaLocais ? locais.error : null) ??
+    malhaUF.error ??
+    malhaMun.error;
+  const opcoesCand = (candsBase ?? []).map((c) => ({
+    value: c.sqcand,
+    label: `${c.nome_urna} (${c.numero}) · ${c.partido_sigla}`,
+  }));
 
   return (
-    <Box ref={caixaRef} className="mapa-container" style={{ height: altura, minHeight: 180 }} onMouseLeave={() => setHover(null)}>
+    <Box
+      ref={caixaRef}
+      className="mapa-container"
+      style={{ height: altura, minHeight: 180 }}
+      onMouseLeave={() => setHover(null)}
+    >
       <MapGL
         ref={mapRef}
-        initialViewState={{ bounds: [[BBOX_BRASIL[0], BBOX_BRASIL[1]], [BBOX_BRASIL[2], BBOX_BRASIL[3]]], fitBoundsOptions: { padding: 16 } }}
+        initialViewState={{
+          bounds: [
+            [BBOX_BRASIL[0], BBOX_BRASIL[1]],
+            [BBOX_BRASIL[2], BBOX_BRASIL[3]],
+          ],
+          fitBoundsOptions: { padding: 16 },
+        }}
         mapStyle={estilo as never}
         style={{ width: "100%", height: "100%" }}
         attributionControl={false}
@@ -519,7 +616,13 @@ export default function MapaEleitoral(props: MapaEleitoralProps) {
       {!mapaPronto && <MapaProntoFallback onPronto={() => setMapaPronto(true)} />}
 
       {seletorCandidatos && precisaValores && modo !== "pontos" && opcoesCand.length > 0 && (
-        <Paper withBorder shadow="sm" p={6} radius="md" style={{ position: "absolute", top: 8, left: 8, zIndex: 6, maxWidth: "calc(100% - 70px)" }}>
+        <Paper
+          withBorder
+          shadow="sm"
+          p={6}
+          radius="md"
+          style={{ position: "absolute", top: 8, left: 8, zIndex: 6, maxWidth: "calc(100% - 70px)" }}
+        >
           <Group gap={6} wrap="wrap">
             <Select
               size="xs"
@@ -563,7 +666,11 @@ export default function MapaEleitoral(props: MapaEleitoralProps) {
         </Badge>
       )}
       {locais.data?.truncado && (
-        <Badge style={{ position: "absolute", top: 8, left: "50%", transform: "translateX(-50%)", zIndex: 6 }} color="yellow" variant="light">
+        <Badge
+          style={{ position: "absolute", top: 8, left: "50%", transform: "translateX(-50%)", zIndex: 6 }}
+          color="yellow"
+          variant="light"
+        >
           Mostrando {fmtInt(locais.data.itens.length)} de {fmtInt(locais.data.total)} locais
         </Badge>
       )}
@@ -597,17 +704,34 @@ export default function MapaEleitoral(props: MapaEleitoralProps) {
       {erro && (
         <Box style={{ position: "absolute", top: 8, left: 8, right: 50, zIndex: 7 }}>
           <Paper withBorder>
-            <ErroView erro={erro} compacto onRetry={() => (modo !== "pontos" ? base.refetch() : locais.refetch())} />
+            <ErroView
+              erro={erro}
+              compacto
+              onRetry={() => (modo !== "pontos" ? base.refetch() : locais.refetch())}
+            />
           </Paper>
         </Box>
       )}
       {!carregando && !erro && modo === "pontos" && locais.data && locais.data.itens.length === 0 && (
-        <Badge style={{ position: "absolute", top: 8, left: "50%", transform: "translateX(-50%)", zIndex: 6 }} variant="light" color="gray">
+        <Badge
+          style={{ position: "absolute", top: 8, left: "50%", transform: "translateX(-50%)", zIndex: 6 }}
+          variant="light"
+          color="gray"
+        >
           Sem locais de votação com coordenadas
         </Badge>
       )}
 
-      {hover && <TooltipMapa h={hover} tipo={tipo} efA={efA} efB={efB} corCand={corCand} caixa={[larguraCaixa, alturaCaixa]} />}
+      {hover && (
+        <TooltipMapa
+          h={hover}
+          tipo={tipo}
+          efA={efA}
+          efB={efB}
+          corCand={corCand}
+          caixa={[larguraCaixa, alturaCaixa]}
+        />
+      )}
     </Box>
   );
 }
@@ -674,7 +798,11 @@ function TooltipMapa({
         </Group>
         {l.lider && (
           <Group gap={6} wrap="nowrap">
-            <Box w={10} h={10} style={{ borderRadius: 3, background: corCand(l.lider.sqcand, l.lider.cor) }} />
+            <Box
+              w={10}
+              h={10}
+              style={{ borderRadius: 3, background: corCand(l.lider.sqcand, l.lider.cor) }}
+            />
             <Text size="xs">
               <b>{l.lider.nome_urna}</b> {fmtPct(l.lider.pct)} · margem {fmtPP(l.margem_pp)}
             </Text>
@@ -691,7 +819,12 @@ function TooltipMapa({
       <Stack gap={3}>
         <Text size="sm" fw={700}>
           {h.nome}
-          {it?.uf && it.nivel === "municipio" ? <Text span c="dimmed" size="xs"> · {it.uf.toUpperCase()}</Text> : null}
+          {it?.uf && it.nivel === "municipio" ? (
+            <Text span c="dimmed" size="xs">
+              {" "}
+              · {it.uf.toUpperCase()}
+            </Text>
+          ) : null}
         </Text>
         {!it || semDados(it) ? (
           <Text size="xs" c="dimmed">
@@ -701,7 +834,11 @@ function TooltipMapa({
           <>
             {it.lider && (
               <Group gap={6} wrap="nowrap">
-                <Box w={10} h={10} style={{ borderRadius: 3, background: corCand(it.lider.sqcand, it.lider.cor) }} />
+                <Box
+                  w={10}
+                  h={10}
+                  style={{ borderRadius: 3, background: corCand(it.lider.sqcand, it.lider.cor) }}
+                />
                 <Text size="xs">
                   Líder: <b>{it.lider.nome_urna}</b> {fmtPct(it.lider.pct)}
                 </Text>
@@ -709,13 +846,19 @@ function TooltipMapa({
             )}
             {it.segundo && (
               <Group gap={6} wrap="nowrap">
-                <Box w={10} h={10} style={{ borderRadius: 3, background: corCand(it.segundo.sqcand, it.segundo.cor) }} />
+                <Box
+                  w={10}
+                  h={10}
+                  style={{ borderRadius: 3, background: corCand(it.segundo.sqcand, it.segundo.cor) }}
+                />
                 <Text size="xs">
                   2º: {it.segundo.nome_urna} {fmtPct(it.segundo.pct)}
                 </Text>
               </Group>
             )}
-            <Text size="xs">Margem: <b className="num">{fmtPP(it.margem_pp)}</b></Text>
+            <Text size="xs">
+              Margem: <b className="num">{fmtPP(it.margem_pp)}</b>
+            </Text>
             {tipo === "desempenho" && efA && it.valores?.[efA] !== undefined && (
               <Text size="xs">
                 Candidato: <b className="num">{fmtPct(it.valores[efA])}</b>

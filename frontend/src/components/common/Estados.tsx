@@ -21,7 +21,13 @@ export function Carregando({ linhas = 4, altura }: { linhas?: number; altura?: n
   );
 }
 
-export function SemDados({ titulo = "Sem dados ainda", children }: { titulo?: string; children?: ReactNode }) {
+export function SemDados({
+  titulo = "Sem dados ainda",
+  children,
+}: {
+  titulo?: string;
+  children?: ReactNode;
+}) {
   return (
     <Center py="lg" px="sm" h="100%">
       <Stack align="center" gap={6} maw={360}>
@@ -32,15 +38,25 @@ export function SemDados({ titulo = "Sem dados ainda", children }: { titulo?: st
           {titulo}
         </Text>
         <Text size="sm" c="dimmed" ta="center">
-          {children ?? "O TSE ainda não publicou resultados para este recorte. Os números aparecem aqui assim que chegarem."}
+          {children ??
+            "O TSE ainda não publicou resultados para este recorte. Os números aparecem aqui assim que chegarem."}
         </Text>
       </Stack>
     </Center>
   );
 }
 
-export function ErroView({ erro, onRetry, compacto }: { erro: unknown; onRetry?: () => void; compacto?: boolean }) {
-  const msg = erro instanceof ApiError ? erro.message : erro instanceof Error ? erro.message : "Erro inesperado.";
+export function ErroView({
+  erro,
+  onRetry,
+  compacto,
+}: {
+  erro: unknown;
+  onRetry?: () => void;
+  compacto?: boolean;
+}) {
+  const msg =
+    erro instanceof ApiError ? erro.message : erro instanceof Error ? erro.message : "Erro inesperado.";
   const status = erro instanceof ApiError ? erro.status : null;
   if (compacto)
     return (
@@ -67,7 +83,14 @@ export function ErroView({ erro, onRetry, compacto }: { erro: unknown; onRetry?:
       <Stack gap="xs">
         <Text size="sm">{msg}</Text>
         {onRetry && (
-          <Button size="xs" variant="light" color="red" leftSection={<IconRefresh size={14} />} onClick={onRetry} w="fit-content">
+          <Button
+            size="xs"
+            variant="light"
+            color="red"
+            leftSection={<IconRefresh size={14} />}
+            onClick={onRetry}
+            w="fit-content"
+          >
             Tentar de novo
           </Button>
         )}

@@ -1,4 +1,16 @@
-import { Badge, Box, Group, ScrollArea, Stack, Switch, Table, Tabs, Text, Tooltip, UnstyledButton } from "@mantine/core";
+import {
+  Badge,
+  Box,
+  Group,
+  ScrollArea,
+  Stack,
+  Switch,
+  Table,
+  Tabs,
+  Text,
+  Tooltip,
+  UnstyledButton,
+} from "@mantine/core";
 import { IconArrowsDiff, IconChartDonut, IconUsers } from "@tabler/icons-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useMemo, useState } from "react";
@@ -57,7 +69,14 @@ function LinhaCandidato({
         <Stack gap={3} style={{ flex: 1, minWidth: 0 }}>
           <Group gap={6} wrap="nowrap" justify="space-between" align="flex-start">
             <Group gap={6} wrap="wrap" style={{ minWidth: 0, flex: 1, rowGap: 2 }}>
-              <Badge variant="filled" size="sm" radius="sm" color={cor} className="num" styles={{ root: { flexShrink: 0, color: "#fff" } }}>
+              <Badge
+                variant="filled"
+                size="sm"
+                radius="sm"
+                color={cor}
+                className="num"
+                styles={{ root: { flexShrink: 0, color: "#fff" } }}
+              >
                 {c.numero}
               </Badge>
               {link ? (
@@ -75,23 +94,43 @@ function LinhaCandidato({
                 size="xs"
               />
             </Group>
-            <Num valor={c.pct_validos} tipo="pct" style={{ fontWeight: 800, fontSize: "1.05rem" }} brilho={false} />
+            <Num
+              valor={c.pct_validos}
+              tipo="pct"
+              style={{ fontWeight: 800, fontSize: "1.05rem" }}
+              brilho={false}
+            />
           </Group>
           <Group gap={8} wrap="nowrap">
             <Box className="barra-trilho" style={{ flex: 1 }}>
               <Box className="barra-preenchida" style={{ width: `${largura}%`, background: cor }} />
-              {majoritario && maxPct > 0 && maxPct <= 100 && (Number(res.cargo.cd) === 1 || Number(res.cargo.cd) === 3) && (
-                <Tooltip label="50% dos válidos">
-                  <Box className="barra-50" style={{ left: `${(50 / Math.max(maxPct, 1)) * 100}%`, display: maxPct >= 50 ? "block" : "none" }} />
-                </Tooltip>
-              )}
+              {majoritario &&
+                maxPct > 0 &&
+                maxPct <= 100 &&
+                (Number(res.cargo.cd) === 1 || Number(res.cargo.cd) === 3) && (
+                  <Tooltip label="50% dos válidos">
+                    <Box
+                      className="barra-50"
+                      style={{
+                        left: `${(50 / Math.max(maxPct, 1)) * 100}%`,
+                        display: maxPct >= 50 ? "block" : "none",
+                      }}
+                    />
+                  </Tooltip>
+                )}
             </Box>
-            <Num valor={c.votos} style={{ fontSize: "0.8rem", minWidth: 90, textAlign: "right" }} brilho={false} />
+            <Num
+              valor={c.votos}
+              style={{ fontSize: "0.8rem", minWidth: 90, textAlign: "right" }}
+              brilho={false}
+            />
           </Group>
           <Text size="xs" c="dimmed" lineClamp={1}>
             {c.partido_sigla}
             {c.agremiacao && c.agremiacao !== c.partido_sigla ? ` · ${c.agremiacao}` : ""}
-            {c.vices?.length ? ` · ${c.vices.map((v) => `${v.tipo === "vice" ? "Vice" : v.tipo}: ${v.nome}`).join(", ")}` : ""}
+            {c.vices?.length
+              ? ` · ${c.vices.map((v) => `${v.tipo === "vice" ? "Vice" : v.tipo}: ${v.nome}`).join(", ")}`
+              : ""}
             {c.destinacao && c.destinacao !== "Válido" ? ` · ${c.destinacao}` : ""}
           </Text>
         </Stack>
@@ -114,12 +153,14 @@ function Diferenca({ res, lista }: { res: ResultadosComDados; lista: CandidatoRe
       <Group gap={6}>
         <IconArrowsDiff size={14} color="var(--mantine-color-dimmed)" />
         <Text size="xs" c="dimmed">
-          Diferença 1º × 2º: <b className="num">{fmtPP(pp)}</b> (<span className="num">{fmtInt(votos)}</span> votos)
+          Diferença 1º × 2º: <b className="num">{fmtPP(pp)}</b> (<span className="num">{fmtInt(votos)}</span>{" "}
+          votos)
         </Text>
       </Group>
       {terceiro && (
         <Text size="xs" c="dimmed" pl={20}>
-          Diferença 2º × 3º (última vaga): <b className="num">{fmtPP(lista[1].pct_validos - terceiro.pct_validos)}</b> (
+          Diferença 2º × 3º (última vaga):{" "}
+          <b className="num">{fmtPP(lista[1].pct_validos - terceiro.pct_validos)}</b> (
           <span className="num">{fmtInt(lista[1].votos - terceiro.votos)}</span> votos)
         </Text>
       )}
@@ -211,7 +252,13 @@ export function Placar({ res, opcoes = {} }: { res: ResultadosComDados; opcoes?:
             exit={animacoes ? { opacity: 0 } : undefined}
             transition={{ type: "spring", stiffness: 420, damping: 38 }}
           >
-            <LinhaCandidato c={c} maxPct={maxPct} res={res} mostrarFotos={mostrarFotos} link={opcoes.linkCandidato ?? true} />
+            <LinhaCandidato
+              c={c}
+              maxPct={maxPct}
+              res={res}
+              mostrarFotos={mostrarFotos}
+              link={opcoes.linkCandidato ?? true}
+            />
           </motion.div>
         ))}
       </AnimatePresence>
@@ -237,8 +284,11 @@ export function Placar({ res, opcoes = {} }: { res: ResultadosComDados; opcoes?:
       <Stack gap={4}>
         <Group justify="space-between">
           <Text size="xs" c="dimmed">
-            {res.candidatos.length} candidato(s) · {res.cargo.vagas && res.cargo.vagas > 1 ? `${res.cargo.vagas} vagas` : "1 vaga"}
-            {res.recorte.uf && Number(res.cargo.cd) !== 1 ? ` · ${UF_POR_SIGLA[res.recorte.uf]?.nome ?? res.recorte.uf.toUpperCase()}` : ""}
+            {res.candidatos.length} candidato(s) ·{" "}
+            {res.cargo.vagas && res.cargo.vagas > 1 ? `${res.cargo.vagas} vagas` : "1 vaga"}
+            {res.recorte.uf && Number(res.cargo.cd) !== 1
+              ? ` · ${UF_POR_SIGLA[res.recorte.uf]?.nome ?? res.recorte.uf.toUpperCase()}`
+              : ""}
           </Text>
           {toggle}
         </Group>

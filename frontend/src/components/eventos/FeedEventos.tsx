@@ -77,7 +77,12 @@ export function ItemEvento({ e, compacto }: { e: Evento; compacto?: boolean }) {
               </Badge>
             ) : null}
             <Tooltip label={`Ver o painel como estava em ${fmtDataCurta(e.ocorrido_em)}`}>
-              <ActionIcon size="xs" variant="subtle" onClick={() => setT(e.ocorrido_em)} aria-label="Ir para este momento">
+              <ActionIcon
+                size="xs"
+                variant="subtle"
+                onClick={() => setT(e.ocorrido_em)}
+                aria-label="Ir para este momento"
+              >
                 <IconClockPlay size={14} />
               </ActionIcon>
             </Tooltip>
@@ -101,11 +106,20 @@ export interface FeedEventosProps {
 export function FeedEventos({ tipos, limite = 50, cargo, nivel, id, compacto, alturaMax }: FeedEventosProps) {
   const f = useFiltroEfetivo();
   const animacoes = usePrefs((s) => s.animacoes);
-  const q = useEventos(f.turno, { tipos, limite, cargo: cargo ?? null, nivel: nivel ?? null, id: id ?? null }, f.t);
+  const q = useEventos(
+    f.turno,
+    { tipos, limite, cargo: cargo ?? null, nivel: nivel ?? null, id: id ?? null },
+    f.t,
+  );
   useLive([topico.eventos(f.turno)]);
   if (q.isLoading) return <Carregando linhas={5} />;
   if (q.error) return <ErroView erro={q.error} onRetry={() => q.refetch()} />;
-  if (!q.data?.length) return <SemDados titulo="Nenhum evento ainda">Viradas, marcos da apuração e eleitos aparecem aqui em tempo real.</SemDados>;
+  if (!q.data?.length)
+    return (
+      <SemDados titulo="Nenhum evento ainda">
+        Viradas, marcos da apuração e eleitos aparecem aqui em tempo real.
+      </SemDados>
+    );
   const lista = (
     <Stack gap={0}>
       <AnimatePresence initial={false}>

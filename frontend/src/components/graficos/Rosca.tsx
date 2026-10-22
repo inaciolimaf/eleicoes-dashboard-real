@@ -22,7 +22,11 @@ export function Rosca({
     const ord = [...res.candidatos].sort((a, b) => b.votos - a.votos);
     const top = ord.slice(0, topN);
     const outros = ord.slice(topN).reduce((s, x) => s + x.votos, 0);
-    const data = top.map((x) => ({ name: x.nome_urna, value: x.votos, itemStyle: { color: corCand(x.sqcand, x.cor, x.numero) } }));
+    const data = top.map((x) => ({
+      name: x.nome_urna,
+      value: x.votos,
+      itemStyle: { color: corCand(x.sqcand, x.cor, x.numero) },
+    }));
     if (outros > 0) data.push({ name: "Outros", value: outros, itemStyle: { color: "#64748B" } });
     if (incluirBrancosNulos) {
       data.push({ name: "Brancos", value: res.totais.brancos, itemStyle: { color: "#CBD5E1" } });
@@ -37,15 +41,42 @@ export function Rosca({
           return `<b>${x.name}</b><br/>${fmtInt(x.value)} votos · ${fmtPct(x.percent)}`;
         },
       },
-      legend: { type: "scroll", bottom: 0, textStyle: { color: c.texto, fontSize: 11 }, itemWidth: 10, itemHeight: 10 },
+      legend: {
+        type: "scroll",
+        bottom: 0,
+        textStyle: { color: c.texto, fontSize: 11 },
+        itemWidth: 10,
+        itemHeight: 10,
+      },
       graphic: [
         {
           type: "group",
           left: "center",
           top: "38%",
           children: [
-            { type: "text", style: { text: fmtInt(total), fontSize: 18, fontWeight: 800, fill: c.texto, align: "center", fontFamily: "JetBrains Mono" }, left: "center" },
-            { type: "text", top: 24, style: { text: incluirBrancosNulos ? "votos" : "votos válidos", fontSize: 11, fill: c.textoFraco, align: "center" }, left: "center" },
+            {
+              type: "text",
+              style: {
+                text: fmtInt(total),
+                fontSize: 18,
+                fontWeight: 800,
+                fill: c.texto,
+                align: "center",
+                fontFamily: "JetBrains Mono",
+              },
+              left: "center",
+            },
+            {
+              type: "text",
+              top: 24,
+              style: {
+                text: incluirBrancosNulos ? "votos" : "votos válidos",
+                fontSize: 11,
+                fill: c.textoFraco,
+                align: "center",
+              },
+              left: "center",
+            },
           ],
         },
       ],

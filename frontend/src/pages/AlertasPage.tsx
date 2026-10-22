@@ -1,4 +1,19 @@
-import { ActionIcon, Alert, Badge, Button, Card, Group, NumberInput, Select, Stack, Switch, Table, Text, Title, Tooltip } from "@mantine/core";
+import {
+  ActionIcon,
+  Alert,
+  Badge,
+  Button,
+  Card,
+  Group,
+  NumberInput,
+  Select,
+  Stack,
+  Switch,
+  Table,
+  Text,
+  Title,
+  Tooltip,
+} from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { IconBell, IconBellRinging, IconTrash } from "@tabler/icons-react";
 import { useState } from "react";
@@ -60,7 +75,8 @@ function NovoAlerta() {
   };
   const criar = async () => {
     const params: Record<string, unknown> = {};
-    if (tipo === "pct_candidato") Object.assign(params, { cargo, nivel: r?.nivel, id: r?.id, sqcand: sq, limite });
+    if (tipo === "pct_candidato")
+      Object.assign(params, { cargo, nivel: r?.nivel, id: r?.id, sqcand: sq, limite });
     if (tipo === "virada") Object.assign(params, { cargo, nivel: r?.nivel, id: r?.id });
     if (tipo === "apuracao") Object.assign(params, { nivel: r?.nivel, id: r?.id, limite });
     if (tipo === "eleito") Object.assign(params, { sqcand: sq });
@@ -82,18 +98,59 @@ function NovoAlerta() {
         Novo alerta
       </Text>
       <Stack gap="sm">
-        <Select label="Regra" data={TIPOS} value={tipo} onChange={(v) => v && setTipo(v as TipoAlerta)} allowDeselect={false} />
+        <Select
+          label="Regra"
+          data={TIPOS}
+          value={tipo}
+          onChange={(v) => v && setTipo(v as TipoAlerta)}
+          allowDeselect={false}
+        />
         <Group grow align="flex-start">
           {precisa.cargo && (
-            <Select label="Cargo" data={OPCOES_CARGO.map((o) => ({ value: o.valor, label: o.rotulo }))} value={String(cargo === 8 ? 7 : cargo)} onChange={(v) => setCargo(Number(v ?? 1))} allowDeselect={false} />
+            <Select
+              label="Cargo"
+              data={OPCOES_CARGO.map((o) => ({ value: o.valor, label: o.rotulo }))}
+              value={String(cargo === 8 ? 7 : cargo)}
+              onChange={(v) => setCargo(Number(v ?? 1))}
+              allowDeselect={false}
+            />
           )}
-          {precisa.recorte && <RecortePicker label="Recorte" value={recorte} onChange={(v) => setRecorte(v)} />}
+          {precisa.recorte && (
+            <RecortePicker label="Recorte" value={recorte} onChange={(v) => setRecorte(v)} />
+          )}
         </Group>
         <Group grow align="flex-start">
-          {precisa.candidato && <CandidatoPicker label="Candidato" value={sq} onChange={setSq} turno={f.turno} cargo={cargo} uf={r ? ufDoId(r.nivel, r.id) : null} />}
-          {precisa.limite && <NumberInput label="Limite (%)" value={limite} onChange={(v) => setLimite(Number(v) || 0)} min={0} max={100} decimalScale={2} />}
+          {precisa.candidato && (
+            <CandidatoPicker
+              label="Candidato"
+              value={sq}
+              onChange={setSq}
+              turno={f.turno}
+              cargo={cargo}
+              uf={r ? ufDoId(r.nivel, r.id) : null}
+            />
+          )}
+          {precisa.limite && (
+            <NumberInput
+              label="Limite (%)"
+              value={limite}
+              onChange={(v) => setLimite(Number(v) || 0)}
+              min={0}
+              max={100}
+              decimalScale={2}
+            />
+          )}
         </Group>
-        {precisa.local && <RecortePicker label="Local de votação" tipos={["local"]} incluirBrasil={false} incluirUfs={false} value={local} onChange={(v) => setLocal(v)} />}
+        {precisa.local && (
+          <RecortePicker
+            label="Local de votação"
+            tipos={["local"]}
+            incluirBrasil={false}
+            incluirUfs={false}
+            value={local}
+            onChange={(v) => setLocal(v)}
+          />
+        )}
         <Group justify="flex-end">
           <Button leftSection={<IconBellRinging size={16} />} onClick={criar} loading={salvar.isPending}>
             Criar alerta
@@ -118,7 +175,11 @@ export default function AlertasPage() {
     if (typeof Notification === "undefined") return;
     const r = await Notification.requestPermission();
     setPrefs({ push: r === "granted" });
-    if (r === "granted") new Notification("Notificações ativadas", { body: "Você receberá os alertas da apuração.", icon: "/favicon.svg" });
+    if (r === "granted")
+      new Notification("Notificações ativadas", {
+        body: "Você receberá os alertas da apuração.",
+        icon: "/favicon.svg",
+      });
   };
 
   return (
@@ -138,9 +199,17 @@ export default function AlertasPage() {
             </Text>
           </Stack>
           {permissao === "granted" ? (
-            <Switch label="Ativo" checked={push} onChange={(e) => setPrefs({ push: e.currentTarget.checked })} />
+            <Switch
+              label="Ativo"
+              checked={push}
+              onChange={(e) => setPrefs({ push: e.currentTarget.checked })}
+            />
           ) : (
-            <Button leftSection={<IconBell size={16} />} onClick={ativarPush} disabled={permissao === "denied"}>
+            <Button
+              leftSection={<IconBell size={16} />}
+              onClick={ativarPush}
+              disabled={permissao === "denied"}
+            >
               {permissao === "denied" ? "Bloqueado no navegador" : "Permitir notificações"}
             </Button>
           )}
@@ -149,7 +218,9 @@ export default function AlertasPage() {
       {!logado ? (
         <Alert variant="light" color="blue" title="Entre para criar alertas">
           <Group justify="space-between">
-            <Text size="sm">As regras de alerta ficam na sua conta e são avaliadas pelo servidor durante a apuração.</Text>
+            <Text size="sm">
+              As regras de alerta ficam na sua conta e são avaliadas pelo servidor durante a apuração.
+            </Text>
             <Button size="xs" onClick={() => setAuth(true)}>
               Entrar
             </Button>
@@ -195,11 +266,20 @@ export default function AlertasPage() {
                         </Text>
                       </Table.Td>
                       <Table.Td>
-                        <Switch checked={a.ativo} onChange={(e) => salvar.mutate({ ...a, ativo: e.currentTarget.checked })} aria-label="Ativo" />
+                        <Switch
+                          checked={a.ativo}
+                          onChange={(e) => salvar.mutate({ ...a, ativo: e.currentTarget.checked })}
+                          aria-label="Ativo"
+                        />
                       </Table.Td>
                       <Table.Td>
                         <Tooltip label="Apagar">
-                          <ActionIcon color="red" variant="subtle" onClick={() => apagar.mutate(a.id)} aria-label="Apagar alerta">
+                          <ActionIcon
+                            color="red"
+                            variant="subtle"
+                            onClick={() => apagar.mutate(a.id)}
+                            aria-label="Apagar alerta"
+                          >
                             <IconTrash size={16} />
                           </ActionIcon>
                         </Tooltip>

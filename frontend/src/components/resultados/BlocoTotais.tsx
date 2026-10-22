@@ -6,7 +6,17 @@ import { Num } from "../common/Num";
 import { fmtInt, fmtPct } from "../../lib/format";
 import { FonteDados } from "./FonteDados";
 
-function Stat({ rotulo, valor, pct, dica }: { rotulo: string; valor: number; pct?: number | null; dica?: string }) {
+function Stat({
+  rotulo,
+  valor,
+  pct,
+  dica,
+}: {
+  rotulo: string;
+  valor: number;
+  pct?: number | null;
+  dica?: string;
+}) {
   return (
     <Tooltip label={dica} disabled={!dica}>
       <Stack gap={0}>
@@ -35,7 +45,10 @@ export function BlocoTotais({ res, compacto }: { res: ResultadosComDados; compac
       <Box>
         <Group justify="space-between" gap={4} mb={4} wrap="nowrap">
           <Text size="sm" fw={600}>
-            <Num valor={t.pct_secoes} tipo="pct" /> <Text span size="sm" c="dimmed" fw={400}>das seções totalizadas</Text>
+            <Num valor={t.pct_secoes} tipo="pct" />{" "}
+            <Text span size="sm" c="dimmed" fw={400}>
+              das seções totalizadas
+            </Text>
           </Text>
           <Text size="xs" c="dimmed" className="num" visibleFrom="xs">
             {fmtInt(t.secoes_totalizadas)} de {fmtInt(t.secoes_total)}
@@ -81,8 +94,18 @@ export function BlocoTotais({ res, compacto }: { res: ResultadosComDados; compac
         <SimpleGrid cols={cols} spacing="sm" verticalSpacing="xs">
           <Stat rotulo="Brancos" valor={t.brancos} pct={t.pct_brancos} dica="% sobre o total de votos" />
           <Stat rotulo="Nulos" valor={t.nulos} pct={t.pct_nulos} dica="% sobre o total de votos" />
-          <Stat rotulo="Abstenção" valor={t.abstencao} pct={t.pct_abstencao} dica="% sobre o eleitorado apurado" />
-          <Stat rotulo="Comparecimento" valor={t.comparecimento} pct={t.pct_comparecimento} dica="% sobre o eleitorado apurado" />
+          <Stat
+            rotulo="Abstenção"
+            valor={t.abstencao}
+            pct={t.pct_abstencao}
+            dica="% sobre o eleitorado apurado"
+          />
+          <Stat
+            rotulo="Comparecimento"
+            valor={t.comparecimento}
+            pct={t.pct_comparecimento}
+            dica="% sobre o eleitorado apurado"
+          />
           <Stat rotulo="Votos totais" valor={t.votos_total} />
           <Stat
             rotulo="Eleitorado"
@@ -107,10 +130,16 @@ export function BlocoTotais({ res, compacto }: { res: ResultadosComDados; compac
       )}
 
       {res.cobertura && (
-        <Alert variant="light" color={res.cobertura.secoes_coletadas < res.cobertura.secoes_total ? "yellow" : "teal"} p="xs" icon={<IconInfoCircle size={16} />}>
+        <Alert
+          variant="light"
+          color={res.cobertura.secoes_coletadas < res.cobertura.secoes_total ? "yellow" : "teal"}
+          p="xs"
+          icon={<IconInfoCircle size={16} />}
+        >
           <Text size="sm">
             <b className="num">{fmtInt(res.cobertura.secoes_coletadas)}</b> de{" "}
-            <b className="num">{fmtInt(res.cobertura.secoes_total)}</b> seções deste recorte coletadas (soma dos boletins de urna).
+            <b className="num">{fmtInt(res.cobertura.secoes_total)}</b> seções deste recorte coletadas (soma
+            dos boletins de urna).
           </Text>
         </Alert>
       )}

@@ -8,7 +8,13 @@ import { useUi } from "../../store/ui";
 import { fmtDataCurta, fmtHora, minutosDesde } from "../../lib/time";
 import { fmtPct } from "../../lib/format";
 
-export const AMBIENTE: Record<string, string> = { fake: "Simulação local", simulado: "Simulado TSE", oficial: "Oficial", historico: "Histórico", replay: "Replay" };
+export const AMBIENTE: Record<string, string> = {
+  fake: "Simulação local",
+  simulado: "Simulado TSE",
+  oficial: "Oficial",
+  historico: "Histórico",
+  replay: "Replay",
+};
 
 /** Indicador AO VIVO (status + ws), com "Desatualizado há X min" e modo replay. */
 export function LiveIndicator({ compacto }: { compacto?: boolean }) {
@@ -34,7 +40,10 @@ export function LiveIndicator({ compacto }: { compacto?: boolean }) {
   } else if (s) {
     const atraso = minutosDesde(s.ultima_coleta ?? s.ultima_totalizacao, null);
     if (!s.ao_vivo) {
-      rotulo = s.inicio_divulgacao && minutosDesde(s.inicio_divulgacao, null)! < 0 ? `Divulgação às ${fmtHora(s.inicio_divulgacao, false)}` : "Fora do ar";
+      rotulo =
+        s.inicio_divulgacao && minutosDesde(s.inicio_divulgacao, null)! < 0
+          ? `Divulgação às ${fmtHora(s.inicio_divulgacao, false)}`
+          : "Fora do ar";
     } else if (atraso !== null && atraso > 5) {
       rotulo = `Desatualizado há ${Math.round(atraso)} min`;
       cor = "orange";
@@ -54,7 +63,9 @@ export function LiveIndicator({ compacto }: { compacto?: boolean }) {
       {s && <span>Última verificação: {fmtHora(s.ultima_coleta)}</span>}
       {s?.pct_secoes_br != null && <span>Seções apuradas (BR): {fmtPct(s.pct_secoes_br)}</span>}
       {s?.coletor.pausado && <span>Coletor pausado</span>}
-      <span>Tempo real: {ws === "aberto" ? "conectado" : ws === "reconectando" ? "reconectando…" : "conectando…"}</span>
+      <span>
+        Tempo real: {ws === "aberto" ? "conectado" : ws === "reconectando" ? "reconectando…" : "conectando…"}
+      </span>
       {t && <span>Clique para voltar ao vivo</span>}
     </Stack>
   );
@@ -65,7 +76,12 @@ export function LiveIndicator({ compacto }: { compacto?: boolean }) {
         <Group gap={8} wrap="nowrap">
           <span className={cls} />
           <Stack gap={0}>
-            <Text size="xs" fw={800} c={cor === "gray" ? "dimmed" : `${cor}.5`} style={{ letterSpacing: 0.6, whiteSpace: "nowrap" }}>
+            <Text
+              size="xs"
+              fw={800}
+              c={cor === "gray" ? "dimmed" : `${cor}.5`}
+              style={{ letterSpacing: 0.6, whiteSpace: "nowrap" }}
+            >
               {rotulo}
             </Text>
             {!t && s?.ultima_totalizacao && (

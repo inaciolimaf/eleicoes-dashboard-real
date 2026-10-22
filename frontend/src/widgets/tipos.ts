@@ -53,10 +53,12 @@ export interface DefWidget {
   exporta?: "resultados" | "filhos";
 }
 
-export const cfgNum = (c: Record<string, unknown>, k: string, d: number) => (typeof c[k] === "number" ? (c[k] as number) : d);
+export const cfgNum = (c: Record<string, unknown>, k: string, d: number) =>
+  typeof c[k] === "number" ? (c[k] as number) : d;
 export const cfgStr = (c: Record<string, unknown>, k: string, d: string): string =>
   typeof c[k] === "string" && c[k] !== "" ? (c[k] as string) : d;
-export const cfgBool = (c: Record<string, unknown>, k: string, d: boolean) => (typeof c[k] === "boolean" ? (c[k] as boolean) : d);
+export const cfgBool = (c: Record<string, unknown>, k: string, d: boolean) =>
+  typeof c[k] === "boolean" ? (c[k] as boolean) : d;
 export const cfgArr = (c: Record<string, unknown>, k: string): string[] =>
   Array.isArray(c[k]) ? (c[k] as unknown[]).filter((x): x is string => typeof x === "string") : [];
 export const cfgStrOuNull = (c: Record<string, unknown>, k: string): string | null =>

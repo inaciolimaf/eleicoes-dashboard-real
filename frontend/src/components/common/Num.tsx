@@ -30,7 +30,16 @@ interface NumProps {
 }
 
 /** Número animado (rola até o novo valor), formatado em pt-BR e com glow quando muda. */
-export function Num({ valor, tipo = "int", casas, className, style, sufixo, prefixo, brilho = true }: NumProps) {
+export function Num({
+  valor,
+  tipo = "int",
+  casas,
+  className,
+  style,
+  sufixo,
+  prefixo,
+  brilho = true,
+}: NumProps) {
   const animacoes = usePrefs((s) => s.animacoes);
   const flash = useFlash(valor);
   const cls = ["num", brilho && flash ? "glow" : "", className ?? ""].join(" ");

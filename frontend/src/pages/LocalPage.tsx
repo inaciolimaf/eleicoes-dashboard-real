@@ -32,7 +32,13 @@ export default function LocalPage() {
             <Title order={2}>{q.data?.nome ?? "Local de votação"}</Title>
           </Stack>
           <Tooltip label={fav ? "Remover dos favoritos" : "Favoritar (meu colégio)"}>
-            <ActionIcon variant="subtle" color="yellow" size="lg" onClick={() => alternar({ tipo: "local", ref: id, rotulo: q.data?.nome ?? id })} aria-label="Favoritar local">
+            <ActionIcon
+              variant="subtle"
+              color="yellow"
+              size="lg"
+              onClick={() => alternar({ tipo: "local", ref: id, rotulo: q.data?.nome ?? id })}
+              aria-label="Favoritar local"
+            >
               {fav ? <IconStarFilled size={20} /> : <IconStar size={20} />}
             </ActionIcon>
           </Tooltip>

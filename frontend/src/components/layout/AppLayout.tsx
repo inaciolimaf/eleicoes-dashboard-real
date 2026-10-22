@@ -27,7 +27,15 @@ function BannerReconexao() {
     <Transition mounted={mostrar} transition="slide-down" duration={200}>
       {(st) => (
         <Alert
-          style={{ ...st, position: "fixed", top: 64, left: "50%", transform: "translateX(-50%)", zIndex: 300, boxShadow: "var(--mantine-shadow-md)" }}
+          style={{
+            ...st,
+            position: "fixed",
+            top: 64,
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 300,
+            boxShadow: "var(--mantine-shadow-md)",
+          }}
           color="yellow"
           variant="filled"
           py={6}

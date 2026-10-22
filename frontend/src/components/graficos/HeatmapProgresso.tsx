@@ -12,17 +12,44 @@ import { useFlash } from "../common/Num";
 
 /** Cartograma em grade das UFs (col, linha) */
 const GRADE: Record<string, [number, number]> = {
-  rr: [2, 0], ap: [4, 0],
-  am: [1, 1], pa: [3, 1], ma: [4, 1], ce: [5, 1], rn: [6, 1],
-  ac: [0, 2], ro: [1, 2], mt: [2, 2], to: [3, 2], pi: [4, 2], pe: [5, 2], pb: [6, 2],
-  ms: [2, 3], go: [3, 3], df: [4, 3], ba: [5, 3], al: [6, 3],
-  sp: [3, 4], mg: [4, 4], es: [5, 4], se: [6, 4],
-  pr: [3, 5], rj: [4, 5],
+  rr: [2, 0],
+  ap: [4, 0],
+  am: [1, 1],
+  pa: [3, 1],
+  ma: [4, 1],
+  ce: [5, 1],
+  rn: [6, 1],
+  ac: [0, 2],
+  ro: [1, 2],
+  mt: [2, 2],
+  to: [3, 2],
+  pi: [4, 2],
+  pe: [5, 2],
+  pb: [6, 2],
+  ms: [2, 3],
+  go: [3, 3],
+  df: [4, 3],
+  ba: [5, 3],
+  al: [6, 3],
+  sp: [3, 4],
+  mg: [4, 4],
+  es: [5, 4],
+  se: [6, 4],
+  pr: [3, 5],
+  rj: [4, 5],
   sc: [3, 6],
   rs: [3, 7],
 };
 
-function Tile({ it, metrica, onClick }: { it: ProgressoItem; metrica: "pct_secoes" | "pct_comparecimento"; onClick?: () => void }) {
+function Tile({
+  it,
+  metrica,
+  onClick,
+}: {
+  it: ProgressoItem;
+  metrica: "pct_secoes" | "pct_comparecimento";
+  onClick?: () => void;
+}) {
   const v = metrica === "pct_secoes" ? it.pct_secoes : it.pct_comparecimento;
   const t = metrica === "pct_secoes" ? v / 100 : (v - 60) / 35;
   const [r, g, b] = corSequencial(t);
@@ -37,7 +64,8 @@ function Tile({ it, metrica, onClick }: { it: ProgressoItem; metrica: "pct_secoe
             {fmtPct(it.pct_secoes)} das seções ({fmtInt(it.secoes_totalizadas)} de {fmtInt(it.secoes_total)})
           </span>
           <span>
-            Municípios: {it.municipios_finalizados} finalizados · {it.municipios_parciais} parciais · {it.municipios_nao_recebidos} sem dados
+            Municípios: {it.municipios_finalizados} finalizados · {it.municipios_parciais} parciais ·{" "}
+            {it.municipios_nao_recebidos} sem dados
           </span>
           <span>Comparecimento: {fmtPct(it.pct_comparecimento)}</span>
           <span>Atualizado às {fmtHora(it.atualizado_em)}</span>
@@ -126,13 +154,21 @@ export function HeatmapProgresso({
         </Box>
       ) : (
         <SimpleGrid cols={{ base: 3, sm: 5, md: 7 }} spacing={4}>
-          {[...itens].sort((a, b) => b.pct_secoes - a.pct_secoes).map((it) => (
-            <Paper key={it.uf} p={4} withBorder onClick={() => onSelecionarUf?.(it.uf, it.nome)} className="clicavel">
-              <Text size="xs" fw={700}>
-                {it.uf.toUpperCase()} <span className="num">{fmtPct(it.pct_secoes, 1)}</span>
-              </Text>
-            </Paper>
-          ))}
+          {[...itens]
+            .sort((a, b) => b.pct_secoes - a.pct_secoes)
+            .map((it) => (
+              <Paper
+                key={it.uf}
+                p={4}
+                withBorder
+                onClick={() => onSelecionarUf?.(it.uf, it.nome)}
+                className="clicavel"
+              >
+                <Text size="xs" fw={700}>
+                  {it.uf.toUpperCase()} <span className="num">{fmtPct(it.pct_secoes, 1)}</span>
+                </Text>
+              </Paper>
+            ))}
         </SimpleGrid>
       )}
     </Stack>

@@ -76,11 +76,20 @@ function Chips({ fixado }: { fixado: boolean }) {
   const f = useFiltroEfetivo();
   const nomeGlobal = useFiltro((s) => s.nome);
   const g = useFiltro();
-  const nome = !fixado && g.nivel === f.nivel && g.id === f.id ? nomeGlobal ?? nomeRecortePadrao(f.nivel, f.id) : nomeRecortePadrao(f.nivel, f.id);
+  const nome =
+    !fixado && g.nivel === f.nivel && g.id === f.id
+      ? (nomeGlobal ?? nomeRecortePadrao(f.nivel, f.id))
+      : nomeRecortePadrao(f.nivel, f.id);
   return (
     <Group gap={4} wrap="nowrap" visibleFrom="xs" style={{ overflow: "hidden" }}>
       <Tooltip label={`${NOME_CARGO[f.cargo] ?? ""} · ${f.turno}º turno`}>
-        <Badge size="xs" variant="light" color="gray" leftSection={<IconMapPin size={10} />} style={{ maxWidth: 160 }}>
+        <Badge
+          size="xs"
+          variant="light"
+          color="gray"
+          leftSection={<IconMapPin size={10} />}
+          style={{ maxWidth: 160 }}
+        >
           {nome}
         </Badge>
       </Tooltip>
@@ -107,7 +116,14 @@ interface Props {
   onRemover?: () => void;
 }
 
-export function WidgetFrame({ widget, editando, somenteLeitura, onConfigurar, onDuplicar, onRemover }: Props) {
+export function WidgetFrame({
+  widget,
+  editando,
+  somenteLeitura,
+  onConfigurar,
+  onDuplicar,
+  onRemover,
+}: Props) {
   const def = REGISTRO[widget.tipo];
   const cfg = useMemo(() => ({ ...def.padrao, ...widget.config }), [def.padrao, widget.config]);
   const titulo = (typeof cfg.titulo === "string" && cfg.titulo) || def.nome;
@@ -120,7 +136,8 @@ export function WidgetFrame({ widget, editando, somenteLeitura, onConfigurar, on
   const selecionar = useCallback(
     (nivel: Nivel, id: string, nome: string) => {
       const clique = cfg.clique === "navegar" ? "navegar" : "filtrar";
-      if (nivel === "local" || nivel === "secao" || clique === "navegar" || fixo) navigate(linkRecorte(nivel, id));
+      if (nivel === "local" || nivel === "secao" || clique === "navegar" || fixo)
+        navigate(linkRecorte(nivel, id));
       else setRecorte(nivel, id, nome);
     },
     [cfg.clique, fixo, navigate, setRecorte],
@@ -203,7 +220,8 @@ function ExportMenu({
 }) {
   const f = useFiltroEfetivo();
   const def = REGISTRO[widget.tipo];
-  const filhos = widget.config?.nivelFilhos === "municipio" && f.nivel === "br" ? ("municipio" as Nivel) : null;
+  const filhos =
+    widget.config?.nivelFilhos === "municipio" && f.nivel === "br" ? ("municipio" as Nivel) : null;
   return (
     <Menu position="bottom-end" withinPortal shadow="md" width={210}>
       <Menu.Target>
@@ -225,10 +243,16 @@ function ExportMenu({
         <Menu.Label>Exportar</Menu.Label>
         {def.exporta && (
           <>
-            <Menu.Item leftSection={<IconFileTypeCsv size={14} />} onClick={() => exportarDados(def.exporta!, "csv", { ...f, filhos })}>
+            <Menu.Item
+              leftSection={<IconFileTypeCsv size={14} />}
+              onClick={() => exportarDados(def.exporta!, "csv", { ...f, filhos })}
+            >
               Dados (CSV)
             </Menu.Item>
-            <Menu.Item leftSection={<IconJson size={14} />} onClick={() => exportarDados(def.exporta!, "json", { ...f, filhos })}>
+            <Menu.Item
+              leftSection={<IconJson size={14} />}
+              onClick={() => exportarDados(def.exporta!, "json", { ...f, filhos })}
+            >
               Dados (JSON)
             </Menu.Item>
           </>

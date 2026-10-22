@@ -47,7 +47,13 @@ export function Navbar() {
     <>
       <ScrollArea h="100%" type="scroll" className="scroll-fino">
         <Stack gap={2} p="xs">
-          <Stack gap="xs" hiddenFrom="sm" pb="sm" mb={4} style={{ borderBottom: "1px solid var(--mantine-color-default-border)" }}>
+          <Stack
+            gap="xs"
+            hiddenFrom="sm"
+            pb="sm"
+            mb={4}
+            style={{ borderBottom: "1px solid var(--mantine-color-default-border)" }}
+          >
             <SeletorEleicao largura="100%" />
             <SeletorCargo soSelect />
           </Stack>
@@ -56,13 +62,25 @@ export function Navbar() {
               Painéis
             </Text>
             <Tooltip label="Novo painel (templates)">
-              <Button size="compact-xs" variant="subtle" leftSection={<IconPlus size={12} />} onClick={() => setNovo(true)}>
+              <Button
+                size="compact-xs"
+                variant="subtle"
+                leftSection={<IconPlus size={12} />}
+                onClick={() => setNovo(true)}
+              >
                 Criar
               </Button>
             </Tooltip>
           </Group>
           {paineis.length === 0 && (
-            <NavLink component={Link} to="/" label="Noite da eleição" description="template" leftSection={<IconLayoutDashboard size={18} stroke={1.6} />} active={loc.pathname === "/"} />
+            <NavLink
+              component={Link}
+              to="/"
+              label="Noite da eleição"
+              description="template"
+              leftSection={<IconLayoutDashboard size={18} stroke={1.6} />}
+              active={loc.pathname === "/"}
+            />
           )}
           {paineis.map((p) => (
             <NavLink
@@ -71,7 +89,9 @@ export function Navbar() {
               to={`/paineis/${p.id}`}
               label={p.nome}
               leftSection={<IconLayoutDashboard size={18} stroke={1.6} />}
-              rightSection={p.padrao ? <IconStarFilled size={12} color="var(--mantine-color-yellow-5)" /> : undefined}
+              rightSection={
+                p.padrao ? <IconStarFilled size={12} color="var(--mantine-color-yellow-5)" /> : undefined
+              }
               active={loc.pathname === `/paineis/${p.id}` || (loc.pathname === "/" && p.padrao)}
               onClick={() => fechar(false)}
               style={{ borderRadius: 8 }}
@@ -80,10 +100,24 @@ export function Navbar() {
           {item("/paineis", "Gerenciar painéis", IconLayoutGrid)}
           {item("/tv", "Modo TV", IconDeviceTv)}
           <Divider my={6} />
-          {item(linkRecorte(f.nivel === "local" || f.nivel === "secao" ? "br" : f.nivel, f.nivel === "local" || f.nivel === "secao" ? "br" : f.id), "Explorar", IconCompass)}
+          {item(
+            linkRecorte(
+              f.nivel === "local" || f.nivel === "secao" ? "br" : f.nivel,
+              f.nivel === "local" || f.nivel === "secao" ? "br" : f.id,
+            ),
+            "Explorar",
+            IconCompass,
+          )}
           {item("/mapas", "Mapas", IconMap2)}
           {item("/candidatos", "Candidatos", IconUsers)}
-          {item("/eventos", "Eventos", IconCalendarEvent, <Badge size="xs" variant="dot" color="red">ao vivo</Badge>)}
+          {item(
+            "/eventos",
+            "Eventos",
+            IconCalendarEvent,
+            <Badge size="xs" variant="dot" color="red">
+              ao vivo
+            </Badge>,
+          )}
           {item("/alertas", "Alertas", IconBell)}
           <Divider my={6} />
           {item("/conta", "Preferências", IconSettings)}

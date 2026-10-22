@@ -18,7 +18,12 @@ function inline(txt: string, chave: string): ReactNode[] {
       const href = mm?.[2] ?? "#";
       const seguro = /^(https?:|\/|#)/.test(href) ? href : "#";
       out.push(
-        <a key={k} href={seguro} target={seguro.startsWith("http") ? "_blank" : undefined} rel="noopener noreferrer">
+        <a
+          key={k}
+          href={seguro}
+          target={seguro.startsWith("http") ? "_blank" : undefined}
+          rel="noopener noreferrer"
+        >
           {mm?.[1]}
         </a>,
       );
@@ -57,7 +62,15 @@ export function Markdown({ texto }: { texto: string }) {
     if (h) {
       const nivel = h[1].length;
       const conteudo = inline(h[2], `h${i}`);
-      blocos.push(nivel === 1 ? <h1 key={i}>{conteudo}</h1> : nivel === 2 ? <h2 key={i}>{conteudo}</h2> : <h3 key={i}>{conteudo}</h3>);
+      blocos.push(
+        nivel === 1 ? (
+          <h1 key={i}>{conteudo}</h1>
+        ) : nivel === 2 ? (
+          <h2 key={i}>{conteudo}</h2>
+        ) : (
+          <h3 key={i}>{conteudo}</h3>
+        ),
+      );
     } else if (ln.trim()) blocos.push(<p key={i}>{inline(ln, `p${i}`)}</p>);
     else blocos.push(<Fragment key={i} />);
   });

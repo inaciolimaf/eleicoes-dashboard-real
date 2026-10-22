@@ -30,12 +30,27 @@ import { CAMPOS_COMUNS, REGISTRO } from "../widgets/registro";
 import type { CampoConfig } from "../widgets/tipos";
 import type { FiltrosWidget, WidgetCfg } from "./schema";
 
-function CampoCandidatos({ value, onChange, turno, cargo, uf }: { value: string[]; onChange: (v: string[]) => void; turno: number; cargo: number; uf: string | null }) {
+function CampoCandidatos({
+  value,
+  onChange,
+  turno,
+  cargo,
+  uf,
+}: {
+  value: string[];
+  onChange: (v: string[]) => void;
+  turno: number;
+  cargo: number;
+  uf: string | null;
+}) {
   const q = useCandidatos(turno, cargo, cargo === 1 ? null : uf);
   return (
     <MultiSelect
       label="Candidatos (até 4)"
-      data={(q.data ?? []).map((c) => ({ value: c.sqcand, label: `${c.nome_urna} (${c.numero}) · ${c.partido_sigla}` }))}
+      data={(q.data ?? []).map((c) => ({
+        value: c.sqcand,
+        label: `${c.nome_urna} (${c.numero}) · ${c.partido_sigla}`,
+      }))}
       value={value}
       onChange={onChange}
       maxValues={4}
@@ -62,9 +77,24 @@ function Campo({
 }) {
   switch (campo.tipo) {
     case "texto":
-      return <TextInput label={campo.rotulo} value={(valor as string) ?? ""} onChange={(e) => set(e.currentTarget.value)} />;
+      return (
+        <TextInput
+          label={campo.rotulo}
+          value={(valor as string) ?? ""}
+          onChange={(e) => set(e.currentTarget.value)}
+        />
+      );
     case "textarea":
-      return <Textarea label={campo.rotulo} value={(valor as string) ?? ""} onChange={(e) => set(e.currentTarget.value)} autosize minRows={5} maxRows={14} />;
+      return (
+        <Textarea
+          label={campo.rotulo}
+          value={(valor as string) ?? ""}
+          onChange={(e) => set(e.currentTarget.value)}
+          autosize
+          minRows={5}
+          maxRows={14}
+        />
+      );
     case "numero":
       return (
         <NumberInput
@@ -78,7 +108,15 @@ function Campo({
     case "switch":
       return <Switch label={campo.rotulo} checked={!!valor} onChange={(e) => set(e.currentTarget.checked)} />;
     case "select":
-      return <Select label={campo.rotulo} data={campo.opcoes ?? []} value={(valor as string) ?? null} onChange={(v) => set(v ?? undefined)} allowDeselect={false} />;
+      return (
+        <Select
+          label={campo.rotulo}
+          data={campo.opcoes ?? []}
+          value={(valor as string) ?? null}
+          onChange={(v) => set(v ?? undefined)}
+          allowDeselect={false}
+        />
+      );
     case "multiselect":
       return (
         <MultiSelect
@@ -100,11 +138,34 @@ function Campo({
         />
       );
     case "candidato":
-      return <CandidatoPicker label={campo.rotulo} value={(valor as string) ?? null} onChange={(v) => set(v ?? undefined)} turno={turno} cargo={cargo} uf={uf} />;
+      return (
+        <CandidatoPicker
+          label={campo.rotulo}
+          value={(valor as string) ?? null}
+          onChange={(v) => set(v ?? undefined)}
+          turno={turno}
+          cargo={cargo}
+          uf={uf}
+        />
+      );
     case "candidatos":
-      return <CampoCandidatos value={Array.isArray(valor) ? (valor as string[]) : []} onChange={set} turno={turno} cargo={cargo} uf={uf} />;
+      return (
+        <CampoCandidatos
+          value={Array.isArray(valor) ? (valor as string[]) : []}
+          onChange={set}
+          turno={turno}
+          cargo={cargo}
+          uf={uf}
+        />
+      );
     case "recorte":
-      return <RecortePicker label={campo.rotulo} value={(valor as string) ?? null} onChange={(v) => set(v ?? undefined)} />;
+      return (
+        <RecortePicker
+          label={campo.rotulo}
+          value={(valor as string) ?? null}
+          onChange={(v) => set(v ?? undefined)}
+        />
+      );
     case "local":
     case "secao": {
       const v = typeof valor === "string" && valor ? valorRecorte(campo.tipo, valor) : null;
@@ -130,16 +191,29 @@ function Campo({
             <Group key={i} gap={6} wrap="nowrap">
               <RecortePicker
                 value={r}
-                onChange={(nv) => set(nv ? lista.map((x, j) => (j === i ? nv : x)) : lista.filter((_, j) => j !== i))}
+                onChange={(nv) =>
+                  set(nv ? lista.map((x, j) => (j === i ? nv : x)) : lista.filter((_, j) => j !== i))
+                }
                 style={{ flex: 1 }}
               />
-              <ActionIcon variant="subtle" color="red" onClick={() => set(lista.filter((_, j) => j !== i))} aria-label="Remover recorte">
+              <ActionIcon
+                variant="subtle"
+                color="red"
+                onClick={() => set(lista.filter((_, j) => j !== i))}
+                aria-label="Remover recorte"
+              >
                 <IconTrash size={14} />
               </ActionIcon>
             </Group>
           ))}
           {lista.length < 4 && (
-            <Button size="xs" variant="light" leftSection={<IconPlus size={14} />} onClick={() => set([...lista, "uf:sp"])} w="fit-content">
+            <Button
+              size="xs"
+              variant="light"
+              leftSection={<IconPlus size={14} />}
+              onClick={() => set([...lista, "uf:sp"])}
+              w="fit-content"
+            >
               Adicionar recorte
             </Button>
           )}
@@ -182,11 +256,16 @@ export function GavetaConfig({ widget, onClose, onSalvar }: Props) {
       return { ...r, config };
     });
   const filtros: FiltrosWidget = rascunho.filtros ?? {};
-  const setFiltros = (p: Partial<FiltrosWidget>) => setRascunho((r) => (r ? { ...r, filtros: { ...(r.filtros ?? {}), ...p } } : r));
+  const setFiltros = (p: Partial<FiltrosWidget>) =>
+    setRascunho((r) => (r ? { ...r, filtros: { ...(r.filtros ?? {}), ...p } } : r));
   const turno = (!rascunho.herda && filtros.turno) || fe.turno;
   const cargo = (!rascunho.herda && filtros.cargo) || fe.cargo;
-  const recorteSel = !rascunho.herda && filtros.nivel && filtros.recorte ? valorRecorte(filtros.nivel, filtros.recorte) : null;
-  const ufCtx = !rascunho.herda && filtros.nivel && filtros.recorte ? ufDoId(filtros.nivel as Nivel, filtros.recorte) : ufDoId(fe.nivel, fe.id);
+  const recorteSel =
+    !rascunho.herda && filtros.nivel && filtros.recorte ? valorRecorte(filtros.nivel, filtros.recorte) : null;
+  const ufCtx =
+    !rascunho.herda && filtros.nivel && filtros.recorte
+      ? ufDoId(filtros.nivel as Nivel, filtros.recorte)
+      : ufDoId(fe.nivel, fe.id);
   const tempoFixo = !rascunho.herda && filtros.tempo && filtros.tempo !== "agora";
 
   return (
@@ -213,14 +292,40 @@ export function GavetaConfig({ widget, onClose, onSalvar }: Props) {
                 ? {
                     ...r,
                     herda: v === "herda",
-                    filtros: v === "herda" ? r.filtros : { cargo: fe.cargo, turno: fe.turno, nivel: fe.nivel, recorte: fe.id, tempo: "agora", ...(r.filtros ?? {}) },
+                    filtros:
+                      v === "herda"
+                        ? r.filtros
+                        : {
+                            cargo: fe.cargo,
+                            turno: fe.turno,
+                            nivel: fe.nivel,
+                            recorte: fe.id,
+                            tempo: "agora",
+                            ...(r.filtros ?? {}),
+                          },
                   }
                 : r,
             )
           }
           data={[
-            { value: "herda", label: (<Group gap={4} justify="center"><IconLockOpen size={14} />Herdar filtro do painel</Group>) },
-            { value: "fixo", label: (<Group gap={4} justify="center"><IconLock size={14} />Fixar</Group>) },
+            {
+              value: "herda",
+              label: (
+                <Group gap={4} justify="center">
+                  <IconLockOpen size={14} />
+                  Herdar filtro do painel
+                </Group>
+              ),
+            },
+            {
+              value: "fixo",
+              label: (
+                <Group gap={4} justify="center">
+                  <IconLock size={14} />
+                  Fixar
+                </Group>
+              ),
+            },
           ]}
         />
         {!rascunho.herda && (
@@ -239,7 +344,7 @@ export function GavetaConfig({ widget, onClose, onSalvar }: Props) {
               <Select
                 label="Cargo"
                 data={OPCOES_CARGO.map((o) => ({ value: o.valor, label: o.rotulo }))}
-                value={String(filtros.cargo === 8 ? 7 : filtros.cargo ?? fe.cargo)}
+                value={String(filtros.cargo === 8 ? 7 : (filtros.cargo ?? fe.cargo))}
                 onChange={(v) => setFiltros({ cargo: Number(v ?? 1) })}
                 allowDeselect={false}
               />
@@ -254,7 +359,9 @@ export function GavetaConfig({ widget, onClose, onSalvar }: Props) {
             />
             <SegmentedControl
               value={tempoFixo ? "fixo" : "agora"}
-              onChange={(v) => setFiltros({ tempo: v === "agora" ? "agora" : dayjs().startOf("minute").toISOString() })}
+              onChange={(v) =>
+                setFiltros({ tempo: v === "agora" ? "agora" : dayjs().startOf("minute").toISOString() })
+              }
               data={[
                 { value: "agora", label: "Ao vivo" },
                 { value: "fixo", label: "Congelar no tempo" },
@@ -274,12 +381,28 @@ export function GavetaConfig({ widget, onClose, onSalvar }: Props) {
 
         <Divider label="Aparência e comportamento" labelPosition="left" />
         {CAMPOS_COMUNS.map((c) => (
-          <Campo key={c.chave} campo={c} valor={c.chave === "clique" ? cfg[c.chave] ?? "filtrar" : cfg[c.chave]} set={(v) => setCfg(c.chave, v)} turno={turno} cargo={cargo} uf={ufCtx} />
+          <Campo
+            key={c.chave}
+            campo={c}
+            valor={c.chave === "clique" ? (cfg[c.chave] ?? "filtrar") : cfg[c.chave]}
+            set={(v) => setCfg(c.chave, v)}
+            turno={turno}
+            cargo={cargo}
+            uf={ufCtx}
+          />
         ))}
         {def.campos
           .filter((c) => !c.quando || c.quando(cfg))
           .map((c) => (
-            <Campo key={c.chave} campo={c} valor={cfg[c.chave]} set={(v) => setCfg(c.chave, v)} turno={turno} cargo={cargo} uf={ufCtx} />
+            <Campo
+              key={c.chave}
+              campo={c}
+              valor={cfg[c.chave]}
+              set={(v) => setCfg(c.chave, v)}
+              turno={turno}
+              cargo={cargo}
+              uf={ufCtx}
+            />
           ))}
         {def.campos.length === 0 && (
           <Alert variant="light" color="gray">

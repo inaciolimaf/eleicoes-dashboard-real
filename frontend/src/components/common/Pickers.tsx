@@ -23,7 +23,14 @@ interface RecortePickerProps extends Omit<SelectProps, "data" | "value" | "onCha
 }
 
 /** Seleção de recorte com busca (/busca). */
-export function RecortePicker({ value, onChange, tipos, incluirBrasil = true, incluirUfs = true, ...rest }: RecortePickerProps) {
+export function RecortePicker({
+  value,
+  onChange,
+  tipos,
+  incluirBrasil = true,
+  incluirUfs = true,
+  ...rest
+}: RecortePickerProps) {
   const [busca, setBusca] = useState("");
   const [deb] = useDebouncedValue(busca, 250);
   const q = useBusca(deb);
@@ -32,10 +39,14 @@ export function RecortePicker({ value, onChange, tipos, incluirBrasil = true, in
     const base: { value: string; label: string }[] = [];
     const permite = (t: TipoBusca) => !tipos || tipos.includes(t);
     if (incluirBrasil && !tipos) base.push({ value: "br:br", label: "Brasil" });
-    if (incluirUfs && permite("uf")) for (const u of UFS) base.push({ value: `uf:${u.uf}`, label: `${u.nome} (${u.uf.toUpperCase()})` });
+    if (incluirUfs && permite("uf"))
+      for (const u of UFS) base.push({ value: `uf:${u.uf}`, label: `${u.nome} (${u.uf.toUpperCase()})` });
     const remotos = (q.data?.itens ?? [])
       .filter((i) => i.tipo !== "candidato" && permite(i.tipo))
-      .map((i) => ({ value: `${i.nivel ?? i.tipo}:${i.id}`, label: `${i.titulo}${i.subtitulo ? ` — ${i.subtitulo}` : ""}` }));
+      .map((i) => ({
+        value: `${i.nivel ?? i.tipo}:${i.id}`,
+        label: `${i.titulo}${i.subtitulo ? ` — ${i.subtitulo}` : ""}`,
+      }));
     const todos = [...remotos, ...base];
     if (value && !todos.some((d) => d.value === value)) {
       const r = lerRecorte(value);
@@ -74,9 +85,12 @@ interface CandidatoPickerProps extends Omit<SelectProps, "data" | "value" | "onC
 }
 
 export function CandidatoPicker({ value, onChange, turno, cargo, uf, ...rest }: CandidatoPickerProps) {
-  const q = useCandidatos(turno, cargo, cargo === 1 ? null : uf ?? null);
+  const q = useCandidatos(turno, cargo, cargo === 1 ? null : (uf ?? null));
   const data = useMemo(() => {
-    const d = (q.data ?? []).map((c) => ({ value: c.sqcand, label: `${c.nome_urna} (${c.numero}) · ${c.partido_sigla}${c.uf ? ` · ${c.uf.toUpperCase()}` : ""}` }));
+    const d = (q.data ?? []).map((c) => ({
+      value: c.sqcand,
+      label: `${c.nome_urna} (${c.numero}) · ${c.partido_sigla}${c.uf ? ` · ${c.uf.toUpperCase()}` : ""}`,
+    }));
     if (value && !d.some((x) => x.value === value)) d.unshift({ value, label: `Candidato ${value}` });
     return d;
   }, [q.data, value]);

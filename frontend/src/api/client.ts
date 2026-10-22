@@ -73,7 +73,9 @@ export async function api<T>(path: string, opts: Opts = {}): Promise<T> {
   }
   if (resp.status === 204) return undefined as T;
   const tipo = resp.headers.get("content-type") ?? "";
-  const corpo: unknown = tipo.includes("json") ? await resp.json().catch(() => null) : await resp.text().catch(() => null);
+  const corpo: unknown = tipo.includes("json")
+    ? await resp.json().catch(() => null)
+    : await resp.text().catch(() => null);
   if (!resp.ok) {
     if (resp.status === 401 && token && !path.startsWith("/auth/")) useAuth.getState().sair();
     throw new ApiError(resp.status, mensagemDeErro(resp.status, corpo), corpo);

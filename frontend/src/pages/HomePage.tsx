@@ -34,7 +34,10 @@ function TemplateInicial() {
   // o filtro global continua valendo (cargo/recorte escolhidos no cabeçalho)
   const f = useFiltro();
   const cfg = useMemo(
-    () => ({ ...config, filtroGlobal: { ...config.filtroGlobal, cargo: f.cargo, nivel: f.nivel, recorte: f.id, turno: f.turno } }),
+    () => ({
+      ...config,
+      filtroGlobal: { ...config.filtroGlobal, cargo: f.cargo, nivel: f.nivel, recorte: f.id, turno: f.turno },
+    }),
     [config, f.cargo, f.nivel, f.id, f.turno],
   );
   return (
@@ -42,10 +45,16 @@ function TemplateInicial() {
       <Alert variant="light" icon={<IconSparkles />} py="xs">
         <Group justify="space-between" gap="xs">
           <Text size="sm">
-            Este é o template <b>Noite da eleição – Presidente</b>. Personalize para salvar a sua versão (arrastar, redimensionar, adicionar widgets, compartilhar).
+            Este é o template <b>Noite da eleição – Presidente</b>. Personalize para salvar a sua versão
+            (arrastar, redimensionar, adicionar widgets, compartilhar).
           </Text>
           <Group gap="xs">
-            <Button size="xs" variant="default" leftSection={<IconLayoutGrid size={14} />} onClick={() => setNovo(true)}>
+            <Button
+              size="xs"
+              variant="default"
+              leftSection={<IconLayoutGrid size={14} />}
+              onClick={() => setNovo(true)}
+            >
               Outros templates
             </Button>
             <Button

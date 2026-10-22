@@ -1,6 +1,22 @@
-import { ActionIcon, Box, Burger, Group, SegmentedControl, Select, Text, Tooltip, useComputedColorScheme } from "@mantine/core";
+import {
+  ActionIcon,
+  Box,
+  Burger,
+  Group,
+  SegmentedControl,
+  Select,
+  Text,
+  Tooltip,
+  useComputedColorScheme,
+} from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
-import { IconChartBar, IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand, IconMoonStars, IconSun } from "@tabler/icons-react";
+import {
+  IconChartBar,
+  IconLayoutSidebarLeftCollapse,
+  IconLayoutSidebarLeftExpand,
+  IconMoonStars,
+  IconSun,
+} from "@tabler/icons-react";
 import { useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useEleicoes } from "../../api/hooks";
@@ -29,7 +45,10 @@ export function SeletorEleicao({ largura = 158 }: { largura?: number | string })
     }
     return [...m.entries()].map(([value, label]) => ({ value, label }));
   }, [el.data]);
-  const valor = opcoes.find((o) => o.value === `${ciclo ?? "ele2026"}|${turno}`)?.value ?? opcoes.find((o) => o.value.endsWith(`|${turno}`))?.value ?? null;
+  const valor =
+    opcoes.find((o) => o.value === `${ciclo ?? "ele2026"}|${turno}`)?.value ??
+    opcoes.find((o) => o.value.endsWith(`|${turno}`))?.value ??
+    null;
   return (
     <Select
       size="sm"
@@ -59,7 +78,12 @@ export function SeletorCargo({ soSelect }: { soSelect?: boolean }) {
   }));
   // se o cargo atual não existe no turno (ex.: 2º turno), volta para o primeiro disponível
   useEffect(() => {
-    if (disponiveis.length && !disponiveis.includes(cargo) && !(cargo === 7 && disponiveis.includes(8)) && !(cargo === 8 && disponiveis.includes(7))) {
+    if (
+      disponiveis.length &&
+      !disponiveis.includes(cargo) &&
+      !(cargo === 7 && disponiveis.includes(8)) &&
+      !(cargo === 8 && disponiveis.includes(7))
+    ) {
       setFiltro({ cargo: disponiveis[0] });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -86,7 +110,14 @@ export function SeletorCargo({ soSelect }: { soSelect?: boolean }) {
     );
   return (
     <>
-      <SegmentedControl size="sm" value={valorSegmento(cargo)} onChange={trocar} data={opcoes} visibleFrom="xl" aria-label="Cargo" />
+      <SegmentedControl
+        size="sm"
+        value={valorSegmento(cargo)}
+        onChange={trocar}
+        data={opcoes}
+        visibleFrom="xl"
+        aria-label="Cargo"
+      />
       <Select
         size="sm"
         w={170}
@@ -114,16 +145,40 @@ export function Header() {
   return (
     <Group h="100%" px={{ base: "xs", sm: "md" }} justify="space-between" wrap="nowrap" gap="xs">
       <Group gap="xs" wrap="nowrap">
-        <Burger opened={navbarAberta} onClick={toggleNavbar} hiddenFrom="sm" size="sm" aria-label="Abrir menu" />
+        <Burger
+          opened={navbarAberta}
+          onClick={toggleNavbar}
+          hiddenFrom="sm"
+          size="sm"
+          aria-label="Abrir menu"
+        />
         <Tooltip label={nav.aberta ? "Recolher menu" : "Expandir menu"}>
-          <ActionIcon variant="subtle" onClick={nav.toggle} visibleFrom="sm" aria-label="Alternar menu lateral">
-            {nav.aberta ? <IconLayoutSidebarLeftCollapse size={18} /> : <IconLayoutSidebarLeftExpand size={18} />}
+          <ActionIcon
+            variant="subtle"
+            onClick={nav.toggle}
+            visibleFrom="sm"
+            aria-label="Alternar menu lateral"
+          >
+            {nav.aberta ? (
+              <IconLayoutSidebarLeftCollapse size={18} />
+            ) : (
+              <IconLayoutSidebarLeftExpand size={18} />
+            )}
           </ActionIcon>
         </Tooltip>
-        <Group gap={6} renderRoot={(props) => <Link to="/" {...props} />} style={{ textDecoration: "none", color: "inherit" }} wrap="nowrap">
+        <Group
+          gap={6}
+          renderRoot={(props) => <Link to="/" {...props} />}
+          style={{ textDecoration: "none", color: "inherit" }}
+          wrap="nowrap"
+        >
           <IconChartBar size={24} color="var(--mantine-color-eleicao-4)" />
           <Text fw={800} size="lg" visibleFrom="md" style={{ letterSpacing: -0.4, whiteSpace: "nowrap" }}>
-            Apuração<Text span c="eleicao.4" inherit> 2026</Text>
+            Apuração
+            <Text span c="eleicao.4" inherit>
+              {" "}
+              2026
+            </Text>
           </Text>
         </Group>
         <Box visibleFrom="sm">

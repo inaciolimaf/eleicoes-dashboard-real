@@ -1,4 +1,17 @@
-import { ActionIcon, Badge, Button, Group, Loader, Menu, Modal, Stack, Text, TextInput, Title, Tooltip } from "@mantine/core";
+import {
+  ActionIcon,
+  Badge,
+  Button,
+  Group,
+  Loader,
+  Menu,
+  Modal,
+  Stack,
+  Text,
+  TextInput,
+  Title,
+  Tooltip,
+} from "@mantine/core";
 import { useHotkeys } from "@mantine/hooks";
 import { modals } from "@mantine/modals";
 import { notifications } from "@mantine/notifications";
@@ -34,7 +47,14 @@ import { GavetaWidgets } from "./GavetaWidgets";
 import { Grade } from "./Grade";
 import { lerArquivoPainel } from "./NovoPainelModal";
 import { usePaineis, type Painel } from "./repo";
-import { SCHEMA_VERSION, novoIdWidget, type ConfigPainel, type LayoutItem, type TipoWidget, type WidgetCfg } from "./schema";
+import {
+  SCHEMA_VERSION,
+  novoIdWidget,
+  type ConfigPainel,
+  type LayoutItem,
+  type TipoWidget,
+  type WidgetCfg,
+} from "./schema";
 
 /** Carrega o filtro global do painel na store da aplicação. */
 export function aplicarFiltroDoPainel(cfg: ConfigPainel) {
@@ -86,8 +106,28 @@ export function PainelView({ painel }: { painel: Painel }) {
         const e = useEditor.getState();
         if (e.painelId !== painel.id || !e.config) return;
         const fg = e.config.filtroGlobal;
-        if (fg.turno === s.turno && fg.cargo === s.cargo && fg.nivel === s.nivel && fg.recorte === s.id && (fg.ciclo ?? null) === s.ciclo) return;
-        e.aplicar((c) => ({ ...c, filtroGlobal: { ...c.filtroGlobal, turno: s.turno, cargo: s.cargo, nivel: s.nivel, recorte: s.id, ciclo: s.ciclo } }), { historico: false });
+        if (
+          fg.turno === s.turno &&
+          fg.cargo === s.cargo &&
+          fg.nivel === s.nivel &&
+          fg.recorte === s.id &&
+          (fg.ciclo ?? null) === s.ciclo
+        )
+          return;
+        e.aplicar(
+          (c) => ({
+            ...c,
+            filtroGlobal: {
+              ...c.filtroGlobal,
+              turno: s.turno,
+              cargo: s.cargo,
+              nivel: s.nivel,
+              recorte: s.id,
+              ciclo: s.ciclo,
+            },
+          }),
+          { historico: false },
+        );
       }),
     [painel.id],
   );
@@ -104,7 +144,11 @@ export function PainelView({ painel }: { painel: Painel }) {
         await salvarRef.current(painel.id, { config: { ...cfg, schemaVersion: SCHEMA_VERSION } });
         setSalvoEm(new Date());
       } catch (e) {
-        notifications.show({ color: "red", title: "Não foi possível salvar o painel", message: (e as Error).message });
+        notifications.show({
+          color: "red",
+          title: "Não foi possível salvar o painel",
+          message: (e as Error).message,
+        });
       } finally {
         setSalvando(false);
       }
@@ -123,20 +167,41 @@ export function PainelView({ painel }: { painel: Painel }) {
   );
 
   const config = ed.painelId === painel.id && ed.config ? ed.config : painel.config;
-  const widgetConfigurando = useMemo(() => config.widgets.find((w) => w.id === configurando) ?? null, [config.widgets, configurando]);
+  const widgetConfigurando = useMemo(
+    () => config.widgets.find((w) => w.id === configurando) ?? null,
+    [config.widgets, configurando],
+  );
 
   const adicionar = (tipo: TipoWidget) => {
     const def = REGISTRO[tipo];
     const y = config.widgets.reduce((m, w) => Math.max(m, w.pos.y + w.pos.h), 0);
-    const w: WidgetCfg = { id: novoIdWidget(), tipo, pos: { x: 0, y, w: def.tamanho.w, h: def.tamanho.h }, herda: true, config: { ...def.padrao } };
+    const w: WidgetCfg = {
+      id: novoIdWidget(),
+      tipo,
+      pos: { x: 0, y, w: def.tamanho.w, h: def.tamanho.h },
+      herda: true,
+      config: { ...def.padrao },
+    };
     ed.aplicar((c) => ({ ...c, widgets: [...c.widgets, w], layouts: undefined }));
     setCatalogo(false);
-    notifications.show({ color: "teal", message: `${def.nome} adicionado ao fim do painel`, autoClose: 2500 });
+    notifications.show({
+      color: "teal",
+      message: `${def.nome} adicionado ao fim do painel`,
+      autoClose: 2500,
+    });
     setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" }), 250);
   };
 
   const exportar = () =>
-    baixarJson({ formato: "eleicoes-dashboard/painel", schemaVersion: SCHEMA_VERSION, nome: painel.nome, config: { ...config, nome: painel.nome } }, `painel-${slug(painel.nome)}.json`);
+    baixarJson(
+      {
+        formato: "eleicoes-dashboard/painel",
+        schemaVersion: SCHEMA_VERSION,
+        nome: painel.nome,
+        config: { ...config, nome: painel.nome },
+      },
+      `painel-${slug(painel.nome)}.json`,
+    );
 
   const importar = async (f: File | undefined) => {
     if (!f) return;
@@ -171,7 +236,11 @@ export function PainelView({ painel }: { painel: Painel }) {
           </Title>
           {painel.padrao && (
             <Tooltip label="Painel padrão (abre na página inicial)">
-              <IconStar size={16} fill="var(--mantine-color-yellow-5)" color="var(--mantine-color-yellow-5)" />
+              <IconStar
+                size={16}
+                fill="var(--mantine-color-yellow-5)"
+                color="var(--mantine-color-yellow-5)"
+              />
             </Tooltip>
           )}
           <Badge variant="light" color={painel.remoto ? "teal" : "gray"} size="sm">
@@ -189,12 +258,24 @@ export function PainelView({ painel }: { painel: Painel }) {
           {ed.editando && (
             <>
               <Tooltip label="Desfazer (Ctrl+Z)">
-                <ActionIcon variant="default" size="lg" onClick={ed.desfazer} disabled={!ed.passado.length} aria-label="Desfazer">
+                <ActionIcon
+                  variant="default"
+                  size="lg"
+                  onClick={ed.desfazer}
+                  disabled={!ed.passado.length}
+                  aria-label="Desfazer"
+                >
                   <IconArrowBackUp size={18} />
                 </ActionIcon>
               </Tooltip>
               <Tooltip label="Refazer (Ctrl+Shift+Z)">
-                <ActionIcon variant="default" size="lg" onClick={ed.refazer} disabled={!ed.futuro.length} aria-label="Refazer">
+                <ActionIcon
+                  variant="default"
+                  size="lg"
+                  onClick={ed.refazer}
+                  disabled={!ed.futuro.length}
+                  aria-label="Refazer"
+                >
                   <IconArrowForwardUp size={18} />
                 </ActionIcon>
               </Tooltip>
@@ -230,7 +311,11 @@ export function PainelView({ painel }: { painel: Painel }) {
               >
                 Duplicar
               </Menu.Item>
-              <Menu.Item leftSection={<IconStar size={14} />} disabled={painel.padrao} onClick={() => repo.definirPadrao(painel.id)}>
+              <Menu.Item
+                leftSection={<IconStar size={14} />}
+                disabled={painel.padrao}
+                onClick={() => repo.definirPadrao(painel.id)}
+              >
                 Definir como padrão
               </Menu.Item>
               <Menu.Item leftSection={<IconShare size={14} />} onClick={() => setCompartilhar(true)}>
@@ -240,10 +325,16 @@ export function PainelView({ painel }: { painel: Painel }) {
               <Menu.Item leftSection={<IconDownload size={14} />} onClick={exportar}>
                 Exportar JSON
               </Menu.Item>
-              <Menu.Item leftSection={<IconFileImport size={14} />} onClick={() => importRef.current?.click()}>
+              <Menu.Item
+                leftSection={<IconFileImport size={14} />}
+                onClick={() => importRef.current?.click()}
+              >
                 Importar JSON
               </Menu.Item>
-              <Menu.Item leftSection={<IconDeviceTv size={14} />} onClick={() => navigate(`/tv?inicio=${encodeURIComponent(painel.id)}`)}>
+              <Menu.Item
+                leftSection={<IconDeviceTv size={14} />}
+                onClick={() => navigate(`/tv?inicio=${encodeURIComponent(painel.id)}`)}
+              >
                 Modo TV
               </Menu.Item>
               <Menu.Divider />
@@ -252,7 +343,13 @@ export function PainelView({ painel }: { painel: Painel }) {
               </Menu.Item>
             </Menu.Dropdown>
           </Menu>
-          <input ref={importRef} type="file" accept="application/json,.json" hidden onChange={(e) => importar(e.currentTarget.files?.[0])} />
+          <input
+            ref={importRef}
+            type="file"
+            accept="application/json,.json"
+            hidden
+            onChange={(e) => importar(e.currentTarget.files?.[0])}
+          />
         </Group>
       </Group>
 
@@ -278,18 +375,19 @@ export function PainelView({ painel }: { painel: Painel }) {
           onLayout={(lg, outros) =>
             ed.aplicar(
               (c) => {
-              const mudouLg = !mesmaPosicao(c.widgets, lg);
-              const mudouOutros = JSON.stringify(c.layouts ?? {}) !== JSON.stringify({ ...(c.layouts ?? {}), ...outros });
-              if (!mudouLg && !mudouOutros) return c;
-              const m = new Map(lg.map((l) => [l.i, l]));
-              return {
-                ...c,
-                widgets: c.widgets.map((w) => {
-                  const l = m.get(w.id);
-                  return l ? { ...w, pos: { x: l.x, y: l.y, w: l.w, h: l.h } } : w;
-                }),
-                layouts: { ...(c.layouts ?? {}), ...outros },
-              };
+                const mudouLg = !mesmaPosicao(c.widgets, lg);
+                const mudouOutros =
+                  JSON.stringify(c.layouts ?? {}) !== JSON.stringify({ ...(c.layouts ?? {}), ...outros });
+                if (!mudouLg && !mudouOutros) return c;
+                const m = new Map(lg.map((l) => [l.i, l]));
+                return {
+                  ...c,
+                  widgets: c.widgets.map((w) => {
+                    const l = m.get(w.id);
+                    return l ? { ...w, pos: { x: l.x, y: l.y, w: l.w, h: l.h } } : w;
+                  }),
+                  layouts: { ...(c.layouts ?? {}), ...outros },
+                };
               },
               { historico: !mesmaPosicao(config.widgets, lg) },
             )
@@ -300,10 +398,16 @@ export function PainelView({ painel }: { painel: Painel }) {
               const w = c.widgets.find((x) => x.id === id);
               if (!w) return c;
               const y = c.widgets.reduce((m, x) => Math.max(m, x.pos.y + x.pos.h), 0);
-              return { ...c, widgets: [...c.widgets, { ...w, id: novoIdWidget(), pos: { ...w.pos, x: 0, y } }], layouts: undefined };
+              return {
+                ...c,
+                widgets: [...c.widgets, { ...w, id: novoIdWidget(), pos: { ...w.pos, x: 0, y } }],
+                layouts: undefined,
+              };
             })
           }
-          onRemover={(id) => ed.aplicar((c) => ({ ...c, widgets: c.widgets.filter((w) => w.id !== id), layouts: undefined }))}
+          onRemover={(id) =>
+            ed.aplicar((c) => ({ ...c, widgets: c.widgets.filter((w) => w.id !== id), layouts: undefined }))
+          }
         />
       )}
 
@@ -311,7 +415,9 @@ export function PainelView({ painel }: { painel: Painel }) {
       <GavetaConfig
         widget={widgetConfigurando}
         onClose={() => setConfigurando(null)}
-        onSalvar={(nw) => ed.aplicar((c) => ({ ...c, widgets: c.widgets.map((w) => (w.id === nw.id ? nw : w)) }))}
+        onSalvar={(nw) =>
+          ed.aplicar((c) => ({ ...c, widgets: c.widgets.map((w) => (w.id === nw.id ? nw : w)) }))
+        }
       />
       <CompartilharModal painel={painel} aberto={compartilhar} onClose={() => setCompartilhar(false)} />
       <Modal opened={renomear !== null} onClose={() => setRenomear(null)} title="Renomear painel">
@@ -323,7 +429,12 @@ export function PainelView({ painel }: { painel: Painel }) {
           }}
         >
           <Stack>
-            <TextInput value={renomear ?? ""} onChange={(e) => setRenomear(e.currentTarget.value)} data-autofocus maxLength={120} />
+            <TextInput
+              value={renomear ?? ""}
+              onChange={(e) => setRenomear(e.currentTarget.value)}
+              data-autofocus
+              maxLength={120}
+            />
             <Group justify="flex-end">
               <Button type="submit">Salvar</Button>
             </Group>

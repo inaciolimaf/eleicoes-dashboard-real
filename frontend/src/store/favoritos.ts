@@ -13,7 +13,9 @@ interface FavLocal {
 }
 
 const useFavLocal = create<FavLocal>()(
-  persist((set) => ({ favoritos: [], set: (fn) => set((s) => ({ favoritos: fn(s.favoritos) })) }), { name: "eleicoes.favoritos" }),
+  persist((set) => ({ favoritos: [], set: (fn) => set((s) => ({ favoritos: fn(s.favoritos) })) }), {
+    name: "eleicoes.favoritos",
+  }),
 );
 
 /** Favoritos (barra rápida): backend quando logado, localStorage quando não. */
@@ -29,11 +31,16 @@ export function useFavoritos() {
   });
   const del = useMutation({
     mutationFn: (f: { tipo: TipoFavorito; ref: string }) =>
-      api<void>(`/favoritos/${encodeURIComponent(f.tipo)}/${encodeURIComponent(f.ref)}`, { method: "DELETE" }),
+      api<void>(`/favoritos/${encodeURIComponent(f.tipo)}/${encodeURIComponent(f.ref)}`, {
+        method: "DELETE",
+      }),
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.favoritos() }),
   });
-  const lista = useMemo(() => (logado ? remoto.data ?? [] : local), [logado, remoto.data, local]);
-  const eFavorito = useCallback((tipo: TipoFavorito, ref: string) => lista.some((f) => f.tipo === tipo && f.ref === ref), [lista]);
+  const lista = useMemo(() => (logado ? (remoto.data ?? []) : local), [logado, remoto.data, local]);
+  const eFavorito = useCallback(
+    (tipo: TipoFavorito, ref: string) => lista.some((f) => f.tipo === tipo && f.ref === ref),
+    [lista],
+  );
   const alternar = useCallback(
     (f: Favorito) => {
       const existe = lista.some((x) => x.tipo === f.tipo && x.ref === f.ref);

@@ -3,7 +3,15 @@ import { useEffect, useState } from "react";
 import { brt, dayjs } from "../../lib/time";
 
 /** Relógio de Brasília ou contagem regressiva. */
-export function Relogio({ modo = "relogio", alvo, rotulo }: { modo?: "relogio" | "contagem"; alvo?: string | null; rotulo?: string }) {
+export function Relogio({
+  modo = "relogio",
+  alvo,
+  rotulo,
+}: {
+  modo?: "relogio" | "contagem";
+  alvo?: string | null;
+  rotulo?: string;
+}) {
   const [agora, setAgora] = useState(() => Date.now());
   useEffect(() => {
     const id = setInterval(() => setAgora(Date.now()), 1000);

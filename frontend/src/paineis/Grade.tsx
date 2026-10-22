@@ -24,7 +24,11 @@ function empilhar(widgets: WidgetCfg[]): Layout[] {
 }
 
 function ajustarCols(base: Layout[], cols: number): Layout[] {
-  return base.map((l) => ({ ...l, w: Math.min(cols, Math.max(1, Math.round((l.w / 12) * cols))), x: Math.min(cols - 1, Math.round((l.x / 12) * cols)) }));
+  return base.map((l) => ({
+    ...l,
+    w: Math.min(cols, Math.max(1, Math.round((l.w / 12) * cols))),
+    x: Math.min(cols - 1, Math.round((l.x / 12) * cols)),
+  }));
 }
 
 interface Props {
@@ -38,7 +42,16 @@ interface Props {
   onRemover?: (id: string) => void;
 }
 
-export function Grade({ config, editando, somenteLeitura, modoTv, onLayout, onConfigurar, onDuplicar, onRemover }: Props) {
+export function Grade({
+  config,
+  editando,
+  somenteLeitura,
+  modoTv,
+  onLayout,
+  onConfigurar,
+  onDuplicar,
+  onRemover,
+}: Props) {
   const densidade = usePrefs((s) => s.densidade);
   const compacta = densidade === "compacta";
   const rowHeight = modoTv ? 44 : compacta ? 30 : 36;

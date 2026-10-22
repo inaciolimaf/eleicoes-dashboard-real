@@ -1,4 +1,18 @@
-import { ActionIcon, Alert, Badge, Button, Card, FileButton, Group, Menu, SimpleGrid, Stack, Text, Title, Tooltip } from "@mantine/core";
+import {
+  ActionIcon,
+  Alert,
+  Badge,
+  Button,
+  Card,
+  FileButton,
+  Group,
+  Menu,
+  SimpleGrid,
+  Stack,
+  Text,
+  Title,
+  Tooltip,
+} from "@mantine/core";
 import { modals } from "@mantine/modals";
 import { notifications } from "@mantine/notifications";
 import {
@@ -73,7 +87,8 @@ export default function PaineisPage() {
       </Group>
       {!repo.logado && (
         <Alert variant="light" color="blue">
-          Sem login, os painéis ficam salvos neste navegador. Entre na sua conta para levá-los a outros dispositivos e compartilhar.
+          Sem login, os painéis ficam salvos neste navegador. Entre na sua conta para levá-los a outros
+          dispositivos e compartilhar.
         </Alert>
       )}
       {repo.locaisPendentes > 0 && (
@@ -108,7 +123,14 @@ export default function PaineisPage() {
                 <Stack gap={4} style={{ minWidth: 0 }}>
                   <Group gap={6} wrap="nowrap">
                     {p.padrao && <IconStarFilled size={14} color="var(--mantine-color-yellow-5)" />}
-                    <Text fw={700} component={Link} to={`/paineis/${p.id}`} c="inherit" lineClamp={1} style={{ textDecoration: "none" }}>
+                    <Text
+                      fw={700}
+                      component={Link}
+                      to={`/paineis/${p.id}`}
+                      c="inherit"
+                      lineClamp={1}
+                      style={{ textDecoration: "none" }}
+                    >
                       {p.nome}
                     </Text>
                   </Group>
@@ -125,12 +147,24 @@ export default function PaineisPage() {
                 </Stack>
                 <Group gap={2} wrap="nowrap">
                   <Tooltip label="Mover para cima">
-                    <ActionIcon variant="subtle" size="sm" disabled={i === 0} onClick={() => mover(i, -1)} aria-label="Mover para cima">
+                    <ActionIcon
+                      variant="subtle"
+                      size="sm"
+                      disabled={i === 0}
+                      onClick={() => mover(i, -1)}
+                      aria-label="Mover para cima"
+                    >
                       <IconArrowUp size={14} />
                     </ActionIcon>
                   </Tooltip>
                   <Tooltip label="Mover para baixo">
-                    <ActionIcon variant="subtle" size="sm" disabled={i === repo.paineis.length - 1} onClick={() => mover(i, 1)} aria-label="Mover para baixo">
+                    <ActionIcon
+                      variant="subtle"
+                      size="sm"
+                      disabled={i === repo.paineis.length - 1}
+                      onClick={() => mover(i, 1)}
+                      aria-label="Mover para baixo"
+                    >
                       <IconArrowDown size={14} />
                     </ActionIcon>
                   </Tooltip>
@@ -141,7 +175,11 @@ export default function PaineisPage() {
                       </ActionIcon>
                     </Menu.Target>
                     <Menu.Dropdown>
-                      <Menu.Item leftSection={<IconStar size={14} />} disabled={p.padrao} onClick={() => repo.definirPadrao(p.id)}>
+                      <Menu.Item
+                        leftSection={<IconStar size={14} />}
+                        disabled={p.padrao}
+                        onClick={() => repo.definirPadrao(p.id)}
+                      >
                         Definir como padrão
                       </Menu.Item>
                       <Menu.Item
@@ -155,7 +193,17 @@ export default function PaineisPage() {
                       </Menu.Item>
                       <Menu.Item
                         leftSection={<IconDownload size={14} />}
-                        onClick={() => baixarJson({ formato: "eleicoes-dashboard/painel", schemaVersion: SCHEMA_VERSION, nome: p.nome, config: p.config }, `painel-${slug(p.nome)}.json`)}
+                        onClick={() =>
+                          baixarJson(
+                            {
+                              formato: "eleicoes-dashboard/painel",
+                              schemaVersion: SCHEMA_VERSION,
+                              nome: p.nome,
+                              config: p.config,
+                            },
+                            `painel-${slug(p.nome)}.json`,
+                          )
+                        }
                       >
                         Exportar JSON
                       </Menu.Item>

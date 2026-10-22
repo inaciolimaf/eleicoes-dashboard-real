@@ -1,4 +1,15 @@
-import { Badge, Card, Group, Select, SimpleGrid, Stack, Text, TextInput, Title, UnstyledButton } from "@mantine/core";
+import {
+  Badge,
+  Card,
+  Group,
+  Select,
+  SimpleGrid,
+  Stack,
+  Text,
+  TextInput,
+  Title,
+  UnstyledButton,
+} from "@mantine/core";
 import { IconSearch } from "@tabler/icons-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
@@ -48,8 +59,22 @@ export default function CandidatosPage() {
               aria-label="UF"
             />
           )}
-          <Select w={130} data={partidos} value={partido} onChange={setPartido} placeholder="Partido" clearable searchable />
-          <TextInput w={220} placeholder="Nome ou número…" leftSection={<IconSearch size={14} />} value={busca} onChange={(e) => setBusca(e.currentTarget.value)} />
+          <Select
+            w={130}
+            data={partidos}
+            value={partido}
+            onChange={setPartido}
+            placeholder="Partido"
+            clearable
+            searchable
+          />
+          <TextInput
+            w={220}
+            placeholder="Nome ou número…"
+            leftSection={<IconSearch size={14} />}
+            value={busca}
+            onChange={(e) => setBusca(e.currentTarget.value)}
+          />
         </Group>
       </Group>
       {q.isLoading ? (
@@ -69,7 +94,12 @@ export default function CandidatosPage() {
                     <AvatarCandidato fotoUrl={c.foto_url} nome={c.nome_urna} cor={cor} size={48} />
                     <Stack gap={2} style={{ minWidth: 0 }}>
                       <Group gap={6} wrap="nowrap">
-                        <Badge color={cor} variant="filled" className="num" styles={{ root: { color: "#fff" } }}>
+                        <Badge
+                          color={cor}
+                          variant="filled"
+                          className="num"
+                          styles={{ root: { color: "#fff" } }}
+                        >
                           {c.numero}
                         </Badge>
                         <Text fw={700} lineClamp={1}>

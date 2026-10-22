@@ -1,4 +1,20 @@
-import { ActionIcon, Box, Card, Grid, Group, Pagination, Progress, ScrollArea, SegmentedControl, Stack, Table, Text, TextInput, Title, Tooltip } from "@mantine/core";
+import {
+  ActionIcon,
+  Box,
+  Card,
+  Grid,
+  Group,
+  Pagination,
+  Progress,
+  ScrollArea,
+  SegmentedControl,
+  Stack,
+  Table,
+  Text,
+  TextInput,
+  Title,
+  Tooltip,
+} from "@mantine/core";
 import { IconSearch, IconStar, IconStarFilled } from "@tabler/icons-react";
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -14,7 +30,17 @@ import { useCorCandidato } from "../lib/useCor";
 import { useFavoritos } from "../store/favoritos";
 import { useFiltro } from "../store/filtro";
 
-function TabelaDesempenho({ sq, nivel, id, filhos }: { sq: string; nivel: Nivel; id: string; filhos: Nivel | null }) {
+function TabelaDesempenho({
+  sq,
+  nivel,
+  id,
+  filhos,
+}: {
+  sq: string;
+  nivel: Nivel;
+  id: string;
+  filhos: Nivel | null;
+}) {
   const f = useFiltroEfetivo();
   const q = useFilhos({ turno: f.turno, cargo: f.cargo, nivel, id, t: f.t, filhos, candidatos: [sq] });
   const [busca, setBusca] = useState("");
@@ -39,9 +65,20 @@ function TabelaDesempenho({ sq, nivel, id, filhos }: { sq: string; nivel: Nivel;
     <Stack gap="xs">
       <Group justify="space-between">
         <Text size="sm">
-          Venceu em <b className="num">{fmtInt(vitorias)}</b> de {fmtInt(q.data?.itens.length ?? 0)} {NIVEL_PLURAL[nivelF].toLowerCase()}
+          Venceu em <b className="num">{fmtInt(vitorias)}</b> de {fmtInt(q.data?.itens.length ?? 0)}{" "}
+          {NIVEL_PLURAL[nivelF].toLowerCase()}
         </Text>
-        <TextInput size="xs" placeholder="Filtrar…" leftSection={<IconSearch size={14} />} value={busca} onChange={(e) => { setBusca(e.currentTarget.value); setPag(1); }} w={180} />
+        <TextInput
+          size="xs"
+          placeholder="Filtrar…"
+          leftSection={<IconSearch size={14} />}
+          value={busca}
+          onChange={(e) => {
+            setBusca(e.currentTarget.value);
+            setPag(1);
+          }}
+          w={180}
+        />
       </Group>
       <ScrollArea>
         <Table highlightOnHover verticalSpacing={4} fz="sm" miw={480}>
@@ -58,10 +95,22 @@ function TabelaDesempenho({ sq, nivel, id, filhos }: { sq: string; nivel: Nivel;
               const v = i.valores?.[sq];
               const lidera = i.lider?.sqcand === sq;
               return (
-                <Table.Tr key={i.id} style={{ cursor: "pointer" }} onClick={() => { useFiltro.getState().setRecorte(i.nivel, i.id, i.nome); navigate(linkRecorte(i.nivel, i.id)); }}>
+                <Table.Tr
+                  key={i.id}
+                  style={{ cursor: "pointer" }}
+                  onClick={() => {
+                    useFiltro.getState().setRecorte(i.nivel, i.id, i.nome);
+                    navigate(linkRecorte(i.nivel, i.id));
+                  }}
+                >
                   <Table.Td fw={600}>
                     {i.nome}
-                    {i.nivel === "municipio" ? <Text span c="dimmed" size="xs"> · {i.uf.toUpperCase()}</Text> : null}
+                    {i.nivel === "municipio" ? (
+                      <Text span c="dimmed" size="xs">
+                        {" "}
+                        · {i.uf.toUpperCase()}
+                      </Text>
+                    ) : null}
                   </Table.Td>
                   <Table.Td ta="right">
                     <Stack gap={2} align="flex-end">
@@ -74,7 +123,11 @@ function TabelaDesempenho({ sq, nivel, id, filhos }: { sq: string; nivel: Nivel;
                   <Table.Td>
                     {i.lider ? (
                       <Group gap={6} wrap="nowrap">
-                        <Box w={8} h={8} style={{ borderRadius: 8, background: corCand(i.lider.sqcand, i.lider.cor) }} />
+                        <Box
+                          w={8}
+                          h={8}
+                          style={{ borderRadius: 8, background: corCand(i.lider.sqcand, i.lider.cor) }}
+                        />
                         <Text size="sm" fw={lidera ? 700 : 400}>
                           {i.lider.nome_urna}
                         </Text>
@@ -118,7 +171,13 @@ export default function CandidatoPage() {
         <Group justify="space-between">
           <Title order={2}>{c?.nome_urna ?? "Candidato"}</Title>
           <Tooltip label={fav ? "Remover dos favoritos" : "Favoritar candidato"}>
-            <ActionIcon variant="subtle" color="yellow" size="lg" onClick={() => alternar({ tipo: "candidato", ref: sq, rotulo: c?.nome_urna ?? sq })} aria-label="Favoritar candidato">
+            <ActionIcon
+              variant="subtle"
+              color="yellow"
+              size="lg"
+              onClick={() => alternar({ tipo: "candidato", ref: sq, rotulo: c?.nome_urna ?? sq })}
+              aria-label="Favoritar candidato"
+            >
               {fav ? <IconStarFilled size={20} /> : <IconStar size={20} />}
             </ActionIcon>
           </Tooltip>

@@ -1,7 +1,25 @@
-import { ActionIcon, Box, Collapse, Group, Paper, ScrollArea, Stack, Text, Tooltip, UnstyledButton } from "@mantine/core";
+import {
+  ActionIcon,
+  Box,
+  Collapse,
+  Group,
+  Paper,
+  ScrollArea,
+  Stack,
+  Text,
+  Tooltip,
+  UnstyledButton,
+} from "@mantine/core";
 import { useDisclosure, useMediaQuery } from "@mantine/hooks";
 import { IconChevronDown, IconChevronUp } from "@tabler/icons-react";
-import { COR_STATUS, FAIXAS_MARGEM, ROTULO_STATUS, corSequencial, gradienteCss, corDivergente } from "../../lib/cores";
+import {
+  COR_STATUS,
+  FAIXAS_MARGEM,
+  ROTULO_STATUS,
+  corSequencial,
+  gradienteCss,
+  corDivergente,
+} from "../../lib/cores";
 import { fmtInt, fmtNum } from "../../lib/format";
 import type { StatusApuracao } from "../../api/types";
 import type { TipoMapa } from "./tipos";
@@ -29,7 +47,21 @@ interface Props {
   partidos?: { sigla: string; cor: string; n: number }[];
 }
 
-function Gradiente({ fn, min, max, sufixo, esq, dir }: { fn: (t: number) => [number, number, number]; min: number; max: number; sufixo: string; esq?: string; dir?: string }) {
+function Gradiente({
+  fn,
+  min,
+  max,
+  sufixo,
+  esq,
+  dir,
+}: {
+  fn: (t: number) => [number, number, number];
+  min: number;
+  max: number;
+  sufixo: string;
+  esq?: string;
+  dir?: string;
+}) {
   return (
     <Stack gap={2}>
       <Box h={10} style={{ borderRadius: 4, background: gradienteCss(fn) }} />
@@ -47,7 +79,12 @@ function Gradiente({ fn, min, max, sufixo, esq, dir }: { fn: (t: number) => [num
 
 const Hachura = () => (
   <Group gap={6}>
-    <Box w={16} h={10} className="hachurado" style={{ borderRadius: 3, border: "1px solid var(--mantine-color-default-border)" }} />
+    <Box
+      w={16}
+      h={10}
+      className="hachurado"
+      style={{ borderRadius: 3, border: "1px solid var(--mantine-color-default-border)" }}
+    />
     <Text size="xs" c="dimmed">
       Sem dados
     </Text>
@@ -102,16 +139,26 @@ export function Legenda(p: Props) {
             );
           })}
         </Stack>
-        <Tooltip label={`Opacidade proporcional à margem de vitória do líder: ${FAIXAS_MARGEM.map((f) => f.rotulo).join(" · ")}`}>
+        <Tooltip
+          label={`Opacidade proporcional à margem de vitória do líder: ${FAIXAS_MARGEM.map((f) => f.rotulo).join(" · ")}`}
+        >
           <Stack gap={2}>
             <Group gap={3} wrap="nowrap">
               {FAIXAS_MARGEM.map((f) => (
-                <Box key={f.rotulo} h={8} style={{ flex: 1, background: `rgba(140,150,175,${f.alpha})`, borderRadius: 2 }} />
+                <Box
+                  key={f.rotulo}
+                  h={8}
+                  style={{ flex: 1, background: `rgba(140,150,175,${f.alpha})`, borderRadius: 2 }}
+                />
               ))}
             </Group>
             <Group justify="space-between">
-              <Text fz={10} c="dimmed">margem &lt; 2 p.p.</Text>
-              <Text fz={10} c="dimmed">≥ 20 p.p.</Text>
+              <Text fz={10} c="dimmed">
+                margem &lt; 2 p.p.
+              </Text>
+              <Text fz={10} c="dimmed">
+                ≥ 20 p.p.
+              </Text>
             </Group>
           </Stack>
         </Tooltip>
@@ -126,8 +173,16 @@ export function Legenda(p: Props) {
             {p.rotuloA} · % dos válidos
           </Text>
         )}
-        {p.tipo === "progresso" && <Text size="xs" fw={600}>% das seções totalizadas</Text>}
-        {p.tipo === "comparecimento" && <Text size="xs" fw={600}>% de comparecimento</Text>}
+        {p.tipo === "progresso" && (
+          <Text size="xs" fw={600}>
+            % das seções totalizadas
+          </Text>
+        )}
+        {p.tipo === "comparecimento" && (
+          <Text size="xs" fw={600}>
+            % de comparecimento
+          </Text>
+        )}
         <Gradiente fn={corSequencial} min={e.min} max={e.max} sufixo={e.sufixo} />
         <Hachura />
       </Stack>
@@ -204,13 +259,26 @@ export function Legenda(p: Props) {
       shadow="md"
       p="xs"
       radius="md"
-      style={{ position: "absolute", left: 8, bottom: 8, zIndex: 5, width: "calc(240px * var(--mantine-scale))", maxWidth: "calc(100% - 16px)", backdropFilter: "blur(6px)" }}
+      style={{
+        position: "absolute",
+        left: 8,
+        bottom: 8,
+        zIndex: 5,
+        width: "calc(240px * var(--mantine-scale))",
+        maxWidth: "calc(100% - 16px)",
+        backdropFilter: "blur(6px)",
+      }}
     >
       <Group justify="space-between" gap={4} mb={aberta ? 4 : 0}>
         <Text size="xs" fw={700} tt="uppercase" c="dimmed">
           Legenda
         </Text>
-        <ActionIcon size="xs" variant="subtle" onClick={toggle} aria-label={aberta ? "Recolher legenda" : "Expandir legenda"}>
+        <ActionIcon
+          size="xs"
+          variant="subtle"
+          onClick={toggle}
+          aria-label={aberta ? "Recolher legenda" : "Expandir legenda"}
+        >
           {aberta ? <IconChevronDown size={14} /> : <IconChevronUp size={14} />}
         </ActionIcon>
       </Group>

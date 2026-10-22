@@ -1,4 +1,19 @@
-import { ActionIcon, Badge, Box, Button, Card, Drawer, Group, ScrollArea, Stack, Switch, Text, ThemeIcon, Tooltip, UnstyledButton } from "@mantine/core";
+import {
+  ActionIcon,
+  Badge,
+  Box,
+  Button,
+  Card,
+  Drawer,
+  Group,
+  ScrollArea,
+  Stack,
+  Switch,
+  Text,
+  ThemeIcon,
+  Tooltip,
+  UnstyledButton,
+} from "@mantine/core";
 import { useDisclosure, useMediaQuery } from "@mantine/hooks";
 import { IconAdjustments, IconArrowUp, IconCompass } from "@tabler/icons-react";
 import { useMemo } from "react";
@@ -31,7 +46,7 @@ export default function MapasPage() {
   const res = useResultados({ turno: f.turno, cargo: f.cargo, nivel: f.nivel, id: f.id, t: f.t }, !semBr);
   const proporcional = (res.data?.cargo.sistema ?? sistemaPadrao(f.cargo)) === "proporcional";
   const nivelMapa: Nivel = f.nivel === "secao" ? "zona" : f.nivel;
-  const idMapa = f.nivel === "secao" ? zonaDoId("secao", f.id) ?? f.id : f.id;
+  const idMapa = f.nivel === "secao" ? (zonaDoId("secao", f.id) ?? f.id) : f.id;
   const pai = res.data?.recorte.breadcrumb?.[res.data.recorte.breadcrumb.length - 2];
 
   const setParam = (k: string, v: string | null) => {
@@ -67,13 +82,21 @@ export default function MapasPage() {
         <Group gap={4}>
           {pai && (
             <Tooltip label={`Subir para ${pai.nome}`}>
-              <ActionIcon variant="default" onClick={() => g.setRecorte(pai.nivel, pai.id, pai.nome)} aria-label="Subir um nível">
+              <ActionIcon
+                variant="default"
+                onClick={() => g.setRecorte(pai.nivel, pai.id, pai.nome)}
+                aria-label="Subir um nível"
+              >
                 <IconArrowUp size={16} />
               </ActionIcon>
             </Tooltip>
           )}
           <Tooltip label="Explorar este recorte">
-            <ActionIcon variant="default" onClick={() => navigate(linkRecorte(f.nivel, f.id))} aria-label="Explorar">
+            <ActionIcon
+              variant="default"
+              onClick={() => navigate(linkRecorte(f.nivel, f.id))}
+              aria-label="Explorar"
+            >
               <IconCompass size={16} />
             </ActionIcon>
           </Tooltip>
@@ -88,7 +111,10 @@ export default function MapasPage() {
             <Card
               p="xs"
               withBorder
-              style={{ borderColor: tipo === t.valor ? "var(--mantine-color-eleicao-4)" : undefined, background: tipo === t.valor ? "var(--mantine-color-default-hover)" : undefined }}
+              style={{
+                borderColor: tipo === t.valor ? "var(--mantine-color-eleicao-4)" : undefined,
+                background: tipo === t.valor ? "var(--mantine-color-default-hover)" : undefined,
+              }}
             >
               <Text size="sm" fw={700}>
                 {t.rotulo}
@@ -101,12 +127,22 @@ export default function MapasPage() {
         ))}
       </Stack>
       {f.nivel === "br" && (
-        <Switch label="Todos os municípios do Brasil" checked={todosMun} onChange={(e) => setParam("mun", e.currentTarget.checked ? "1" : null)} />
+        <Switch
+          label="Todos os municípios do Brasil"
+          checked={todosMun}
+          onChange={(e) => setParam("mun", e.currentTarget.checked ? "1" : null)}
+        />
       )}
-      <Switch label="Mapa de fundo" checked={basemap} onChange={(e) => setPrefs({ basemap: e.currentTarget.checked })} />
+      <Switch
+        label="Mapa de fundo"
+        checked={basemap}
+        onChange={(e) => setPrefs({ basemap: e.currentTarget.checked })}
+      />
       {!semBr && (
         <Card p="sm" withBorder>
-          <ComResultados linhasSkeleton={3}>{(r) => <Placar res={r} opcoes={{ topN: 5, mostrarFotos: false }} />}</ComResultados>
+          <ComResultados linhasSkeleton={3}>
+            {(r) => <Placar res={r} opcoes={{ topN: 5, mostrarFotos: false }} />}
+          </ComResultados>
         </Card>
       )}
     </Stack>
@@ -115,8 +151,23 @@ export default function MapasPage() {
   return (
     <Box pos="relative" style={{ height: "calc(100dvh - 60px - 64px - 46px - 32px)", minHeight: 420 }}>
       <Group gap="md" h="100%" wrap="nowrap" align="stretch">
-        <Box style={{ flex: 1, minWidth: 0, borderRadius: 14, overflow: "hidden", border: "1px solid var(--mantine-color-default-border)" }}>
-          <MapaEleitoral tipo={tipo} nivel={nivelMapa} id={idMapa} todosMunicipios={todosMun} onSelecionar={selecionar} altura="100%" />
+        <Box
+          style={{
+            flex: 1,
+            minWidth: 0,
+            borderRadius: 14,
+            overflow: "hidden",
+            border: "1px solid var(--mantine-color-default-border)",
+          }}
+        >
+          <MapaEleitoral
+            tipo={tipo}
+            nivel={nivelMapa}
+            id={idMapa}
+            todosMunicipios={todosMun}
+            onSelecionar={selecionar}
+            altura="100%"
+          />
         </Box>
         {!celular && (
           <Card w={330} p="sm" style={{ flexShrink: 0 }}>
@@ -138,7 +189,21 @@ export default function MapasPage() {
           >
             {TIPOS_MAPA.find((t) => t.valor === tipo)?.rotulo}
           </Button>
-          <Drawer opened={painelAberto} onClose={close} position="bottom" size="75%" title={<Group gap={6}><ThemeIcon size="sm" variant="light"><IconAdjustments size={14} /></ThemeIcon><Text fw={700}>Mapa</Text><Badge size="xs">{f.nivel}</Badge></Group>}>
+          <Drawer
+            opened={painelAberto}
+            onClose={close}
+            position="bottom"
+            size="75%"
+            title={
+              <Group gap={6}>
+                <ThemeIcon size="sm" variant="light">
+                  <IconAdjustments size={14} />
+                </ThemeIcon>
+                <Text fw={700}>Mapa</Text>
+                <Badge size="xs">{f.nivel}</Badge>
+              </Group>
+            }
+          >
             {lateral}
           </Drawer>
         </>

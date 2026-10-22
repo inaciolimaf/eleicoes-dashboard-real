@@ -1,4 +1,18 @@
-import { Alert, Badge, Button, Card, FileButton, Group, Modal, SimpleGrid, Stack, Text, TextInput, ThemeIcon, UnstyledButton } from "@mantine/core";
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  FileButton,
+  Group,
+  Modal,
+  SimpleGrid,
+  Stack,
+  Text,
+  TextInput,
+  ThemeIcon,
+  UnstyledButton,
+} from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { IconFileImport, IconLayoutDashboard, IconSquarePlus } from "@tabler/icons-react";
 import { useState } from "react";
@@ -22,7 +36,14 @@ const BRANCO: Template = {
 
 function filtroAtual() {
   const f = useFiltro.getState();
-  return { ambiente: "oficial", ciclo: f.ciclo ?? "ele2026", turno: f.turno, cargo: f.cargo, nivel: f.nivel, recorte: f.id };
+  return {
+    ambiente: "oficial",
+    ciclo: f.ciclo ?? "ele2026",
+    turno: f.turno,
+    cargo: f.cargo,
+    nivel: f.nivel,
+    recorte: f.id,
+  };
 }
 
 /** Lê e valida um arquivo exportado (formato completo ou só a config). */
@@ -67,7 +88,12 @@ export function NovoPainelModal({ aberto, onClose }: { aberto: boolean; onClose:
     setCriando(true);
     try {
       const r = lerRecorte(recorte);
-      const cfg = sel.criar({ nivel: r?.nivel, recorte: r?.id, nome: rotulo, turno: useFiltro.getState().turno });
+      const cfg = sel.criar({
+        nivel: r?.nivel,
+        recorte: r?.id,
+        nome: rotulo,
+        turno: useFiltro.getState().turno,
+      });
       const p = await criar(nome.trim() || cfg.nome || sel.nome, cfg);
       notifications.show({ color: "teal", title: "Painel criado", message: p.nome });
       fechar();
@@ -100,8 +126,20 @@ export function NovoPainelModal({ aberto, onClose }: { aberto: boolean; onClose:
         </Text>
         <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="sm">
           {[...TEMPLATES, BRANCO].map((t) => (
-            <UnstyledButton key={t.id} onClick={() => { setSel(t); setErro(null); setRecorte(null); }}>
-              <Card withBorder p="sm" h="100%" style={{ borderColor: sel?.id === t.id ? "var(--mantine-color-eleicao-4)" : undefined }}>
+            <UnstyledButton
+              key={t.id}
+              onClick={() => {
+                setSel(t);
+                setErro(null);
+                setRecorte(null);
+              }}
+            >
+              <Card
+                withBorder
+                p="sm"
+                h="100%"
+                style={{ borderColor: sel?.id === t.id ? "var(--mantine-color-eleicao-4)" : undefined }}
+              >
                 <Group gap="sm" wrap="nowrap" align="flex-start">
                   <ThemeIcon size="lg" variant={sel?.id === t.id ? "filled" : "light"} radius="md">
                     {t.id === "branco" ? <IconSquarePlus size={18} /> : <IconLayoutDashboard size={18} />}
@@ -115,7 +153,8 @@ export function NovoPainelModal({ aberto, onClose }: { aberto: boolean; onClose:
                     </Text>
                     {t.pede && (
                       <Badge size="xs" variant="light" mt={4}>
-                        escolha {t.pede === "uf" ? "a UF" : t.pede === "municipio" ? "o município" : "o local"}
+                        escolha{" "}
+                        {t.pede === "uf" ? "a UF" : t.pede === "municipio" ? "o município" : "o local"}
                       </Badge>
                     )}
                   </Stack>
@@ -127,10 +166,17 @@ export function NovoPainelModal({ aberto, onClose }: { aberto: boolean; onClose:
         {sel && (
           <Card withBorder p="sm">
             <Stack gap="sm">
-              <TextInput label="Nome do painel" placeholder={sel.nome} value={nome} onChange={(e) => setNome(e.currentTarget.value)} />
+              <TextInput
+                label="Nome do painel"
+                placeholder={sel.nome}
+                value={nome}
+                onChange={(e) => setNome(e.currentTarget.value)}
+              />
               {sel.pede && (
                 <RecortePicker
-                  label={sel.pede === "uf" ? "UF" : sel.pede === "municipio" ? "Município" : "Local de votação"}
+                  label={
+                    sel.pede === "uf" ? "UF" : sel.pede === "municipio" ? "Município" : "Local de votação"
+                  }
                   tipos={[sel.pede]}
                   incluirBrasil={false}
                   incluirUfs={sel.pede === "uf"}

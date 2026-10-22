@@ -47,7 +47,12 @@ export const useEditor = create<EditorState>()((set, get) => ({
     set((s) => {
       if (!s.config || !s.passado.length) return s;
       const ant = s.passado[s.passado.length - 1];
-      return { config: ant, passado: s.passado.slice(0, -1), futuro: [s.config, ...s.futuro], versao: s.versao + 1 };
+      return {
+        config: ant,
+        passado: s.passado.slice(0, -1),
+        futuro: [s.config, ...s.futuro],
+        versao: s.versao + 1,
+      };
     }),
   refazer: () =>
     set((s) => {

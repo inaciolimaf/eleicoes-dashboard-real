@@ -76,23 +76,43 @@ export const COLUNAS: { id: ColunaId; rotulo: string; num?: boolean }[] = [
   { id: "partido", rotulo: "Partido + votado" },
 ];
 
-export const COLUNAS_PADRAO: ColunaId[] = ["nome", "pct_secoes", "lider", "margem_pp", "votos_validos", "eleitorado"];
+export const COLUNAS_PADRAO: ColunaId[] = [
+  "nome",
+  "pct_secoes",
+  "lider",
+  "margem_pp",
+  "votos_validos",
+  "eleitorado",
+];
 
 function valorOrdenacao(it: ItemFilho, c: ColunaId): number | string {
   switch (c) {
-    case "nome": return semAcento(it.nome);
-    case "uf": return it.uf;
-    case "regiao": return it.regiao ?? "";
-    case "pct_secoes": return it.pct_secoes;
-    case "lider": return it.lider?.nome_urna ?? "";
-    case "segundo": return it.segundo?.nome_urna ?? "";
-    case "margem_pp": return it.margem_pp ?? -1;
-    case "votos_validos": return it.votos_validos;
-    case "eleitorado": return it.eleitorado;
-    case "comparecimento": return it.eleitorado ? it.comparecimento / it.eleitorado : 0;
-    case "abstencao": return it.pct_abstencao;
-    case "capital": return it.capital ? 1 : 0;
-    case "partido": return it.partido_lider?.sigla ?? "";
+    case "nome":
+      return semAcento(it.nome);
+    case "uf":
+      return it.uf;
+    case "regiao":
+      return it.regiao ?? "";
+    case "pct_secoes":
+      return it.pct_secoes;
+    case "lider":
+      return it.lider?.nome_urna ?? "";
+    case "segundo":
+      return it.segundo?.nome_urna ?? "";
+    case "margem_pp":
+      return it.margem_pp ?? -1;
+    case "votos_validos":
+      return it.votos_validos;
+    case "eleitorado":
+      return it.eleitorado;
+    case "comparecimento":
+      return it.eleitorado ? it.comparecimento / it.eleitorado : 0;
+    case "abstencao":
+      return it.pct_abstencao;
+    case "capital":
+      return it.capital ? 1 : 0;
+    case "partido":
+      return it.partido_lider?.sigla ?? "";
   }
 }
 
@@ -129,7 +149,15 @@ const FILTROS_PADRAO: Filtros = {
   eleitoradoMin: null,
 };
 
-const Celula = memo(function Celula({ it, c, corCand }: { it: ItemFilho; c: ColunaId; corCand: ReturnType<typeof useCorCandidato> }) {
+const Celula = memo(function Celula({
+  it,
+  c,
+  corCand,
+}: {
+  it: ItemFilho;
+  c: ColunaId;
+  corCand: ReturnType<typeof useCorCandidato>;
+}) {
   switch (c) {
     case "nome":
       return (
@@ -163,7 +191,12 @@ const Celula = memo(function Celula({ it, c, corCand }: { it: ItemFilho; c: Colu
     case "lider":
     case "segundo": {
       const l = c === "lider" ? it.lider : it.segundo;
-      if (!l) return <Text size="sm" c="dimmed">—</Text>;
+      if (!l)
+        return (
+          <Text size="sm" c="dimmed">
+            —
+          </Text>
+        );
       const cor = corCand(l.sqcand, l.cor);
       return (
         <Stack gap={2} miw={110}>
@@ -176,17 +209,32 @@ const Celula = memo(function Celula({ it, c, corCand }: { it: ItemFilho; c: Colu
             </Text>
           </Group>
           <Box className="barra-trilho" style={{ height: 4 }}>
-            <Box className="barra-preenchida" style={{ width: `${Math.min(100, l.pct)}%`, background: cor }} />
+            <Box
+              className="barra-preenchida"
+              style={{ width: `${Math.min(100, l.pct)}%`, background: cor }}
+            />
           </Box>
         </Stack>
       );
     }
     case "margem_pp":
-      return <Text size="sm" className="num" ta="right">{fmtPP(it.margem_pp)}</Text>;
+      return (
+        <Text size="sm" className="num" ta="right">
+          {fmtPP(it.margem_pp)}
+        </Text>
+      );
     case "votos_validos":
-      return <Text size="sm" className="num" ta="right">{fmtInt(it.votos_validos)}</Text>;
+      return (
+        <Text size="sm" className="num" ta="right">
+          {fmtInt(it.votos_validos)}
+        </Text>
+      );
     case "eleitorado":
-      return <Text size="sm" className="num" ta="right">{fmtInt(it.eleitorado)}</Text>;
+      return (
+        <Text size="sm" className="num" ta="right">
+          {fmtInt(it.eleitorado)}
+        </Text>
+      );
     case "comparecimento":
       return (
         <Text size="sm" className="num" ta="right">
@@ -194,7 +242,11 @@ const Celula = memo(function Celula({ it, c, corCand }: { it: ItemFilho; c: Colu
         </Text>
       );
     case "abstencao":
-      return <Text size="sm" className="num" ta="right">{fmtPct(it.pct_abstencao, 1)}</Text>;
+      return (
+        <Text size="sm" className="num" ta="right">
+          {fmtPct(it.pct_abstencao, 1)}
+        </Text>
+      );
     case "capital":
       return <Text size="sm">{it.capital ? "Sim" : "Não"}</Text>;
     case "partido":
@@ -204,7 +256,9 @@ const Celula = memo(function Celula({ it, c, corCand }: { it: ItemFilho; c: Colu
           <Text size="sm">{it.partido_lider.sigla}</Text>
         </Group>
       ) : (
-        <Text size="sm" c="dimmed">—</Text>
+        <Text size="sm" c="dimmed">
+          —
+        </Text>
       );
   }
 });
@@ -222,7 +276,11 @@ function Linha({
 }) {
   const flash = useFlash(`${it.pct_secoes}|${it.lider?.sqcand}|${it.votos_validos}`);
   return (
-    <Table.Tr onClick={onClick} style={{ cursor: onClick ? "pointer" : undefined }} className={flash ? "glow" : undefined}>
+    <Table.Tr
+      onClick={onClick}
+      style={{ cursor: onClick ? "pointer" : undefined }}
+      className={flash ? "glow" : undefined}
+    >
       {colunas.map((c) => (
         <Table.Td key={c}>
           <Celula it={it} c={c} corCand={corCand} />
@@ -315,32 +373,50 @@ export function TabelaRecortes({
     if (agrupar === "nenhum") return null;
     const m = new Map<string, ItemFilho[]>();
     for (const it of filtrados) {
-      const k = agrupar === "regiao" ? it.regiao ?? "—" : agrupar === "uf" ? it.uf.toUpperCase() : porte(it.eleitorado);
+      const k =
+        agrupar === "regiao"
+          ? (it.regiao ?? "—")
+          : agrupar === "uf"
+            ? it.uf.toUpperCase()
+            : porte(it.eleitorado);
       const l = m.get(k);
       if (l) l.push(it);
       else m.set(k, [it]);
     }
-    const ordemChaves = agrupar === "porte" ? PORTES.map((p) => p.rotulo) : agrupar === "regiao" ? REGIOES : [...m.keys()].sort();
-    return ordemChaves.filter((k) => m.has(k)).concat([...m.keys()].filter((k) => !ordemChaves.includes(k))).map((k) => {
-      const itens = m.get(k)!;
-      const eleit = itens.reduce((s, i) => s + i.eleitorado, 0);
-      const secW = itens.reduce((s, i) => s + i.pct_secoes * i.eleitorado, 0);
-      const vit = new Map<string, { nome: string; cor: string; n: number }>();
-      for (const i of itens)
-        if (i.lider) {
-          const x = vit.get(i.lider.sqcand);
-          if (x) x.n++;
-          else vit.set(i.lider.sqcand, { nome: i.lider.nome_urna, cor: corCand(i.lider.sqcand, i.lider.cor), n: 1 });
-        }
-      return {
-        chave: k,
-        itens,
-        eleitorado: eleit,
-        pct: eleit ? secW / eleit : 0,
-        validos: itens.reduce((s, i) => s + i.votos_validos, 0),
-        vitorias: [...vit.values()].sort((a, b) => b.n - a.n).slice(0, 3),
-      };
-    });
+    const ordemChaves =
+      agrupar === "porte"
+        ? PORTES.map((p) => p.rotulo)
+        : agrupar === "regiao"
+          ? REGIOES
+          : [...m.keys()].sort();
+    return ordemChaves
+      .filter((k) => m.has(k))
+      .concat([...m.keys()].filter((k) => !ordemChaves.includes(k)))
+      .map((k) => {
+        const itens = m.get(k)!;
+        const eleit = itens.reduce((s, i) => s + i.eleitorado, 0);
+        const secW = itens.reduce((s, i) => s + i.pct_secoes * i.eleitorado, 0);
+        const vit = new Map<string, { nome: string; cor: string; n: number }>();
+        for (const i of itens)
+          if (i.lider) {
+            const x = vit.get(i.lider.sqcand);
+            if (x) x.n++;
+            else
+              vit.set(i.lider.sqcand, {
+                nome: i.lider.nome_urna,
+                cor: corCand(i.lider.sqcand, i.lider.cor),
+                n: 1,
+              });
+          }
+        return {
+          chave: k,
+          itens,
+          eleitorado: eleit,
+          pct: eleit ? secW / eleit : 0,
+          validos: itens.reduce((s, i) => s + i.votos_validos, 0),
+          vitorias: [...vit.values()].sort((a, b) => b.n - a.n).slice(0, 3),
+        };
+      });
   }, [agrupar, filtrados, corCand]);
 
   const ativos =
@@ -354,7 +430,8 @@ export function TabelaRecortes({
 
   if (q.isLoading) return <Carregando linhas={6} />;
   if (q.error) return <ErroView erro={q.error} onRetry={() => q.refetch()} />;
-  if (!q.data || q.data.itens.length === 0) return <SemDados titulo={`Sem ${NIVEL_PLURAL[nivelFilhos].toLowerCase()} com dados`} />;
+  if (!q.data || q.data.itens.length === 0)
+    return <SemDados titulo={`Sem ${NIVEL_PLURAL[nivelFilhos].toLowerCase()} com dados`} />;
 
   const paginas = Math.max(1, Math.ceil(filtrados.length / porPagina));
   const pag = Math.min(pagina, paginas);
@@ -371,12 +448,25 @@ export function TabelaRecortes({
             <Table.Th key={c} style={{ whiteSpace: "nowrap" }}>
               <UnstyledButton
                 onClick={() => setOrdem((o) => ({ col: c, desc: o.col === c ? !o.desc : !!meta.num }))}
-                style={{ display: "flex", alignItems: "center", gap: 4, marginLeft: meta.num ? "auto" : undefined }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                  marginLeft: meta.num ? "auto" : undefined,
+                }}
               >
                 <Text size="xs" fw={700} tt="uppercase" c={ativo ? undefined : "dimmed"}>
                   {meta.rotulo}
                 </Text>
-                {ativo ? (ordem.desc ? <IconArrowDown size={12} /> : <IconArrowUp size={12} />) : <IconArrowsSort size={12} opacity={0.4} />}
+                {ativo ? (
+                  ordem.desc ? (
+                    <IconArrowDown size={12} />
+                  ) : (
+                    <IconArrowUp size={12} />
+                  )
+                ) : (
+                  <IconArrowsSort size={12} opacity={0.4} />
+                )}
               </UnstyledButton>
             </Table.Th>
           );
@@ -402,7 +492,13 @@ export function TabelaRecortes({
               size="xs"
               variant={ativos ? "light" : "default"}
               leftSection={<IconFilter size={14} />}
-              rightSection={ativos ? <Badge size="xs" circle>{ativos}</Badge> : undefined}
+              rightSection={
+                ativos ? (
+                  <Badge size="xs" circle>
+                    {ativos}
+                  </Badge>
+                ) : undefined
+              }
               onClick={toggleFiltros}
             >
               Filtros
@@ -423,14 +519,24 @@ export function TabelaRecortes({
             />
             {ativos > 0 && (
               <Tooltip label="Limpar filtros">
-                <ActionIcon variant="subtle" size="md" onClick={() => set(FILTROS_PADRAO)} aria-label="Limpar filtros">
+                <ActionIcon
+                  variant="subtle"
+                  size="md"
+                  onClick={() => set(FILTROS_PADRAO)}
+                  aria-label="Limpar filtros"
+                >
                   <IconFilterOff size={16} />
                 </ActionIcon>
               </Tooltip>
             )}
           </Group>
           <Collapse in={filtrosAbertos}>
-            <SimpleGrid cols={{ base: 1, xs: 2, md: 4 }} spacing="sm" p="xs" style={{ border: "1px solid var(--mantine-color-default-border)", borderRadius: 10 }}>
+            <SimpleGrid
+              cols={{ base: 1, xs: 2, md: 4 }}
+              spacing="sm"
+              p="xs"
+              style={{ border: "1px solid var(--mantine-color-default-border)", borderRadius: 10 }}
+            >
               {temUf && (
                 <MultiSelect
                   size="xs"
@@ -442,18 +548,30 @@ export function TabelaRecortes({
                   clearable
                 />
               )}
-              <MultiSelect size="xs" label="Região" data={REGIOES} value={filtros.regioes} onChange={(v) => set({ regioes: v })} clearable />
+              <MultiSelect
+                size="xs"
+                label="Região"
+                data={REGIOES}
+                value={filtros.regioes}
+                onChange={(v) => set({ regioes: v })}
+                clearable
+              />
               <Select
                 size="xs"
                 label="Vencedor"
-                data={(q.data.candidatos ?? []).map((c) => ({ value: c.sqcand, label: `${c.nome_urna} (${c.vitorias})` }))}
+                data={(q.data.candidatos ?? []).map((c) => ({
+                  value: c.sqcand,
+                  label: `${c.nome_urna} (${c.vitorias})`,
+                }))}
                 value={filtros.vencedor}
                 onChange={(v) => set({ vencedor: v })}
                 clearable
                 searchable
               />
               <Stack gap={2}>
-                <Text size="xs" fw={500}>Capital / interior</Text>
+                <Text size="xs" fw={500}>
+                  Capital / interior
+                </Text>
                 <SegmentedControl
                   size="xs"
                   value={filtros.capital}
@@ -469,13 +587,29 @@ export function TabelaRecortes({
                 <Text size="xs" fw={500}>
                   % apurado: {filtros.apurado[0]}–{filtros.apurado[1]}%
                 </Text>
-                <RangeSlider size="sm" min={0} max={100} step={5} value={filtros.apurado} onChange={(v) => set({ apurado: v })} label={(v) => `${v}%`} />
+                <RangeSlider
+                  size="sm"
+                  min={0}
+                  max={100}
+                  step={5}
+                  value={filtros.apurado}
+                  onChange={(v) => set({ apurado: v })}
+                  label={(v) => `${v}%`}
+                />
               </Stack>
               <Stack gap={2}>
                 <Text size="xs" fw={500}>
                   Margem: {filtros.margem[0]}–{filtros.margem[1]} p.p.
                 </Text>
-                <RangeSlider size="sm" min={0} max={100} step={1} value={filtros.margem} onChange={(v) => set({ margem: v })} label={(v) => `${v} p.p.`} />
+                <RangeSlider
+                  size="sm"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={filtros.margem}
+                  onChange={(v) => set({ margem: v })}
+                  label={(v) => `${v} p.p.`}
+                />
               </Stack>
               <NumberInput
                 size="xs"
@@ -497,7 +631,13 @@ export function TabelaRecortes({
       </Text>
 
       <ScrollArea.Autosize mah={alturaMax ?? 560} type="auto" className="scroll-fino">
-        <Table highlightOnHover verticalSpacing={6} horizontalSpacing="xs" stickyHeader miw={colunas.length * 95}>
+        <Table
+          highlightOnHover
+          verticalSpacing={6}
+          horizontalSpacing="xs"
+          stickyHeader
+          miw={colunas.length * 95}
+        >
           {cabecalho}
           <Table.Tbody>
             {grupos
@@ -515,7 +655,9 @@ export function TabelaRecortes({
                     />
                   );
                 })
-              : visiveis.map((it) => <Linha key={it.id} it={it} colunas={colunas} corCand={corCand} onClick={clicar(it)} />)}
+              : visiveis.map((it) => (
+                  <Linha key={it.id} it={it} colunas={colunas} corCand={corCand} onClick={clicar(it)} />
+                ))}
           </Table.Tbody>
         </Table>
       </ScrollArea.Autosize>
@@ -536,7 +678,14 @@ function GrupoLinhas({
   corCand,
   clicar,
 }: {
-  g: { chave: string; itens: ItemFilho[]; eleitorado: number; pct: number; validos: number; vitorias: { nome: string; cor: string; n: number }[] };
+  g: {
+    chave: string;
+    itens: ItemFilho[];
+    eleitorado: number;
+    pct: number;
+    validos: number;
+    vitorias: { nome: string; cor: string; n: number }[];
+  };
   aberto: boolean;
   onToggle: () => void;
   colunas: ColunaId[];
@@ -546,7 +695,10 @@ function GrupoLinhas({
   const [limite, setLimite] = useState(100);
   return (
     <>
-      <Table.Tr onClick={onToggle} style={{ cursor: "pointer", background: "var(--mantine-color-default-hover)" }}>
+      <Table.Tr
+        onClick={onToggle}
+        style={{ cursor: "pointer", background: "var(--mantine-color-default-hover)" }}
+      >
         <Table.Td colSpan={colunas.length}>
           <Group gap="sm" wrap="wrap">
             {aberto ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
@@ -554,7 +706,8 @@ function GrupoLinhas({
               {g.chave}
             </Text>
             <Text size="xs" c="dimmed">
-              {fmtInt(g.itens.length)} itens · {fmtCompact(g.eleitorado)} eleitores · {fmtPct(g.pct, 1)} apurado · {fmtCompact(g.validos)} válidos
+              {fmtInt(g.itens.length)} itens · {fmtCompact(g.eleitorado)} eleitores · {fmtPct(g.pct, 1)}{" "}
+              apurado · {fmtCompact(g.validos)} válidos
             </Text>
             <Group gap={4}>
               {g.vitorias.map((v) => (
@@ -567,7 +720,11 @@ function GrupoLinhas({
         </Table.Td>
       </Table.Tr>
       {aberto &&
-        g.itens.slice(0, limite).map((it) => <Linha key={it.id} it={it} colunas={colunas} corCand={corCand} onClick={clicar(it)} />)}
+        g.itens
+          .slice(0, limite)
+          .map((it) => (
+            <Linha key={it.id} it={it} colunas={colunas} corCand={corCand} onClick={clicar(it)} />
+          ))}
       {aberto && g.itens.length > limite && (
         <Table.Tr>
           <Table.Td colSpan={colunas.length}>

@@ -53,6 +53,10 @@ export async function exportarPng(el: HTMLElement | null, titulo: string) {
     });
     baixarUrl(dataUrl, `${slug(titulo) || "widget"}.png`);
   } catch (e) {
-    notifications.show({ color: "red", title: "Falha ao exportar PNG", message: String((e as Error).message ?? e) });
+    notifications.show({
+      color: "red",
+      title: "Falha ao exportar PNG",
+      message: String((e as Error).message ?? e),
+    });
   }
 }

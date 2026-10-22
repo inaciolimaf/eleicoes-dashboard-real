@@ -1,5 +1,27 @@
-import { Anchor, Badge, Box, Button, Code, CopyButton, Group, ScrollArea, SimpleGrid, Stack, Table, Tabs, Text, Tooltip } from "@mantine/core";
-import { IconCheck, IconCopy, IconDownload, IconShieldCheck, IconShieldQuestion, IconShieldX } from "@tabler/icons-react";
+import {
+  Anchor,
+  Badge,
+  Box,
+  Button,
+  Code,
+  CopyButton,
+  Group,
+  ScrollArea,
+  SimpleGrid,
+  Stack,
+  Table,
+  Tabs,
+  Text,
+  Tooltip,
+} from "@mantine/core";
+import {
+  IconCheck,
+  IconCopy,
+  IconDownload,
+  IconShieldCheck,
+  IconShieldQuestion,
+  IconShieldX,
+} from "@tabler/icons-react";
 import { Link } from "react-router-dom";
 import { useSecao } from "../../api/hooks";
 import { useFiltroEfetivo } from "../../lib/filtro-efetivo";
@@ -20,11 +42,18 @@ function Info({ rotulo, children }: { rotulo: string; children: React.ReactNode 
   );
 }
 
-export function DetalheSecao({ secaoId, compacto }: { secaoId: string | null | undefined; compacto?: boolean }) {
+export function DetalheSecao({
+  secaoId,
+  compacto,
+}: {
+  secaoId: string | null | undefined;
+  compacto?: boolean;
+}) {
   const f = useFiltroEfetivo();
   const q = useSecao(secaoId, f.turno);
   const corCand = useCorCandidato();
-  if (!secaoId) return <SemDados titulo="Escolha uma seção">Use a busca (Ctrl+K) ou configure o widget.</SemDados>;
+  if (!secaoId)
+    return <SemDados titulo="Escolha uma seção">Use a busca (Ctrl+K) ou configure o widget.</SemDados>;
   if (q.isLoading) return <Carregando linhas={4} />;
   if (q.error) return <ErroView erro={q.error} onRetry={() => q.refetch()} />;
   const s = q.data;
@@ -77,7 +106,11 @@ export function DetalheSecao({ secaoId, compacto }: { secaoId: string | null | u
         <Info rotulo="Comparecimento">
           <span className="num">{fmtInt(s.comparecimento)}</span>{" "}
           <Text span c="dimmed" size="xs">
-            ({s.comparecimento != null && s.eleitores_aptos ? fmtPct((s.comparecimento / s.eleitores_aptos) * 100, 1) : "—"})
+            (
+            {s.comparecimento != null && s.eleitores_aptos
+              ? fmtPct((s.comparecimento / s.eleitores_aptos) * 100, 1)
+              : "—"}
+            )
           </Text>
         </Info>
         <Info rotulo="BU emitido (urna)">
@@ -92,7 +125,9 @@ export function DetalheSecao({ secaoId, compacto }: { secaoId: string | null | u
           <Text size="xs" c="dimmed" fw={600} tt="uppercase">
             Hash
           </Text>
-          <Code style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.hash ?? "—"}</Code>
+          <Code style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {s.hash ?? "—"}
+          </Code>
           {s.hash && (
             <CopyButton value={s.hash}>
               {({ copied, copy }) => (
@@ -105,7 +140,15 @@ export function DetalheSecao({ secaoId, compacto }: { secaoId: string | null | u
             </CopyButton>
           )}
           {s.url_bu && (
-            <Button size="compact-xs" variant="light" component="a" href={s.url_bu} target="_blank" rel="noopener" leftSection={<IconDownload size={12} />}>
+            <Button
+              size="compact-xs"
+              variant="light"
+              component="a"
+              href={s.url_bu}
+              target="_blank"
+              rel="noopener"
+              leftSection={<IconDownload size={12} />}
+            >
               BU bruto (TSE)
             </Button>
           )}
@@ -163,7 +206,8 @@ export function DetalheSecao({ secaoId, compacto }: { secaoId: string | null | u
                           <Table.Td>
                             <Stack gap={2}>
                               <Text size="sm" fw={600}>
-                                {v.nome_urna ?? (v.tipo === "legenda" ? `Legenda ${v.partido_sigla ?? ""}` : v.tipo)}
+                                {v.nome_urna ??
+                                  (v.tipo === "legenda" ? `Legenda ${v.partido_sigla ?? ""}` : v.tipo)}
                                 {v.partido_sigla && v.nome_urna ? (
                                   <Text span size="xs" c="dimmed">
                                     {" "}
@@ -172,7 +216,10 @@ export function DetalheSecao({ secaoId, compacto }: { secaoId: string | null | u
                                 ) : null}
                               </Text>
                               <Box className="barra-trilho" style={{ height: 4 }}>
-                                <Box className="barra-preenchida" style={{ width: `${(v.votos / max) * 100}%`, background: cor }} />
+                                <Box
+                                  className="barra-preenchida"
+                                  style={{ width: `${(v.votos / max) * 100}%`, background: cor }}
+                                />
                               </Box>
                             </Stack>
                           </Table.Td>

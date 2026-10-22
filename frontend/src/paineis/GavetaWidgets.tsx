@@ -1,4 +1,18 @@
-import { Badge, Box, Button, Card, Drawer, Group, ScrollArea, SimpleGrid, Stack, Text, TextInput, ThemeIcon, UnstyledButton } from "@mantine/core";
+import {
+  Badge,
+  Box,
+  Button,
+  Card,
+  Drawer,
+  Group,
+  ScrollArea,
+  SimpleGrid,
+  Stack,
+  Text,
+  TextInput,
+  ThemeIcon,
+  UnstyledButton,
+} from "@mantine/core";
 import { IconPlus, IconSearch } from "@tabler/icons-react";
 import { useMemo, useState } from "react";
 import { semAcento } from "../lib/format";
@@ -7,7 +21,15 @@ import type { TipoWidget } from "./schema";
 import { WidgetFrame } from "./WidgetFrame";
 
 /** Gaveta "Adicionar widget": catálogo com busca e preview ao vivo. */
-export function GavetaWidgets({ aberta, onClose, onAdicionar }: { aberta: boolean; onClose: () => void; onAdicionar: (t: TipoWidget) => void }) {
+export function GavetaWidgets({
+  aberta,
+  onClose,
+  onAdicionar,
+}: {
+  aberta: boolean;
+  onClose: () => void;
+  onAdicionar: (t: TipoWidget) => void;
+}) {
   const [busca, setBusca] = useState("");
   const [sel, setSel] = useState<TipoWidget>("placar");
   const lista = useMemo(() => {
@@ -16,9 +38,21 @@ export function GavetaWidgets({ aberta, onClose, onAdicionar }: { aberta: boolea
   }, [busca]);
   const def = CATALOGO.find((d) => d.tipo === sel) ?? CATALOGO[0];
   return (
-    <Drawer opened={aberta} onClose={onClose} position="right" size="xl" title={<Text fw={700}>Adicionar widget</Text>}>
+    <Drawer
+      opened={aberta}
+      onClose={onClose}
+      position="right"
+      size="xl"
+      title={<Text fw={700}>Adicionar widget</Text>}
+    >
       <Stack gap="sm">
-        <TextInput placeholder="Buscar no catálogo…" leftSection={<IconSearch size={14} />} value={busca} onChange={(e) => setBusca(e.currentTarget.value)} data-autofocus />
+        <TextInput
+          placeholder="Buscar no catálogo…"
+          leftSection={<IconSearch size={14} />}
+          value={busca}
+          onChange={(e) => setBusca(e.currentTarget.value)}
+          data-autofocus
+        />
         <Card withBorder p="xs" radius="lg">
           <Group justify="space-between" mb={6}>
             <Group gap={6}>
@@ -37,7 +71,13 @@ export function GavetaWidgets({ aberta, onClose, onAdicionar }: { aberta: boolea
             {aberta && (
               <WidgetFrame
                 key={def.tipo}
-                widget={{ id: `preview-${def.tipo}`, tipo: def.tipo, pos: { x: 0, y: 0, ...def.tamanho }, herda: true, config: { ...def.padrao } }}
+                widget={{
+                  id: `preview-${def.tipo}`,
+                  tipo: def.tipo,
+                  pos: { x: 0, y: 0, ...def.tamanho },
+                  herda: true,
+                  config: { ...def.padrao },
+                }}
                 editando={false}
               />
             )}
@@ -46,12 +86,19 @@ export function GavetaWidgets({ aberta, onClose, onAdicionar }: { aberta: boolea
         <ScrollArea.Autosize mah="calc(100vh - 470px)" className="scroll-fino">
           <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
             {lista.map((d, i) => (
-              <UnstyledButton key={d.tipo} onClick={() => setSel(d.tipo)} onDoubleClick={() => onAdicionar(d.tipo)}>
+              <UnstyledButton
+                key={d.tipo}
+                onClick={() => setSel(d.tipo)}
+                onDoubleClick={() => onAdicionar(d.tipo)}
+              >
                 <Card
                   withBorder
                   p="xs"
                   radius="md"
-                  style={{ borderColor: sel === d.tipo ? "var(--mantine-color-eleicao-4)" : undefined, height: "100%" }}
+                  style={{
+                    borderColor: sel === d.tipo ? "var(--mantine-color-eleicao-4)" : undefined,
+                    height: "100%",
+                  }}
                 >
                   <Group gap="sm" wrap="nowrap" align="flex-start">
                     <ThemeIcon variant={sel === d.tipo ? "filled" : "light"} size="lg" radius="md">

@@ -2,8 +2,18 @@ import type { Situacao, StatusApuracao } from "../api/types";
 
 /** Paleta categórica neutra de 12 cores (sem associação ideológica), boa separação em dark/light. */
 export const PALETA = [
-  "#3D7BFF", "#F5A524", "#14B8A6", "#E5484D", "#8B5CF6", "#84CC16",
-  "#EC4899", "#06B6D4", "#F97316", "#A3A3A3", "#6366F1", "#EAB308",
+  "#3D7BFF",
+  "#F5A524",
+  "#14B8A6",
+  "#E5484D",
+  "#8B5CF6",
+  "#84CC16",
+  "#EC4899",
+  "#06B6D4",
+  "#F97316",
+  "#A3A3A3",
+  "#6366F1",
+  "#EAB308",
 ];
 
 export const corPorIndice = (i: number) => PALETA[((i % PALETA.length) + PALETA.length) % PALETA.length];
@@ -29,8 +39,18 @@ export interface EstiloSituacao {
 }
 
 export const SITUACAO: Record<Situacao, EstiloSituacao> = {
-  ELEITO: { rotulo: "Eleito", cor: "green", variante: "filled", descricao: "Situação publicada pelo TSE: eleito." },
-  SEGUNDO_TURNO: { rotulo: "2º turno", cor: "yellow", variante: "filled", descricao: "Situação publicada pelo TSE: vai ao 2º turno." },
+  ELEITO: {
+    rotulo: "Eleito",
+    cor: "green",
+    variante: "filled",
+    descricao: "Situação publicada pelo TSE: eleito.",
+  },
+  SEGUNDO_TURNO: {
+    rotulo: "2º turno",
+    cor: "yellow",
+    variante: "filled",
+    descricao: "Situação publicada pelo TSE: vai ao 2º turno.",
+  },
   MATEMATICAMENTE_ELEITO: {
     rotulo: "Matematicamente eleito",
     cor: "green",
@@ -43,20 +63,39 @@ export const SITUACAO: Record<Situacao, EstiloSituacao> = {
     variante: "filled",
     descricao: "Calculado pelo painel: lidera a apuração em andamento. Não é declaração de eleito.",
   },
-  SUPLENTE: { rotulo: "Suplente", cor: "gray", variante: "filled", descricao: "Situação publicada pelo TSE: suplente." },
-  NAO_ELEITO: { rotulo: "Não eleito", cor: "gray", variante: "light", descricao: "Situação publicada pelo TSE após a totalização." },
+  SUPLENTE: {
+    rotulo: "Suplente",
+    cor: "gray",
+    variante: "filled",
+    descricao: "Situação publicada pelo TSE: suplente.",
+  },
+  NAO_ELEITO: {
+    rotulo: "Não eleito",
+    cor: "gray",
+    variante: "light",
+    descricao: "Situação publicada pelo TSE após a totalização.",
+  },
   SUB_JUDICE: {
     rotulo: "Sub judice",
     cor: "red",
     variante: "outline",
-    descricao: "Destinação dos votos diferente de \"Válido\" (sub judice ou anulado).",
+    descricao: 'Destinação dos votos diferente de "Válido" (sub judice ou anulado).',
   },
-  EM_APURACAO: { rotulo: "Em apuração", cor: "gray", variante: "outline", descricao: "Apuração em andamento." },
+  EM_APURACAO: {
+    rotulo: "Em apuração",
+    cor: "gray",
+    variante: "outline",
+    descricao: "Apuração em andamento.",
+  },
 };
 
 export function hexToRgb(hex: string): [number, number, number] {
   let h = hex.replace("#", "").trim();
-  if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+  if (h.length === 3)
+    h = h
+      .split("")
+      .map((c) => c + c)
+      .join("");
   const n = parseInt(h.slice(0, 6), 16);
   if (Number.isNaN(n)) return [128, 128, 128];
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
@@ -80,13 +119,26 @@ function interp(stops: RGB[], t: number): RGB {
 
 /** Sequencial (azul profundo → ciano → amarelo claro), legível em fundo escuro e claro. */
 const SEQ: RGB[] = [
-  [30, 42, 90], [37, 87, 168], [24, 144, 191], [52, 196, 170], [168, 222, 110], [250, 235, 120],
+  [30, 42, 90],
+  [37, 87, 168],
+  [24, 144, 191],
+  [52, 196, 170],
+  [168, 222, 110],
+  [250, 235, 120],
 ];
 export const corSequencial = (t: number): RGB => interp(SEQ, t);
 
 /** Divergente: A (azul) ← neutro → B (laranja). t em [-1, 1]. */
-const DIV_NEG: RGB[] = [[230, 232, 238], [120, 160, 240], [37, 87, 220]];
-const DIV_POS: RGB[] = [[230, 232, 238], [245, 170, 100], [215, 90, 20]];
+const DIV_NEG: RGB[] = [
+  [230, 232, 238],
+  [120, 160, 240],
+  [37, 87, 220],
+];
+const DIV_POS: RGB[] = [
+  [230, 232, 238],
+  [245, 170, 100],
+  [215, 90, 20],
+];
 export function corDivergente(t: number, corA?: string, corB?: string): RGB {
   const v = Math.max(-1, Math.min(1, t));
   if (corA && corB) {

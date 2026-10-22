@@ -1,5 +1,12 @@
 import { ActionIcon, Anchor, Badge, Breadcrumbs, Group, ScrollArea, Text, Tooltip } from "@mantine/core";
-import { IconChevronRight, IconClockHour4, IconSearch, IconStar, IconStarFilled, IconX } from "@tabler/icons-react";
+import {
+  IconChevronRight,
+  IconClockHour4,
+  IconSearch,
+  IconStar,
+  IconStarFilled,
+  IconX,
+} from "@tabler/icons-react";
 import { useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useResultados, useStatus } from "../../api/hooks";
@@ -31,19 +38,31 @@ export function FilterBar() {
   const navigate = useNavigate();
   const loc = useLocation();
   const semBr = useCargoSemResultadoBr(f.cargo, f.nivel);
-  const q = useResultados({ turno: f.turno, cargo: f.cargo, nivel: f.nivel, id: f.id, t }, !semBr && f.nivel !== "br");
+  const q = useResultados(
+    { turno: f.turno, cargo: f.cargo, nivel: f.nivel, id: f.id, t },
+    !semBr && f.nivel !== "br",
+  );
   const { favoritos, eFavorito, alternar } = useFavoritos();
   const status = useStatus();
-  const crumbs = q.data?.recorte.breadcrumb?.length ? q.data.recorte.breadcrumb : breadcrumbPadrao(f.nivel, f.id, f.nome);
+  const crumbs = q.data?.recorte.breadcrumb?.length
+    ? q.data.recorte.breadcrumb
+    : breadcrumbPadrao(f.nivel, f.id, f.nome);
   const atual = crumbs[crumbs.length - 1];
 
   // guarda o nome do recorte para os chips dos widgets
   useEffect(() => {
-    if (q.data?.recorte?.nome && q.data.recorte.id === f.id && q.data.recorte.nome !== f.nome) useFiltro.getState().setFiltro({ nome: q.data.recorte.nome });
+    if (q.data?.recorte?.nome && q.data.recorte.id === f.id && q.data.recorte.nome !== f.nome)
+      useFiltro.getState().setFiltro({ nome: q.data.recorte.nome });
   }, [q.data, f.id, f.nome]);
 
   const ir = (c: BreadcrumbItem) => {
-    if (c.nivel === "local" || c.nivel === "secao" || loc.pathname.startsWith("/explorar") || loc.pathname.startsWith("/locais") || loc.pathname.startsWith("/secoes")) {
+    if (
+      c.nivel === "local" ||
+      c.nivel === "secao" ||
+      loc.pathname.startsWith("/explorar") ||
+      loc.pathname.startsWith("/locais") ||
+      loc.pathname.startsWith("/secoes")
+    ) {
       if (c.nivel !== "local" && c.nivel !== "secao") f.setRecorte(c.nivel, c.id, c.nome);
       navigate(linkRecorte(c.nivel, c.id));
     } else f.setRecorte(c.nivel, c.id, c.nome);
@@ -52,10 +71,23 @@ export function FilterBar() {
   const fav = eFavorito("recorte", `${f.nivel}:${f.id}`);
 
   return (
-    <Group gap="xs" wrap="nowrap" px={{ base: "xs", sm: "md" }} py={6} style={{ borderBottom: "1px solid var(--mantine-color-default-border)", background: "var(--mantine-color-body)" }}>
+    <Group
+      gap="xs"
+      wrap="nowrap"
+      px={{ base: "xs", sm: "md" }}
+      py={6}
+      style={{
+        borderBottom: "1px solid var(--mantine-color-default-border)",
+        background: "var(--mantine-color-body)",
+      }}
+    >
       <ScrollArea type="never" style={{ flex: 1, minWidth: 0 }}>
         <Group gap="xs" wrap="nowrap">
-          <Breadcrumbs separator={<IconChevronRight size={12} />} separatorMargin={4} styles={{ root: { flexWrap: "nowrap" } }}>
+          <Breadcrumbs
+            separator={<IconChevronRight size={12} />}
+            separatorMargin={4}
+            styles={{ root: { flexWrap: "nowrap" } }}
+          >
             {crumbs.map((c, i) => (
               <Anchor
                 key={`${c.nivel}:${c.id}`}
@@ -76,7 +108,9 @@ export function FilterBar() {
               variant="subtle"
               size="sm"
               color="yellow"
-              onClick={() => alternar({ tipo: "recorte", ref: `${f.nivel}:${f.id}`, rotulo: atual?.nome ?? f.id })}
+              onClick={() =>
+                alternar({ tipo: "recorte", ref: `${f.nivel}:${f.id}`, rotulo: atual?.nome ?? f.id })
+              }
               aria-label="Favoritar recorte"
             >
               {fav ? <IconStarFilled size={14} /> : <IconStar size={14} />}
@@ -99,7 +133,13 @@ export function FilterBar() {
               size="sm"
               leftSection={<IconClockHour4 size={12} />}
               rightSection={
-                <ActionIcon size={14} variant="transparent" color="yellow" onClick={aoVivo} aria-label="Voltar ao vivo">
+                <ActionIcon
+                  size={14}
+                  variant="transparent"
+                  color="yellow"
+                  onClick={aoVivo}
+                  aria-label="Voltar ao vivo"
+                >
                   <IconX size={10} />
                 </ActionIcon>
               }
