@@ -1,15 +1,17 @@
 """Worker entrypoint: consumes the collector's queue and processes the files."""
 
 import asyncio
-import logging
+
+import structlog
 
 from app.core.config import get_settings
 from app.core.db import get_sessionmaker
+from app.core.log import configure_logging
 from app.core.redis import get_redis
 from app.infra import queue
 from app.worker.jobs import Processor
 
-log = logging.getLogger("worker")
+log = structlog.get_logger("worker")
 
 
 async def consumer(name: str, proc: Processor) -> None:
@@ -17,8 +19,8 @@ async def consumer(name: str, proc: Processor) -> None:
     while True:
         try:
             item = await queue.dequeue(redis, timeout=5)
-        except Exception:
-            log.exception("[%s] falha ao ler a fila", name)
+        except Exception as error:
+            log.exception("worker.queue_read_failed", consumer=name, error=str(error)[:300])
             await asyncio.sleep(1)
             continue
         if not item:
@@ -27,19 +29,23 @@ async def consumer(name: str, proc: Processor) -> None:
         try:
             await proc.process(type_, body, context)
             await redis.hincrby("worker:metrics", f"ok:{type_}", 1)
-        except Exception:
+        except Exception as error:
             log.exception(
-                "[%s] falha ao processar %s %s", name, type_, context.get("file") or context.get("url")
+                "worker.job_failed",
+                consumer=name,
+                type=type_,
+                source=context.get("file") or context.get("url"),
+                error=str(error)[:300],
             )
             await redis.hincrby("worker:metrics", f"erro:{type_}", 1)
 
 
 async def main() -> None:
     settings = get_settings()
-    logging.basicConfig(level=settings.log_level, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+    configure_logging(settings)
     proc = Processor(get_sessionmaker(), get_redis())
     n = settings.worker_concurrency
-    log.info("worker iniciado com %d consumidores", n)
+    log.info("worker.started", consumers=n)
     await asyncio.gather(*(consumer(f"c{i}", proc) for i in range(n)))
 
 
