@@ -4,60 +4,48 @@ import { useMemo } from "react";
 import type { EChartsOption } from "echarts";
 import { echarts } from "../echarts";
 import { usePrefs } from "../../../lib/prefs-store";
+import { CHART_THEMES, type ChartTheme } from "../../../lib/palettes/charts";
 
-export interface ChartColors {
-  texto: string;
-  textoFraco: string;
-  linha: string;
-  fundoTooltip: string;
-  borda: string;
-}
+export type ChartColors = ChartTheme;
 
 export function useChartColors(): ChartColors {
-  const esquema = useComputedColorScheme("dark");
-  return esquema === "dark"
-    ? { texto: "#D5DCEB", textoFraco: "#8592AD", linha: "#1F2A44", fundoTooltip: "#111A2E", borda: "#26324D" }
-    : {
-        texto: "#1f2937",
-        textoFraco: "#6b7280",
-        linha: "#e5e7eb",
-        fundoTooltip: "#ffffff",
-        borda: "#d1d5db",
-      };
+  const scheme = useComputedColorScheme("dark");
+  return CHART_THEMES[scheme === "dark" ? "dark" : "light"];
 }
 
-interface Props {
+/** Applies the app's theme (font, colors, animation) under the chart's own options. */
+export function themeOption(option: EChartsOption, colors: ChartColors, animate: boolean): EChartsOption {
+  return {
+    backgroundColor: "transparent",
+    animation: animate,
+    animationDuration: 600,
+    animationDurationUpdate: 500,
+    textStyle: { fontFamily: "Inter, system-ui, sans-serif", color: colors.text },
+    tooltip: {
+      backgroundColor: colors.tooltipBackground,
+      borderColor: colors.border,
+      textStyle: { color: colors.text, fontSize: 12 },
+      ...(option.tooltip as object),
+    },
+    ...option,
+  } as EChartsOption;
+}
+
+interface EChartProps {
   option: EChartsOption;
   height?: number | string;
-  onEvents?: Record<string, (p: unknown) => void>;
+  onEvents?: Record<string, (params: unknown) => void>;
 }
 
-/** Wrapper do ECharts com tema claro/escuro e fontes do app. */
-export function EChart({ option, height = "100%", onEvents }: Props) {
-  const c = useChartColors();
-  const animacoes = usePrefs((s) => s.animacoes);
-  const opt = useMemo<EChartsOption>(
-    () =>
-      ({
-        backgroundColor: "transparent",
-        animation: animacoes,
-        animationDuration: 600,
-        animationDurationUpdate: 500,
-        textStyle: { fontFamily: "Inter, system-ui, sans-serif", color: c.texto },
-        tooltip: {
-          backgroundColor: c.fundoTooltip,
-          borderColor: c.borda,
-          textStyle: { color: c.texto, fontSize: 12 },
-          ...(option.tooltip as object),
-        },
-        ...option,
-      }) as EChartsOption,
-    [option, c, animacoes],
-  );
+/** Wrapper around ECharts that follows the app's light/dark theme and fonts. */
+export function EChart({ option, height = "100%", onEvents }: EChartProps) {
+  const colors = useChartColors();
+  const animate = usePrefs((s) => s.animacoes);
+  const themed = useMemo(() => themeOption(option, colors, animate), [option, colors, animate]);
   return (
     <ReactEChartsCore
       echarts={echarts}
-      option={opt}
+      option={themed}
       notMerge
       lazyUpdate
       style={{ height, width: "100%" }}

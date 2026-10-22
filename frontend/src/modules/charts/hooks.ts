@@ -3,6 +3,7 @@ import { api } from "../../api/client";
 import type { Level, ProgressDto, SeriesDto } from "../../api/models";
 import { qk, timeQueryOptions, useWsOpen } from "../../api/query-keys";
 
+/** Time series of an area: the points of the candidates' shares over time, and the events. */
 export function useSeries(
   p: { turno: number; cargo: number; nivel: Level; id: string; t: string | null },
   enabled = true,
@@ -28,11 +29,12 @@ export function useSeries(
   });
 }
 
-export function useProgress(turno: number, t: string | null) {
+/** Tally progress of every state for a round, at a time (`null` = now). */
+export function useProgress(round: number, at: string | null) {
   const ws = useWsOpen();
   return useQuery({
-    queryKey: qk.progresso(turno, t),
-    queryFn: ({ signal }) => api<ProgressDto>("/progress", { params: { round: turno, at: t }, signal }),
-    ...timeQueryOptions(t, ws),
+    queryKey: qk.progresso(round, at),
+    queryFn: ({ signal }) => api<ProgressDto>("/progress", { params: { round, at }, signal }),
+    ...timeQueryOptions(at, ws),
   });
 }

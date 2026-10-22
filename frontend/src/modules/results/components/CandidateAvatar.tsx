@@ -2,29 +2,30 @@ import { Avatar } from "@mantine/core";
 import { initials } from "../../../lib/formatting";
 import { rgba } from "../../../lib/palettes";
 
+/** Round photo of a candidate, or their initials over a tint of their color. */
 export function CandidateAvatar({
-  fotoUrl,
-  nome,
-  cor,
+  photoUrl,
+  name,
+  color,
   size = 40,
 }: {
-  fotoUrl?: string | null;
-  nome: string;
-  cor: string;
+  photoUrl?: string | null;
+  name: string;
+  color: string;
   size?: number;
 }) {
   return (
     <Avatar
-      src={fotoUrl || null}
-      alt={nome}
+      src={photoUrl || null}
+      alt={name}
       size={size}
       radius="xl"
       styles={{
-        root: { border: `2px solid ${cor}`, boxShadow: `0 0 0 2px ${rgba(cor, 0.18)}`, flexShrink: 0 },
-        placeholder: { background: rgba(cor, 0.2), color: cor, fontWeight: 700, fontSize: size * 0.36 },
+        root: { border: `2px solid ${color}`, boxShadow: `0 0 0 2px ${rgba(color, 0.18)}`, flexShrink: 0 },
+        placeholder: { background: rgba(color, 0.2), color, fontWeight: 700, fontSize: size * 0.36 },
       }}
     >
-      {initials(nome)}
+      {initials(name)}
     </Avatar>
   );
 }

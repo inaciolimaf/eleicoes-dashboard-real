@@ -6,120 +6,158 @@ import { useCandidateColor } from "../../../lib/useColor";
 import { STATE_BY_CODE } from "../../../lib/geo-areas";
 import { Loading, ErrorView, NoData } from "../../../components/States";
 import { Num } from "../../../components/Num";
+import { rgba } from "../../../lib/palettes";
+import { ON_SOLID_TEXT } from "../../../lib/palettes/results";
+import type { CandidateDetailDto, CandidateStatus, ViceDto } from "../../../api/models";
 import { CandidateAvatar } from "./CandidateAvatar";
 import { StatusBadge } from "./StatusBadge";
-import { rgba } from "../../../lib/palettes";
-import type { CandidateStatus } from "../../../api/models";
 
+/** "Vice" for the vice-president; other kinds (substitutes) keep their capitalized name. */
+function viceLabel(vice: ViceDto): string {
+  if (vice.kind === "vice") return `Vice: ${vice.name}`;
+  const kind = vice.kind ?? "";
+  return `${kind.charAt(0).toUpperCase()}${kind.slice(1)}: ${vice.name}`;
+}
+
+/** The ballot number and the name, as a link to the candidate's page when `link` is set. */
+function NameLine({
+  candidate,
+  color,
+  large,
+  link,
+}: {
+  candidate: CandidateDetailDto;
+  color: string;
+  large: boolean;
+  link: boolean;
+}) {
+  const size = large ? "xl" : "md";
+  return (
+    <Group gap={6} wrap="wrap">
+      <Badge
+        size={large ? "lg" : "md"}
+        color={color}
+        variant="filled"
+        className="num"
+        styles={{ root: { color: ON_SOLID_TEXT } }}
+      >
+        {candidate.ballot_number}
+      </Badge>
+      {link ? (
+        <Text
+          fw={800}
+          size={size}
+          lineClamp={1}
+          component={Link}
+          to={`/candidatos/${candidate.tse_candidate_id}`}
+          c="inherit"
+        >
+          {candidate.ballot_name}
+        </Text>
+      ) : (
+        <Text fw={800} size={size} lineClamp={1}>
+          {candidate.ballot_name}
+        </Text>
+      )}
+    </Group>
+  );
+}
+
+/** Valid share, votes and position of the candidate in the area, and the situation badge. */
+function ResultStats({ candidate, large }: { candidate: CandidateDetailDto; large: boolean }) {
+  const result = candidate.result;
+  if (!result) return null;
+  const whereLabel = candidate.state_code ? `em ${candidate.state_code.toUpperCase()}` : "no Brasil";
+  return (
+    <Group gap="lg" mt={4} align="flex-end">
+      <Stack gap={0}>
+        <Text size="xs" c="dimmed" tt="uppercase" fw={600}>
+          % válidos
+        </Text>
+        <Num
+          valor={result.valid_pct}
+          tipo="pct"
+          style={{ fontSize: large ? "2rem" : "1.4rem", fontWeight: 800 }}
+        />
+      </Stack>
+      <Stack gap={0}>
+        <Text size="xs" c="dimmed" tt="uppercase" fw={600}>
+          Votos
+        </Text>
+        <Num valor={result.votes} style={{ fontSize: large ? "1.3rem" : "1rem", fontWeight: 600 }} />
+      </Stack>
+      <Stack gap={0}>
+        <Text size="xs" c="dimmed" tt="uppercase" fw={600}>
+          Posição
+        </Text>
+        <Text fw={700} className="num">
+          {result.position}º
+        </Text>
+      </Stack>
+      <StatusBadge status={result.status as CandidateStatus} where={whereLabel} />
+    </Group>
+  );
+}
+
+/** Candidate card: photo, name, party, vice and the result in the filter's area. */
 export function CandidateCard({
-  sqcand,
-  grande,
+  tseCandidateId,
+  large,
   link = true,
 }: {
-  sqcand: string | null | undefined;
-  grande?: boolean;
+  tseCandidateId: string | null | undefined;
+  large?: boolean;
   link?: boolean;
 }) {
-  const f = useEffectiveFilter();
-  const q = useCandidate(sqcand, f.turno, f.t);
-  const corCand = useCandidateColor();
-  if (!sqcand)
+  const filter = useEffectiveFilter();
+  const query = useCandidate(tseCandidateId, filter.turno, filter.t);
+  const candidateColor = useCandidateColor();
+  if (!tseCandidateId)
     return <NoData titulo="Escolha um candidato">Configure o widget para escolher o candidato.</NoData>;
-  if (q.isLoading) return <Loading linhas={2} />;
-  if (q.error) return <ErrorView erro={q.error} onRetry={() => q.refetch()} />;
-  const c = q.data;
-  if (!c) return <NoData />;
-  const cor = corCand(c.tse_candidate_id, c.color, c.ballot_number);
-  const onde = c.state_code ? `em ${c.state_code.toUpperCase()}` : "no Brasil";
+  if (query.isLoading) return <Loading linhas={2} />;
+  if (query.error) return <ErrorView erro={query.error} onRetry={() => query.refetch()} />;
+  const candidate = query.data;
+  if (!candidate) return <NoData />;
+  const color = candidateColor(candidate.tse_candidate_id, candidate.color, candidate.ballot_number);
+  const isLarge = !!large;
   return (
     <Paper
-      p={grande ? "lg" : "sm"}
+      p={isLarge ? "lg" : "sm"}
       radius="lg"
       style={{
-        background: `linear-gradient(135deg, ${rgba(cor, 0.22)}, transparent 65%)`,
-        border: `1px solid ${rgba(cor, 0.35)}`,
+        background: `linear-gradient(135deg, ${rgba(color, 0.22)}, transparent 65%)`,
+        border: `1px solid ${rgba(color, 0.35)}`,
       }}
     >
       <Group gap="md" wrap="nowrap" align="flex-start">
-        <CandidateAvatar fotoUrl={c.photo_url} nome={c.ballot_name} cor={cor} size={grande ? 96 : 64} />
+        <CandidateAvatar
+          photoUrl={candidate.photo_url}
+          name={candidate.ballot_name}
+          color={color}
+          size={isLarge ? 96 : 64}
+        />
         <Stack gap={4} style={{ flex: 1, minWidth: 0 }}>
-          <Group gap={6} wrap="wrap">
-            <Badge
-              size={grande ? "lg" : "md"}
-              color={cor}
-              variant="filled"
-              className="num"
-              styles={{ root: { color: "#fff" } }}
-            >
-              {c.ballot_number}
-            </Badge>
-            {link ? (
-              <Text
-                fw={800}
-                size={grande ? "xl" : "md"}
-                lineClamp={1}
-                component={Link}
-                to={`/candidatos/${c.tse_candidate_id}`}
-                c="inherit"
-              >
-                {c.ballot_name}
-              </Text>
-            ) : (
-              <Text fw={800} size={grande ? "xl" : "md"} lineClamp={1}>
-                {c.ballot_name}
-              </Text>
-            )}
-          </Group>
+          <NameLine candidate={candidate} color={color} large={isLarge} link={link} />
           <Text size="xs" c="dimmed" lineClamp={1}>
-            {c.name}
+            {candidate.name}
           </Text>
           <Text size="sm">
-            {c.party_abbreviation}
-            {c.alliance && c.alliance !== c.party_abbreviation ? ` · ${c.alliance}` : ""} ·{" "}
-            {c.office_code ? "" : ""}
-            {c.state_code ? ` · ${STATE_BY_CODE[c.state_code]?.nome ?? c.state_code.toUpperCase()}` : ""}
+            {candidate.party_abbreviation}
+            {candidate.alliance && candidate.alliance !== candidate.party_abbreviation
+              ? ` · ${candidate.alliance}`
+              : ""}{" "}
+            ·{" "}
+            {candidate.state_code
+              ? ` · ${STATE_BY_CODE[candidate.state_code]?.nome ?? candidate.state_code.toUpperCase()}`
+              : ""}
           </Text>
-          {c.vice_and_substitutes?.length > 0 && (
+          {candidate.vice_and_substitutes?.length > 0 && (
             <Text size="xs" c="dimmed">
-              {c.vice_and_substitutes
-                .map(
-                  (v) =>
-                    `${v.kind === "vice" ? "Vice" : (v.kind ?? "").charAt(0).toUpperCase() + (v.kind ?? "").slice(1)}: ${v.name}`,
-                )
-                .join(" · ")}
+              {candidate.vice_and_substitutes.map(viceLabel).join(" · ")}
             </Text>
           )}
-          {c.result ? (
-            <Group gap="lg" mt={4} align="flex-end">
-              <Stack gap={0}>
-                <Text size="xs" c="dimmed" tt="uppercase" fw={600}>
-                  % válidos
-                </Text>
-                <Num
-                  valor={c.result.valid_pct}
-                  tipo="pct"
-                  style={{ fontSize: grande ? "2rem" : "1.4rem", fontWeight: 800 }}
-                />
-              </Stack>
-              <Stack gap={0}>
-                <Text size="xs" c="dimmed" tt="uppercase" fw={600}>
-                  Votos
-                </Text>
-                <Num
-                  valor={c.result.votes}
-                  style={{ fontSize: grande ? "1.3rem" : "1rem", fontWeight: 600 }}
-                />
-              </Stack>
-              <Stack gap={0}>
-                <Text size="xs" c="dimmed" tt="uppercase" fw={600}>
-                  Posição
-                </Text>
-                <Text fw={700} className="num">
-                  {c.result.position}º
-                </Text>
-              </Stack>
-              <StatusBadge situacao={c.result.status as CandidateStatus} ondeGeral={onde} />
-            </Group>
+          {candidate.result ? (
+            <ResultStats candidate={candidate} large={isLarge} />
           ) : (
             <Text size="sm" c="dimmed">
               Sem votos apurados ainda.
