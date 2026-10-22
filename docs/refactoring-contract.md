@@ -60,6 +60,11 @@ Tests move to `tests/unit/`, `tests/integration/` (marker `integration`), `tests
 
 ## Parallel phase (one agent per slice, each in its own git worktree)
 
+- **First step, before anything else:** your worktree may start on an older commit. From your
+  worktree root run `git merge --ff-only claude/electoral-results-realtime-f6ykax` (a fast-forward,
+  nothing is rewritten) and check that `docs/refactoring-contract.md` and `backend/app/modules/`
+  exist. If the fast-forward fails, stop and report — do not rebase, reset or merge by hand.
+
 - Your worktree has no `.venv` nor `node_modules`: run `cd backend && uv sync`; for the frontend
   `ln -s "/home/inacio/Área de trabalho/code/eleicoes-dashboard-real/frontend/node_modules" frontend/node_modules`.
 - **Run the backend tests with your own compose project name**, otherwise agents drop each other's
