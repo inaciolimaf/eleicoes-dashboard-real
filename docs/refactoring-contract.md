@@ -57,3 +57,24 @@ Each module: `__init__.py` = public interface with `__all__`; `models.py`; `rout
 `backend/tse_fake/` stays a separate package (the fake TSE deployable) and may import `app.infra.tse`.
 
 Tests move to `tests/unit/`, `tests/integration/` (marker `integration`), `tests/golden/`.
+
+## Parallel phase (one agent per slice, each in its own git worktree)
+
+- Your worktree has no `.venv` nor `node_modules`: run `cd backend && uv sync`; for the frontend
+  `ln -s "/home/inacio/Área de trabalho/code/eleicoes-dashboard-real/frontend/node_modules" frontend/node_modules`.
+- **Run the backend tests with your own compose project name**, otherwise agents drop each other's
+  database mid-run. From your worktree root (replace `<slice>`):
+  `docker compose -p eleicoes-test-<slice> -f docker-compose.test.yml run --rm --build api-test; s=$?; docker compose -p eleicoes-test-<slice> -f docker-compose.test.yml down -v; exit $s`
+- Edit only the files of your slice and the tests that exercise them. `backend/pyproject.toml`,
+  `backend/tests/conftest.py`, `Makefile`, compose files, `docs/system/`, `CLAUDE.md`, this file and the
+  glossary belong to the main agent: write the change you need in your report instead.
+- Do not change the API contract (routes, DTO fields, values, WebSocket/Redis formats) — it is fixed
+  by commit e738e31. Internal names change freely inside your slice; a name exported by a module's
+  `__init__.py` that other slices use stays, unless your brief says otherwise.
+- mypy is strict everywhere now (no relaxed overrides): your slice must end with **zero** mypy
+  errors (`uv run mypy 2>&1 | grep <your paths>`), and **zero** function/file size errors
+  (30 useful lines per function, 300 per file: split by responsibility into subdomain subfolders,
+  max 8 files per folder; extract named steps, never compress lines).
+- Comments: module docstring only for a decision/pitfall; no separators; comments say why. Convert
+  Portuguese identifiers, comments and docstrings in your slice to English (glossary names).
+  Product text (UI strings, error `title`/`detail`, CSV headers for users) stays Portuguese.
