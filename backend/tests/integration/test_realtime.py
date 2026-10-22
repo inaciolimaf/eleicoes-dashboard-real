@@ -1,7 +1,6 @@
 """Real time: WebSocket, the registry of active topics and the fan-out of the worker's publications."""
 
 import asyncio
-import os
 
 import orjson
 import pytest
@@ -9,9 +8,13 @@ from fastapi.testclient import TestClient
 from redis import Redis as RedisSync
 
 from app.core import redis as redis_mod
+from app.core.config import get_settings
 from app.core.security import create_token
 from app.infra.realtime import topics
 from app.infra.realtime.hub import Connection, Hub
+from tests.integration.support import redis_url_or_skip
+
+pytestmark = pytest.mark.integration
 
 
 class FakeWebSocket:
@@ -35,10 +38,13 @@ async def test_hub_dispatches_only_to_subscribers(redis_cliente):
     assert "results:1:1:country:br" in await topics.active(redis_cliente)
 
 
-def test_websocket_subscribes_and_receives_publication(redis_cliente):
-    # TestClient runs the app (with lifespan) in another thread/loop: it uses its own Redis client
+def test_websocket_subscribes_and_receives_publication(redis_cliente, monkeypatch):
+    # TestClient runs the app (with lifespan) in another thread/loop: it uses its own Redis client,
+    # built from REDIS_URL, which the test environment points at nothing unless the test says so.
+    url = redis_url_or_skip()
+    monkeypatch.setenv("REDIS_URL", url)
+    get_settings.cache_clear()
     redis_mod._redis = None
-    url = os.environ["TEST_REDIS_URL"]
     pub = RedisSync.from_url(url)
     try:
         from app.core.main import app

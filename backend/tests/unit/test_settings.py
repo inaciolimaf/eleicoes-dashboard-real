@@ -4,6 +4,13 @@ import pytest
 from pydantic import ValidationError
 
 from app.core.config import EXAMPLE_SECRETS, Settings, SettingsError
+from tests.conftest import SETTINGS_VARIABLES
+
+
+def test_isolation_lists_every_variable_settings_reads():
+    """The autouse fixture clears these names: a field whose variable is missing would leak the machine's value."""
+    aliases = {field.validation_alias for field in Settings.model_fields.values()}
+    assert aliases == SETTINGS_VARIABLES
 
 
 def test_fields_read_the_server_variables(monkeypatch):

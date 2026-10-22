@@ -15,6 +15,8 @@ from app.modules.results import ingestion as ingestion
 from app.modules.results import queries as results_queries
 from app.worker.jobs import Processor, tracking
 
+pytestmark = pytest.mark.integration
+
 
 @contextlib.asynccontextmanager
 async def _session(order: list[str], failure: bool) -> AsyncIterator[object]:

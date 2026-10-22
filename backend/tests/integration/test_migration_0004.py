@@ -2,13 +2,15 @@
 
 import asyncio
 import json
-import os
 
+import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from alembic import command
-from tests.conftest import alembic_config
+from tests.integration.support import alembic_config, database_url_or_skip
+
+pytestmark = [pytest.mark.integration, pytest.mark.usefixtures("migrated_db")]
 
 GEO = "migracao-0004"
 ANTIGOS = [
@@ -21,7 +23,7 @@ ANTIGOS = [
 
 
 async def _sql(sql: str, params: dict | None = None) -> list[tuple]:
-    eng = create_async_engine(os.environ["TEST_DATABASE_URL"])
+    eng = create_async_engine(database_url_or_skip())
     try:
         async with eng.begin() as conn:
             res = await conn.execute(text(sql), params or {})

@@ -1,109 +1,104 @@
-"""Backend test configuration.
+"""Environment shared by every test.
 
-Needs a real PostgreSQL and Redis (in Docker: `make test`; locally: TEST_DATABASE_URL / TEST_REDIS_URL).
+Each test starts from the same configuration: the machine's variables and its `.env` never reach
+`Settings`, and the database and Redis are unreachable unless the test asks for them through
+`tests/integration/conftest.py`. The unit tests therefore run without any infrastructure.
 """
 
+import inspect
 import os
-
-os.environ.setdefault(
-    "TEST_DATABASE_URL", "postgresql+asyncpg://eleicoes:eleicoes@db-test:5432/eleicoes_test"
-)
-os.environ.setdefault("TEST_REDIS_URL", "redis://redis-test:6379/15")
-os.environ["DATABASE_URL"] = os.environ["TEST_DATABASE_URL"]
-os.environ["REDIS_URL"] = os.environ["TEST_REDIS_URL"]
-os.environ["TSE_AMBIENTE"] = "fake"
-os.environ["TSE_BASE_URL"] = "http://tse-fake.teste/oficial"
-os.environ["TSE_FAKE_CONTROLE_URL"] = "http://tse-fake.teste/_fake"
-os.environ["LOCAIS_VOTACAO_URL"] = "http://tse-fake.teste/dadosabertos/eleitorado_local_votacao_2026.csv"
-os.environ["DIR_BRUTOS"] = "/tmp/eleicoes-testes/brutos"
-os.environ["DIR_CACHE_FOTOS"] = "/tmp/eleicoes-testes/fotos"
-os.environ["JWT_SECRET"] = "segredo-de-teste"
+import sys
+from collections.abc import Iterator
+from pathlib import Path
 
 import pytest
-import pytest_asyncio
-from alembic.config import Config
-from sqlalchemy import text
-from sqlalchemy.ext.asyncio import create_async_engine
 
-from alembic import command
-from app.core import db as db_mod
-from app.core import redis as redis_mod
+from app.core.config import Settings
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+#: Every variable `Settings` reads, by the real name (the `validation_alias` in `app/core/config.py`).
+#: `tests/unit/test_settings.py` checks this list against the fields, so a new field cannot slip past.
+SETTINGS_VARIABLES = frozenset(
+    {
+        "ENVIRONMENT",
+        "DATABASE_URL",
+        "REDIS_URL",
+        "TSE_AMBIENTE",
+        "TSE_BASE_URL",
+        "TSE_MAX_RPS",
+        "TSE_CONCORRENCIA",
+        "TSE_VERIFICAR_JWS",
+        "TSE_USAR_JWS",
+        "INTERVALO_CATALOGO",
+        "INTERVALO_PRINCIPAL",
+        "INTERVALO_ACOMPANHAMENTO",
+        "INTERVALO_MIN_MUNICIPIO",
+        "COLETAR_SECOES",
+        "MODO_SECOES",
+        "COLETAR_ZONAS",
+        "FILA_MAX",
+        "COLETOR_WORKERS_MUNICIPIO",
+        "COLETOR_WORKERS_SECAO",
+        "WORKER_CONCORRENCIA",
+        "TSE_FAKE_KID",
+        "TSE_FAKE_CHAVE_PUBLICA",
+        "TSE_FAKE_CONTROLE_URL",
+        "LOCAIS_VOTACAO_URL",
+        "DIR_BRUTOS",
+        "DIR_CACHE_FOTOS",
+        "JWT_SECRET",
+        "JWT_EXPIRA_MIN",
+        "CORS_ORIGINS",
+        "LOG_LEVEL",
+        "LOGIN_MAX_FAILURES",
+        "LOGIN_WINDOW_SECONDS",
+    }
+)
 
-TABELAS = [
-    "alerts",
-    "favorites",
-    "shares",
-    "dashboards",
-    "preferences",
-    "users",
-    "events",
-    "polling_place_results",
-    "ballot_box_reports",
-    "progress_snapshots",
-    "current_progress",
-    "result_snapshots",
-    "current_results",
-    "candidates",
-    "polling_sections",
-    "polling_places",
-    "electoral_zones",
-    "municipalities",
-    "election_offices",
-    "elections",
-]
+#: The test environment. Port 1 refuses connections at once: a test that did not ask for infrastructure
+#: fails instead of finding it. The directories are set per test (under `tmp_path`).
+TEST_ENVIRONMENT = {
+    "ENVIRONMENT": "test",
+    "DATABASE_URL": "postgresql+asyncpg://eleicoes:eleicoes@127.0.0.1:1/inalcancavel",
+    "REDIS_URL": "redis://127.0.0.1:1/0",
+    "JWT_SECRET": "segredo-de-teste-com-no-minimo-32-bytes",
+    "TSE_AMBIENTE": "fake",
+    "TSE_BASE_URL": "http://tse-fake.teste/oficial",
+    "TSE_FAKE_CONTROLE_URL": "http://tse-fake.teste/_fake",
+    "LOCAIS_VOTACAO_URL": "http://tse-fake.teste/dadosabertos/eleitorado_local_votacao_2026.csv",
+}
+
+#: Packages whose `lru_cache` functions hold state that a test must not inherit.
+APP_PACKAGES = frozenset({"app", "tse_fake", "tools"})
+
+# `app/core/main.py` builds the application at import time, which reads `Settings`. Test modules are
+# imported after this conftest, so the isolation also applies at import, before any fixture runs.
+Settings.model_config["env_file"] = None
+for _name in list(os.environ):
+    if _name.upper() in SETTINGS_VARIABLES:
+        del os.environ[_name]
+os.environ.update(TEST_ENVIRONMENT)
 
 
-def alembic_config() -> Config:
-    cfg = Config(os.path.join(ROOT, "alembic.ini"))
-    cfg.set_main_option("script_location", os.path.join(ROOT, "alembic"))
-    cfg.attributes["database_url"] = os.environ["TEST_DATABASE_URL"]
-    return cfg
+def clear_lru_caches() -> None:
+    """Empties every `lru_cache` singleton of the project (`get_settings` among them)."""
+    for name, module in list(sys.modules.items()):
+        if module is None or name.partition(".")[0] not in APP_PACKAGES:
+            continue
+        for value in list(vars(module).values()):
+            if inspect.isfunction(value) and hasattr(value, "cache_clear"):
+                value.cache_clear()
 
 
-@pytest.fixture(scope="session", autouse=True)
-def migrated_db():
-    cfg = alembic_config()
-    command.downgrade(cfg, "base")
-    command.upgrade(cfg, "head")
+@pytest.fixture(autouse=True)
+def isolated_environment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[None]:
+    for name in list(os.environ):
+        if name.upper() in SETTINGS_VARIABLES:
+            monkeypatch.delenv(name)
+    for name, value in TEST_ENVIRONMENT.items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.setenv("DIR_BRUTOS", str(tmp_path / "brutos"))
+    monkeypatch.setenv("DIR_CACHE_FOTOS", str(tmp_path / "fotos"))
+    monkeypatch.setitem(Settings.model_config, "env_file", None)
+    clear_lru_caches()
     yield
-
-
-@pytest_asyncio.fixture(scope="session")
-async def engine(migrated_db):
-    eng = create_async_engine(os.environ["TEST_DATABASE_URL"], pool_size=5, max_overflow=10)
-    db_mod.configure_engine(eng)
-    yield eng
-    await eng.dispose()
-
-
-@pytest_asyncio.fixture(scope="session")
-async def redis_cliente():
-    cli = redis_mod.create_redis(os.environ["TEST_REDIS_URL"])
-    redis_mod.configure_redis(cli)
-    await cli.flushdb()
-    yield cli
-    await cli.flushdb()
-    await cli.aclose()
-
-
-async def clean_database(engine) -> None:
-    async with engine.begin() as conn:
-        await conn.execute(text("TRUNCATE " + ", ".join(TABELAS) + " RESTART IDENTITY CASCADE"))
-
-
-@pytest_asyncio.fixture
-async def clean_db(engine, redis_cliente):
-    await clean_database(engine)
-    await redis_cliente.flushdb()
-    from app.modules.results import ingestion as ingestion
-
-    ingestion.known_candidate_ids.clear()
-    yield engine
-
-
-@pytest_asyncio.fixture
-async def session(clean_db):
-    async with db_mod.get_sessionmaker()() as s:
-        yield s
+    clear_lru_caches()

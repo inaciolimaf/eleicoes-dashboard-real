@@ -3,8 +3,11 @@
 import base64
 
 import orjson
+import pytest
 
 from app.infra import queue
+
+pytestmark = pytest.mark.integration
 
 
 async def test_queue_prioritizes_high_and_coalesces_versions(redis_cliente):
