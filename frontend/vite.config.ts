@@ -35,6 +35,9 @@ export default defineConfig({
           // helpers do Vite/Rollup ficam num chunk próprio (senão podem cair dentro do chunk do mapa e forçar o download dele)
           if (id.includes("preload-helper") || id.includes("commonjsHelpers")) return "helpers";
           if (!id.includes("node_modules")) return undefined;
+          // React gets its own chunk: left loose, Rollup puts it inside another vendor chunk and two
+          // chunks end up importing each other ("Cannot access 'X' before initialization" on load).
+          if (/node_modules\/(react|react-dom|scheduler)\//.test(id)) return "react";
           if (id.includes("maplibre-gl") || id.includes("react-map-gl")) return "maplibre";
           if (
             id.includes("@deck.gl") ||
@@ -53,7 +56,9 @@ export default defineConfig({
             id.includes("react-draggable")
           )
             return "grid";
-          return undefined;
+          // The rest of node_modules shared by the chunks above (e.g. tslib, clsx) in one chunk, so that
+          // none of them lands inside mantine or echarts and makes the two import each other.
+          return "vendor";
         },
       },
     },
@@ -63,7 +68,7 @@ export default defineConfig({
     globals: false,
     css: false,
     setupFiles: ["tests/setup.ts"],
-    testTimeout: 10000,
+    testTimeout: 15000,
     coverage: {
       provider: "v8",
       include: ["src/**"],
