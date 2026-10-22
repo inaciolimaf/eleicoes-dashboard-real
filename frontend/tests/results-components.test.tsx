@@ -181,19 +181,20 @@ describe("candidate card", () => {
     expect(screen.getByText("MS")).toBeInTheDocument();
   });
 
-  it("separates the party, alliance and state with one dot each", async () => {
+  it("separates the party, alliance, office and state with one dot each", async () => {
     fakeApi({
       "GET /candidates/100001": candidateDetail({
         tse_candidate_id: "100001",
         ballot_name: "Maria Silva",
         party_abbreviation: "PT",
         alliance: "Frente Ampla",
+        office_name: "Governador",
         state_code: "sp",
         result: null,
       }),
     });
     renderWithProviders(<CandidateCard tseCandidateId="100001" link={false} />);
-    expect(await screen.findByText("PT · Frente Ampla · São Paulo")).toBeInTheDocument();
+    expect(await screen.findByText("PT · Frente Ampla · Governador · São Paulo")).toBeInTheDocument();
   });
 
   it("is plain text when it is not a link, and says so when no vote is counted", async () => {
