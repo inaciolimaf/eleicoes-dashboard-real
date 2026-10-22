@@ -1,4 +1,4 @@
-"""DTOs da API admin: saúde do coletor e do worker, controle do TSE falso."""
+"""Admin API DTOs: collector and worker health, control of the fake TSE."""
 
 from pydantic import BaseModel, Field
 

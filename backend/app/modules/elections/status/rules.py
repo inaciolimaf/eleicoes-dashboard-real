@@ -1,4 +1,9 @@
-"""Situação do candidato (status). A situação de eleito vem SEMPRE do TSE; só LEADING é calculado por nós."""
+"""Candidate status: the TSE decides who is elected; we only compute LEADING (and the pending states).
+
+The values are stored and sent to the frontend as they are: keep them in sync with the frontend.
+"""
+
+from typing import Any
 
 ELECTED = "ELECTED"
 RUNOFF = "RUNOFF"
@@ -10,41 +15,55 @@ SUB_JUDICE = "SUB_JUDICE"
 COUNTING = "COUNTING"
 
 
-def da_tse(eleito: bool, st: str, destinacao: str, final: bool, md: bool) -> str | None:
-    """Mapeia os campos do TSE. Devolve None quando o TSE ainda não definiu a situação."""
-    st_l = (st or "").strip().lower()
-    dest = (destinacao or "Válido").strip().lower()
+def from_tse(
+    elected: bool, status_text: str, destination: str, final: bool, mathematically: bool
+) -> str | None:
+    """Maps the TSE fields to a status. None when the TSE has not decided yet.
+
+    `destination` is the TSE's vote destination ("Válido" when the vote counts); `mathematically`
+    is kept for the TSE's signature and is not used by the mapping.
+    """
+    text = (status_text or "").strip().lower()
+    dest = (destination or "Válido").strip().lower()
     if dest and not dest.startswith("v"):
         return SUB_JUDICE
-    if "2º turno" in st_l or "2o turno" in st_l or "segundo turno" in st_l:
+    if "2º turno" in text or "2o turno" in text or "segundo turno" in text:
         return RUNOFF
-    if eleito or st_l.startswith("eleito"):
+    if elected or text.startswith("eleito"):
         return ELECTED if final else MATHEMATICALLY_ELECTED
-    if st_l.startswith("suplente"):
+    if text.startswith("suplente"):
         return SUBSTITUTE
-    if st_l.startswith("não eleito") or st_l.startswith("nao eleito"):
+    if text.startswith("não eleito") or text.startswith("nao eleito"):
         return NOT_ELECTED
     return None
 
 
-def calcular(
-    candidatos: list[dict], vagas: int, final: bool, md: bool, abrangencia_do_cargo: bool
+def calculate(
+    candidates: list[dict[str, Any]], seats: int, final: bool, mathematically: bool, office_coverage: bool
 ) -> dict[str, str]:
-    """`candidatos` em ordem decrescente de votos: [{sq, v, e, st, d}].
+    """Status of each candidate, from the ones ordered by votes (highest first).
 
-    No nível da abrangência do cargo usa a situação do TSE; nos demais níveis (e enquanto o TSE não define),
-    marca LEADING para os N primeiros com votos (N = vagas) e COUNTING para os outros.
+    Each item is a dict with the TSE keys: `sq` (candidate id), `v` (votes), `e` (elected flag),
+    `st` (status text), `d` (vote destination). At the office's own coverage the TSE status is used;
+    elsewhere (and while the TSE has not decided) the first `seats` candidates with votes are LEADING
+    and the rest are COUNTING.
     """
-    saida: dict[str, str] = {}
-    vagas = vagas or 0  # proporcionais: 0 -> ninguém "liderando" (vaga depende do partido)
-    for pos, c in enumerate(candidatos):
-        tse = da_tse(bool(c.get("e")), str(c.get("st") or ""), str(c.get("d") or "Válido"), final, md)
-        if abrangencia_do_cargo and tse:
-            saida[c["sq"]] = tse
-        elif tse == SUB_JUDICE:
-            saida[c["sq"]] = SUB_JUDICE
-        elif pos < vagas and int(c.get("v") or 0) > 0:
-            saida[c["sq"]] = LEADING
+    result: dict[str, str] = {}
+    seats = seats or 0  # proportional offices: 0 means nobody leads, the seat depends on the party
+    for position, candidate in enumerate(candidates):
+        tse_status = from_tse(
+            bool(candidate.get("e")),
+            str(candidate.get("st") or ""),
+            str(candidate.get("d") or "Válido"),
+            final,
+            mathematically,
+        )
+        if office_coverage and tse_status:
+            result[candidate["sq"]] = tse_status
+        elif tse_status == SUB_JUDICE:
+            result[candidate["sq"]] = SUB_JUDICE
+        elif position < seats and int(candidate.get("v") or 0) > 0:
+            result[candidate["sq"]] = LEADING
         else:
-            saida[c["sq"]] = COUNTING
-    return saida
+            result[candidate["sq"]] = COUNTING
+    return result

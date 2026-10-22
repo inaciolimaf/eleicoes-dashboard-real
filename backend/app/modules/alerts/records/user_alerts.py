@@ -1,52 +1,53 @@
-"""Alertas do usuário: consultas e gravação (o disparo é feito pelo worker, em `evaluation`)."""
+"""The user's alerts: list, create, replace and delete. The worker fires them (see `evaluation`)."""
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_owned
 from app.modules.accounts import User
-from app.modules.alerts import evaluation
+from app.modules.alerts.evaluation import invalidate_cache
 from app.modules.alerts.models import Alert
 from app.modules.alerts.schemas import AlertCreate, AlertDto, AlertUpdate
 
 
-def alert_dto(a: Alert) -> AlertDto:
+def alert_dto(alert: Alert) -> AlertDto:
     return AlertDto(
-        id=str(a.id),
-        type=a.type,
-        params=a.params,
-        active=a.active,
-        triggered_at=a.triggered_at,
+        id=str(alert.id),
+        type=alert.type,
+        params=alert.params,
+        active=alert.active,
+        triggered_at=alert.triggered_at,
     )
 
 
-async def list_alerts(session: AsyncSession, u: User) -> list[AlertDto]:
+async def list_alerts(session: AsyncSession, user: User) -> list[AlertDto]:
     rows = (
-        await session.execute(select(Alert).where(Alert.user_id == u.id).order_by(Alert.created_at))
+        await session.execute(select(Alert).where(Alert.user_id == user.id).order_by(Alert.created_at))
     ).scalars()
-    return [alert_dto(a) for a in rows]
+    return [alert_dto(alert) for alert in rows]
 
 
-async def create_alert(session: AsyncSession, u: User, dados: AlertCreate) -> AlertDto:
-    a = Alert(user_id=u.id, type=dados.type, params=dados.params, active=dados.active)
-    session.add(a)
+async def create_alert(session: AsyncSession, user: User, body: AlertCreate) -> AlertDto:
+    alert = Alert(user_id=user.id, type=body.type, params=body.params, active=body.active)
+    session.add(alert)
     await session.flush()
-    await session.refresh(a)
-    evaluation.invalidar_cache()
-    return alert_dto(a)
+    await session.refresh(alert)
+    invalidate_cache()
+    return alert_dto(alert)
 
 
-async def update_alert(session: AsyncSession, u: User, alert_id: str, dados: AlertUpdate) -> AlertDto:
-    a = await get_owned(session, Alert, alert_id, u, what="alerta")
-    a.type, a.params, a.active, a.triggered_at = dados.type, dados.params, dados.active, None
+async def update_alert(session: AsyncSession, user: User, alert_id: str, body: AlertUpdate) -> AlertDto:
+    alert = await get_owned(session, Alert, alert_id, user, what="alerta")
+    # Replacing an alert re-arms it: the previous firing no longer applies.
+    alert.type, alert.params, alert.active, alert.triggered_at = body.type, body.params, body.active, None
     await session.flush()
-    await session.refresh(a)
-    evaluation.invalidar_cache()
-    return alert_dto(a)
+    await session.refresh(alert)
+    invalidate_cache()
+    return alert_dto(alert)
 
 
-async def delete_alert(session: AsyncSession, u: User, alert_id: str) -> None:
-    a = await get_owned(session, Alert, alert_id, u, what="alerta")
-    await session.delete(a)
+async def delete_alert(session: AsyncSession, user: User, alert_id: str) -> None:
+    alert = await get_owned(session, Alert, alert_id, user, what="alerta")
+    await session.delete(alert)
     await session.flush()
-    evaluation.invalidar_cache()
+    invalidate_cache()

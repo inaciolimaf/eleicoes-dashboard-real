@@ -1,4 +1,4 @@
-"""Identificadores de área geográfica (geo area).
+"""Geo area ids: a level plus an id, parsed from the id string.
 
 br | sp | sp71072 | sp71072-z0001 | sp71072-z0001-l1015 | sp71072-z0001-s0120
 """
@@ -7,6 +7,8 @@ import re
 from dataclasses import dataclass
 
 LEVELS = ("country", "state", "municipality", "zone", "polling_place", "section")
+
+#: The level one step below each level (what the children listing shows).
 CHILD_LEVEL = {
     "country": "state",
     "state": "municipality",
@@ -15,7 +17,7 @@ CHILD_LEVEL = {
     "polling_place": "section",
 }
 
-_RE = re.compile(
+_ID_PATTERN = re.compile(
     r"^(?P<uf>[a-z]{2})(?:(?P<mun>\d{5})(?:-z(?P<zona>\d{4})(?:-(?P<tipo>[ls])(?P<num>\d{4}))?)?)?$"
 )
 
@@ -24,6 +26,7 @@ _RE = re.compile(
 class GeoArea:
     level: str
     id: str
+    #: State code (two letters, lower case); `br` for the country has no state.
     uf: str | None = None
     municipality: int | None = None
     zone: int | None = None
@@ -54,53 +57,36 @@ class GeoArea:
 
 
 class GeoAreaInvalid(ValueError):
-    pass
+    """The id does not match the geo area format, or it is not of the requested level."""
 
 
 def parse(id_: str, level: str | None = None) -> GeoArea:
     id_ = (id_ or "").strip().lower()
     if id_ == "br":
-        r = GeoArea("country", "br")
+        area = GeoArea("country", "br")
     else:
-        m = _RE.match(id_)
-        if not m:
+        match = _ID_PATTERN.match(id_)
+        if not match:
             raise GeoAreaInvalid(id_)
-        uf = m["uf"]
-        if m["mun"] is None:
-            r = GeoArea("state", id_, uf=uf)
-        elif m["zona"] is None:
-            r = GeoArea("municipality", id_, uf=uf, municipality=int(m["mun"]))
-        elif m["tipo"] is None:
-            r = GeoArea("zone", id_, uf=uf, municipality=int(m["mun"]), zone=int(m["zona"]))
-        elif m["tipo"] == "l":
-            r = GeoArea(
-                "polling_place",
-                id_,
-                uf=uf,
-                municipality=int(m["mun"]),
-                zone=int(m["zona"]),
-                polling_place=int(m["num"]),
-            )
-        else:
-            r = GeoArea(
-                "section", id_, uf=uf, municipality=int(m["mun"]), zone=int(m["zona"]), section=int(m["num"])
-            )
-    if level and level != r.level:
+        area = _from_match(id_, match)
+    if level and level != area.level:
         raise GeoAreaInvalid(f"{id_} não é do nível {level}")
-    return r
+    return area
 
 
-def municipio_id(uf: str, cd: int) -> str:
-    return f"{uf.lower()}{cd:05d}"
-
-
-def zona_id(uf: str, cd_mun: int, zona: int) -> str:
-    return f"{municipio_id(uf, cd_mun)}-z{zona:04d}"
-
-
-def local_id(uf: str, cd_mun: int, zona: int, local: int) -> str:
-    return f"{zona_id(uf, cd_mun, zona)}-l{local:04d}"
-
-
-def secao_id(uf: str, cd_mun: int, zona: int, secao: int) -> str:
-    return f"{zona_id(uf, cd_mun, zona)}-s{secao:04d}"
+def _from_match(id_: str, match: re.Match[str]) -> GeoArea:
+    uf = match["uf"]
+    if match["mun"] is None:
+        return GeoArea("state", id_, uf=uf)
+    municipality = int(match["mun"])
+    if match["zona"] is None:
+        return GeoArea("municipality", id_, uf=uf, municipality=municipality)
+    zone = int(match["zona"])
+    if match["tipo"] is None:
+        return GeoArea("zone", id_, uf=uf, municipality=municipality, zone=zone)
+    number = int(match["num"])
+    if match["tipo"] == "l":
+        return GeoArea(
+            "polling_place", id_, uf=uf, municipality=municipality, zone=zone, polling_place=number
+        )
+    return GeoArea("section", id_, uf=uf, municipality=municipality, zone=zone, section=number)

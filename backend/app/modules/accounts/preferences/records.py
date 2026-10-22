@@ -1,4 +1,4 @@
-"""Preferências do usuário (um JSON por usuário, com valores padrão)."""
+"""The user's preferences: one JSON document per user, merged over the default values."""
 
 from typing import Any
 
@@ -7,7 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.accounts.models import Preference, User
 from app.modules.accounts.schemas import PreferencesDto, PreferencesUpdate
 
-PREFERENCIAS_PADRAO: dict[str, Any] = {
+#: Used until the user saves a preference. The keys are the stored (wire) names.
+DEFAULT_PREFERENCES: dict[str, Any] = {
     "theme": "escuro",
     "density": "confortavel",
     "animations": True,
@@ -16,21 +17,21 @@ PREFERENCIAS_PADRAO: dict[str, Any] = {
 }
 
 
-def _dto(dados: dict[str, Any]) -> PreferencesDto:
-    return PreferencesDto(**{**PREFERENCIAS_PADRAO, **dados})
+def _to_dto(data: dict[str, Any]) -> PreferencesDto:
+    return PreferencesDto(**{**DEFAULT_PREFERENCES, **data})
 
 
-async def get_preferences(session: AsyncSession, u: User) -> PreferencesDto:
-    p = await session.get(Preference, u.id)
-    return _dto(p.data if p else {})
+async def get_preferences(session: AsyncSession, user: User) -> PreferencesDto:
+    stored = await session.get(Preference, user.id)
+    return _to_dto(stored.data if stored else {})
 
 
-async def save_preferences(session: AsyncSession, u: User, dados: PreferencesUpdate) -> PreferencesDto:
-    permitidas = {k: v for k, v in dados.model_dump(exclude_unset=True).items() if v is not None}
-    p = await session.get(Preference, u.id)
-    if p is None:
-        session.add(Preference(user_id=u.id, data=permitidas))
-        return _dto(permitidas)
-    p.data = {**p.data, **permitidas}
+async def save_preferences(session: AsyncSession, user: User, body: PreferencesUpdate) -> PreferencesDto:
+    permitted = {k: v for k, v in body.model_dump(exclude_unset=True).items() if v is not None}
+    stored = await session.get(Preference, user.id)
+    if stored is None:
+        session.add(Preference(user_id=user.id, data=permitted))
+        return _to_dto(permitted)
+    stored.data = {**stored.data, **permitted}
     await session.flush()
-    return _dto(p.data)
+    return _to_dto(stored.data)

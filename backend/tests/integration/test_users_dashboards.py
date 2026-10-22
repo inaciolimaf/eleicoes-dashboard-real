@@ -1,4 +1,4 @@
-"""Autenticação, painéis (personalização), compartilhamento, favoritos, alertas, preferências e admin."""
+"""Authentication, dashboards (painéis), sharing, favorites, alerts, preferences and admin."""
 
 import httpx
 import pytest_asyncio
@@ -29,7 +29,7 @@ async def registrar(cli, email="ana@exemplo.com"):
     return {"Authorization": f"Bearer {r.json()['access_token']}"}, r.json()["user"]
 
 
-async def test_registro_login_e_primeiro_usuario_admin(cli):
+async def test_register_login_and_first_user_is_admin(cli):
     h, u = await registrar(cli)
     assert u["is_admin"] is True
     h2, u2 = await registrar(cli, "bia@exemplo.com")
@@ -48,7 +48,7 @@ async def test_registro_login_e_primeiro_usuario_admin(cli):
     assert (await cli.get("/api/v1/admin/health", headers=h2)).status_code == 403
 
 
-async def test_paineis_crud_padrao_e_compartilhamento(cli):
+async def test_dashboards_crud_default_and_sharing(cli):
     h, _ = await registrar(cli)
     p1 = (
         await cli.post(
@@ -93,7 +93,7 @@ async def test_paineis_crud_padrao_e_compartilhamento(cli):
     assert (await cli.get("/api/v1/shared/inexistente")).status_code == 404
 
 
-async def test_favoritos_alertas_preferencias(cli):
+async def test_favorites_alerts_preferences(cli):
     h, _ = await registrar(cli)
     await cli.post(
         "/api/v1/favorites", json={"type": "geo_area", "ref": "sp71072", "label": "São Paulo"}, headers=h
@@ -155,7 +155,7 @@ async def test_admin_coletor(cli, redis_cliente):
     assert saude["queue"] == 0 and "database" in saude
 
 
-async def test_erro_404_e_422_em_problem_json(cli):
+async def test_404_and_422_as_problem_json(cli):
     """Todo erro sai no mesmo formato RFC 9457, com `detail` explicando o que fazer."""
     r404 = await cli.get("/api/v1/candidates/9999999")
     assert r404.status_code == 404
@@ -171,14 +171,14 @@ async def test_erro_404_e_422_em_problem_json(cli):
     assert r_valid.headers["content-type"].startswith("application/problem+json")
 
 
-async def test_health_na_raiz(cli):
+async def test_health_at_root(cli):
     r = await cli.get("/health")
     assert r.status_code == 200
     assert r.json() == {"status": "ok", "database": "up", "redis": "up"}
     assert (await cli.get("/api/v1/health")).status_code == 404
 
 
-async def test_unidade_de_trabalho_desfaz_quem_levanta_depois_de_gravar(engine, session):
+async def test_unit_of_work_undoes_what_raises_after_writing(engine, session):
     """Uma função que grava e levanta exceção não deixa nada no banco."""
     from app.core.errors import AppError
 
@@ -194,7 +194,7 @@ async def test_unidade_de_trabalho_desfaz_quem_levanta_depois_de_gravar(engine, 
     assert total == 0
 
 
-async def test_falha_no_commit_vira_500_e_nao_200(banco_limpo):
+async def test_commit_failure_becomes_500_not_200(banco_limpo):
     """Com `scope="function"` o commit roda antes da resposta: se falha, o cliente recebe 500."""
     from contextlib import asynccontextmanager
 
@@ -228,7 +228,7 @@ async def test_falha_no_commit_vira_500_e_nao_200(banco_limpo):
         principal.dependency_overrides.clear()
 
 
-async def test_limite_de_tentativas_bloqueia_a_sexta_mesmo_com_senha_certa(cli):
+async def test_attempt_limit_blocks_the_sixth_even_with_right_password(cli):
     await registrar(cli)
     for _ in range(5):
         errada = await cli.post("/api/v1/auth/login", json={"email": "ana@exemplo.com", "password": "errada"})
@@ -243,7 +243,7 @@ async def test_limite_de_tentativas_bloqueia_a_sexta_mesmo_com_senha_certa(cli):
     assert "Aguarde" in bloqueada.json()["detail"]
 
 
-async def test_login_certo_zera_o_contador_do_email(cli, redis_cliente):
+async def test_successful_login_clears_the_email_counter(cli, redis_cliente):
     await registrar(cli)
     for _ in range(4):
         await cli.post("/api/v1/auth/login", json={"email": "ana@exemplo.com", "password": "errada"})
@@ -252,7 +252,7 @@ async def test_login_certo_zera_o_contador_do_email(cli, redis_cliente):
     assert await redis_cliente.zcard("login:failures:email:ana@exemplo.com") == 0
 
 
-async def test_depois_da_janela_o_login_volta_a_funcionar(cli, monkeypatch):
+async def test_login_works_again_after_the_window(cli, monkeypatch):
     agora = [1_000_000.0]
     monkeypatch.setattr(login_limit, "clock", lambda: agora[0])
     await registrar(cli)

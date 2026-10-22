@@ -1,4 +1,4 @@
-"""DTOs dos alertas do usuário."""
+"""Alert DTOs of the user."""
 
 from datetime import datetime
 from typing import Any, Literal

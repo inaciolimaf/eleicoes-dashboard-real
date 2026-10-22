@@ -1,4 +1,6 @@
-"""Controle do mock do TSE (`tse-fake`): o mock fala o vocabulário do TSE; aqui traduzimos."""
+"""Control of the fake TSE (`tse-fake`): the mock speaks the TSE's vocabulary; here we translate it."""
+
+from typing import Any
 
 import httpx
 
@@ -6,7 +8,8 @@ from app.core.config import get_settings
 from app.core.errors import AppError
 from app.modules.admin.schemas import FakeTseControlCreate, FakeTseStateDto
 
-_ESTADO = {
+#: The mock's state keys (its Portuguese vocabulary, part of the mock's protocol) -> our field names.
+_STATE_FIELDS = {
     "agora": "now",
     "minutos_apos_17h": "minutes_after_17h",
     "velocidade": "speed",
@@ -17,36 +20,37 @@ _ESTADO = {
     "municipios": "municipalities",
     "locais": "polling_places",
 }
-_CONTROLE = {"speed": "velocidade", "paused": "pausado", "restart": "reiniciar", "go_to": "ir_para"}
+#: Our control field names -> the mock's control keys (its vocabulary, kept on purpose).
+_CONTROL_FIELDS = {"speed": "velocidade", "paused": "pausado", "restart": "reiniciar", "go_to": "ir_para"}
 
 
-def _verifica_fake() -> str:
+def _check_fake_environment() -> str:
     s = get_settings()
-    if s.tse_ambiente != "fake":
+    if s.tse_environment != "fake":
         raise AppError(409, "Conflito", "controle disponível só no ambiente fake", "admin/not_fake")
-    return s.tse_fake_controle_url.rstrip("/")
+    return s.tse_fake_control_url.rstrip("/")
 
 
-async def _chamar(metodo: str, caminho: str, corpo: dict | None = None) -> dict:
-    base = _verifica_fake()
+async def _call(method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
+    base = _check_fake_environment()
     try:
-        async with httpx.AsyncClient(timeout=10) as cli:
-            r = await cli.request(metodo, f"{base}/{caminho}", json=corpo)
+        async with httpx.AsyncClient(timeout=10) as client:
+            response = await client.request(method, f"{base}/{path}", json=body)
     except httpx.HTTPError as exc:
         raise AppError(
             502, "Serviço externo indisponível", "mock do TSE indisponível", "admin/fake_tse_unavailable"
         ) from exc
-    return dict(r.json())
+    return dict(response.json())
 
 
-def _estado(bruto: dict) -> FakeTseStateDto:
-    return FakeTseStateDto(**{_ESTADO[k]: v for k, v in bruto.items() if k in _ESTADO})
+def _to_state(raw: dict[str, Any]) -> FakeTseStateDto:
+    return FakeTseStateDto(**{_STATE_FIELDS[k]: v for k, v in raw.items() if k in _STATE_FIELDS})
 
 
 async def fake_state() -> FakeTseStateDto:
-    return _estado(await _chamar("GET", "estado"))
+    return _to_state(await _call("GET", "estado"))
 
 
-async def fake_control(dados: FakeTseControlCreate) -> FakeTseStateDto:
-    corpo = {_CONTROLE[k]: v for k, v in dados.model_dump(exclude_none=True).items()}
-    return _estado(await _chamar("POST", "controle", corpo))
+async def fake_control(body: FakeTseControlCreate) -> FakeTseStateDto:
+    payload = {_CONTROL_FIELDS[k]: v for k, v in body.model_dump(exclude_none=True).items()}
+    return _to_state(await _call("POST", "controle", payload))

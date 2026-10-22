@@ -1,4 +1,4 @@
-"""Migrações Alembic: sobem, descem e batem com os modelos."""
+"""Alembic migrations: they go up, go down and match the models."""
 
 import asyncio
 import os
@@ -13,7 +13,7 @@ USUARIO = "00000000-0000-0000-0000-000000000001"
 ALERTA = "00000000-0000-0000-0000-000000000002"
 
 
-def test_migracoes_sobem_descem_e_estao_em_dia():
+def test_migrations_go_up_down_and_match_models():
     cfg = alembic_config()
     command.downgrade(cfg, "base")
     command.upgrade(cfg, "head")
@@ -30,7 +30,7 @@ async def _sql(sql: str, params: dict | None = None) -> list[tuple]:
         await eng.dispose()
 
 
-def test_0002_preserva_dados_e_converte_valores_nos_dois_sentidos():
+def test_0002_keeps_data_and_converts_values_both_ways():
     cfg = alembic_config()
     command.upgrade(cfg, "head")
     asyncio.run(
@@ -76,7 +76,7 @@ def test_0002_preserva_dados_e_converte_valores_nos_dois_sentidos():
     asyncio.run(_sql("DELETE FROM users WHERE id = :u", {"u": USUARIO}))
 
 
-def test_0003_renomeia_chaves_de_alerta_e_preferencias():
+def test_0003_renames_alert_and_preference_keys():
     cfg = alembic_config()
     command.upgrade(cfg, "head")
     asyncio.run(

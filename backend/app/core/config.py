@@ -6,10 +6,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class SettingsError(Exception):
-    """A configuração não serve para o ambiente pedido (ver `Settings`)."""
+    """The configuration does not fit the requested environment (see `Settings`)."""
 
 
-#: Valores que existem em `.env.example`: em produção, o processo não sobe com um deles.
+#: Values present in `.env.example`: in production the process refuses to start with one of them.
 EXAMPLE_SECRETS = frozenset(
     {
         "troque-este-segredo-por-um-valor-longo-e-aleatorio",
@@ -19,16 +19,16 @@ EXAMPLE_SECRETS = frozenset(
 
 
 class Settings(BaseSettings):
-    """Configuração do backend.
+    """Backend configuration.
 
-    Cada campo lê a variável de ambiente do servidor pelo `validation_alias`. O nome da variável
-    nunca muda (o servidor já a tem configurada); só o nome do campo segue o código. Uma variável
-    nova entra com um valor padrão seguro ou com um aviso na entrega (ver `docs/system/overview.md`).
+    Each field reads the server's variable through `validation_alias`. The variable name never
+    changes (the server already has it configured); only the field name follows the code. A new
+    variable comes with a safe default or with a notice in the delivery (see `docs/system/overview.md`).
     """
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", frozen=True, validate_by_name=True)
 
-    #: `local` (desenvolvimento), `production` (produção) ou `test` (testes).
+    #: `local` (development), `production` or `test`.
     environment: Literal["local", "production", "test"] = Field("local", validation_alias="ENVIRONMENT")
 
     database_url: str = Field(
@@ -36,42 +36,44 @@ class Settings(BaseSettings):
     )
     redis_url: str = Field("redis://redis:6379/0", validation_alias="REDIS_URL")
 
-    # Integração TSE
-    #: `fake` (mock local), `simulado` ou `oficial` (o TSE de verdade). Os valores são os do servidor.
+    # TSE integration
+    #: `fake` (local mock), `simulado` (simulated) or `oficial` (the real TSE). The values are the server's.
     tse_environment: Literal["oficial", "simulado", "fake"] = Field("fake", validation_alias="TSE_AMBIENTE")
-    #: Base já com o ambiente embutido (ex.: https://resultados.tse.jus.br/oficial).
+    #: Base URL with the environment already included (e.g. https://resultados.tse.jus.br/oficial).
     tse_base_url: str = Field("http://tse-fake:8080/oficial", validation_alias="TSE_BASE_URL")
     tse_max_rps: float = Field(90.0, validation_alias="TSE_MAX_RPS")
     tse_concurrency: int = Field(16, validation_alias="TSE_CONCORRENCIA")
-    #: Verifica a assinatura JWS dos boletins; desligar só para depurar o mock.
+    #: Checks the JWS signature of the ballot reports; turn off only to debug the mock.
     tse_verify_jws: bool = Field(True, validation_alias="TSE_VERIFICAR_JWS")
     tse_use_jws: bool = Field(True, validation_alias="TSE_USAR_JWS")
 
-    # Intervalos (segundos) das filas do coletor
+    # Collector queue intervals (seconds)
     interval_catalog: float = Field(60.0, validation_alias="INTERVALO_CATALOGO")
     interval_main: float = Field(10.0, validation_alias="INTERVALO_PRINCIPAL")
     interval_follow_up: float = Field(10.0, validation_alias="INTERVALO_ACOMPANHAMENTO")
     interval_min_municipality: float = Field(30.0, validation_alias="INTERVALO_MIN_MUNICIPIO")
     collect_sections: bool = Field(True, validation_alias="COLETAR_SECOES")
-    #: `sob_demanda` (só baixa os boletins dos locais/seções que alguém abriu ou com alerta ativo) ou
-    #: `todas` (varre todas as seções de cada município que mudou: ~500 mil seções, horas de coleta).
+    #: `sob_demanda` (on demand: downloads only the ballot reports of the polling places and sections
+    #: somebody opened or with an active alert) or `todas` (all: sweeps every section of each municipality
+    #: that changed: ~500 thousand sections, hours of collection).
     section_mode: Literal["sob_demanda", "todas"] = Field("sob_demanda", validation_alias="MODO_SECOES")
     collect_zones: bool = Field(True, validation_alias="COLETAR_ZONAS")
-    #: Acima disso (itens na fila baixa do worker) o coletor para de baixar municípios até a fila esvaziar.
+    #: Above this many items in the worker's low queue, the collector stops downloading municipalities
+    #: until the queue drains.
     queue_max: int = Field(3000, validation_alias="FILA_MAX")
-    #: Municípios baixados em paralelo pelo coletor.
+    #: Municipalities the collector downloads in parallel.
     collector_municipality_workers: int = Field(8, validation_alias="COLETOR_WORKERS_MUNICIPIO")
-    #: Seções baixadas em paralelo pelo coletor.
+    #: Sections the collector downloads in parallel.
     collector_section_workers: int = Field(16, validation_alias="COLETOR_WORKERS_SECAO")
-    #: Tarefas simultâneas do worker.
+    #: Concurrent worker tasks.
     worker_concurrency: int = Field(4, validation_alias="WORKER_CONCORRENCIA")
 
-    # Chave pública Ed25519 (base64url) para o ambiente "fake" (o mock publica a dele).
+    # Ed25519 public key (base64url) for the "fake" environment (the mock publishes its own).
     tse_fake_kid: str = Field("fake-eleicoes-dashboard", validation_alias="TSE_FAKE_KID")
     tse_fake_public_key: str = Field("", validation_alias="TSE_FAKE_CHAVE_PUBLICA")
     tse_fake_control_url: str = Field("http://tse-fake:8080/_fake", validation_alias="TSE_FAKE_CONTROLE_URL")
 
-    #: Dados Abertos: CSV "Eleitorado - local de votação" (aceita .csv ou .zip).
+    #: Open data: the "Eleitorado - local de votação" CSV (accepts .csv or .zip).
     polling_places_url: str = Field(
         "http://tse-fake:8080/dadosabertos/eleitorado_local_votacao_2026.csv",
         validation_alias="LOCAIS_VOTACAO_URL",
@@ -80,21 +82,21 @@ class Settings(BaseSettings):
     raw_dir: str = Field("/data/brutos", validation_alias="DIR_BRUTOS")
     photo_cache_dir: str = Field("/data/fotos", validation_alias="DIR_CACHE_FOTOS")
 
-    #: Segredo do JWT: sem valor padrão, 32+ bytes em produção.
+    #: JWT secret: no default value, 32+ bytes in production.
     jwt_secret: SecretStr = Field(validation_alias="JWT_SECRET")
     jwt_expire_min: int = Field(60 * 24 * 7, validation_alias="JWT_EXPIRA_MIN")
     cors_origins: str = Field("http://localhost:5173,http://localhost:8081", validation_alias="CORS_ORIGINS")
 
     log_level: str = Field("INFO", validation_alias="LOG_LEVEL")
 
-    #: Falhas de login até bloquear, por e-mail e por IP, na mesma janela.
+    #: Failed logins before blocking, per e-mail and per IP, within the same window.
     login_max_failures: int = Field(5, ge=1, validation_alias="LOGIN_MAX_FAILURES")
-    #: Tamanho da janela de falhas de login, em segundos.
+    #: Length of the failed-login window, in seconds.
     login_window_seconds: int = Field(15 * 60, ge=1, validation_alias="LOGIN_WINDOW_SECONDS")
 
     @model_validator(mode="after")
     def _validar_producao(self) -> "Settings":
-        """Em produção o processo não sobe com segredo ausente, curto ou de exemplo."""
+        """In production the process does not start with a missing, short or example secret."""
         if self.environment != "production":
             return self
         segredo = self.jwt_secret.get_secret_value()

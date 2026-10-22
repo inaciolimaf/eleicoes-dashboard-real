@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import Depends, Query
 
 from app.core.errors import AppError
-from app.modules.geography.geo_area import GeoArea, GeoAreaInvalid, parse
+from app.modules.geography.geo_area.area import GeoArea, GeoAreaInvalid, parse
 
 
 def geo_area(

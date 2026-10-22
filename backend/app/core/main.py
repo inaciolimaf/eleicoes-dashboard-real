@@ -7,9 +7,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import ORJSONResponse
 
-from app.core import health
 from app.core.config import get_settings
 from app.core.errors import install_error_handlers
+from app.core.health import router as health_router
 from app.core.redis import get_redis
 from app.infra.realtime.hub import Hub
 from app.modules.accounts import router as accounts_router
@@ -34,7 +34,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 def create_app() -> FastAPI:
-    s = get_settings()
+    settings = get_settings()
     app = FastAPI(
         title="Eleições Dashboard Real",
         version="1.0.0",
@@ -46,15 +46,15 @@ def create_app() -> FastAPI:
     app.add_middleware(GZipMiddleware, minimum_size=1024)
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[o.strip() for o in s.cors_origins.split(",") if o.strip()],
+        allow_origins=[o.strip() for o in settings.cors_origins.split(",") if o.strip()],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
     install_error_handlers(app)
-    for r in (public_router, accounts_router, alerts_router, admin_router, ws_router):
-        app.include_router(r, prefix=API_PREFIX)
-    app.include_router(health.router)
+    for router in (public_router, accounts_router, alerts_router, admin_router, ws_router):
+        app.include_router(router, prefix=API_PREFIX)
+    app.include_router(health_router)
     return app
 
 

@@ -1,4 +1,4 @@
-"""Tempo real: WebSocket, registro de tópicos ativos e fan-out das publicações do worker."""
+"""Real time: WebSocket, the registry of active topics and the fan-out of the worker's publications."""
 
 import asyncio
 import os
@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 from redis import Redis as RedisSync
 
 from app.core import redis as redis_mod
-from app.core.security import criar_token
+from app.core.security import create_token
 from app.infra.realtime import topics
 from app.infra.realtime.hub import Connection, Hub
 
@@ -18,7 +18,7 @@ class WsFalso:
     pass
 
 
-async def test_hub_despacha_so_para_assinantes(redis_cliente):
+async def test_hub_dispatches_only_to_subscribers(redis_cliente):
     hub = Hub(redis_cliente)
     a, b = Connection(WsFalso()), Connection(WsFalso())
     hub.connections |= {a, b}
@@ -35,7 +35,7 @@ async def test_hub_despacha_so_para_assinantes(redis_cliente):
     assert "results:1:1:country:br" in await topics.active(redis_cliente)
 
 
-def test_websocket_assina_e_recebe_publicacao(redis_cliente):
+def test_websocket_subscribes_and_receives_publication(redis_cliente):
     # TestClient roda o app (com lifespan) em outra thread/loop: usa um cliente Redis próprio
     redis_mod._redis = None
     url = os.environ["TEST_REDIS_URL"]
@@ -46,7 +46,7 @@ def test_websocket_assina_e_recebe_publicacao(redis_cliente):
         with TestClient(app) as cliente, cliente.websocket_connect("/api/v1/ws") as ws:
             ws.send_text(orjson.dumps({"op": "ping"}).decode())
             assert ws.receive_json()["type"] == "pong"
-            ws.send_text(orjson.dumps({"op": "auth", "token": criar_token("usuario-x")}).decode())
+            ws.send_text(orjson.dumps({"op": "auth", "token": create_token("usuario-x")}).decode())
             assert ws.receive_json() == {"type": "auth", "ok": True, "seq": 2}
             ws.send_text(orjson.dumps({"op": "subscribe", "topics": ["results:1:1:state:sp"]}).decode())
             ws.send_text(orjson.dumps({"op": "ping"}).decode())
@@ -67,7 +67,7 @@ def test_websocket_assina_e_recebe_publicacao(redis_cliente):
             assert ws.receive_json()["type"] == "error"
     finally:
         pub.close()
-        redis_mod.configurar_redis(redis_cliente)
+        redis_mod.configure_redis(redis_cliente)
 
 
 @pytest.mark.parametrize(
@@ -78,5 +78,5 @@ def test_websocket_assina_e_recebe_publicacao(redis_cliente):
         (topics.polling_places, (1, 1, "sp71072"), "polling_places:1:1:sp71072"),
     ],
 )
-def test_nomes_de_topicos(fn, args, esperado):
+def test_topic_names(fn, args, esperado):
     assert fn(*args) == esperado

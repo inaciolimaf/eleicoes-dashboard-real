@@ -432,7 +432,7 @@ async def test_alertas_disparam_no_worker(ambiente, redis_cliente):
             ]
         )
         await s.commit()
-    alertas.invalidar_cache()
+    alertas.invalidate_cache()
     linha = {
         "office_code": 1,
         "level": "country",
@@ -454,15 +454,17 @@ async def test_alertas_disparam_no_worker(ambiente, redis_cliente):
         "title": "t",
         "description": "d",
     }
-    assert alertas.avaliar_resultado(a, {"office_code": 3, "level": "x", "geo_area_id": "y"}, [ev]) == (
+    assert alertas.evaluate_result(a, {"office_code": 3, "level": "x", "geo_area_id": "y"}, [ev]) == (
         "t",
         "d",
     )
     e = Alert(type="elected", params={"tse_candidate_id": "1"})
-    assert alertas.avaliar_resultado(
+    assert alertas.evaluate_result(
         e,
         {"office_code": 3, "level": "x", "geo_area_id": "y"},
         [{"type": "elected", "payload": {"tse_candidate_id": "1"}, "title": "a", "description": "b"}],
     )
     loc = Alert(type="polling_place_tallied", params={"polling_place_id": "x"})
-    assert alertas.avaliar_local(loc, "x", "tallied") and not alertas.avaliar_local(loc, "x", "partial")
+    assert alertas.evaluate_polling_place(loc, "x", "tallied") and not alertas.evaluate_polling_place(
+        loc, "x", "partial"
+    )

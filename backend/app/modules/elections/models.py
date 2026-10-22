@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import (
     Boolean,
@@ -62,7 +63,7 @@ class Candidate(Base):
     election_id: Mapped[int] = mapped_column(ForeignKey("elections.id", ondelete="CASCADE"))
     round: Mapped[int] = mapped_column(SmallInteger)
     office_code: Mapped[int] = mapped_column(SmallInteger)
-    state_code: Mapped[str] = mapped_column(String(2))  # "br" para Presidente
+    state_code: Mapped[str] = mapped_column(String(2))  # "br" for the President
     ballot_number: Mapped[int] = mapped_column(Integer)
     name: Mapped[str] = mapped_column(String(160))
     ballot_name: Mapped[str] = mapped_column(String(120))
@@ -70,7 +71,7 @@ class Candidate(Base):
     party_number: Mapped[int] = mapped_column(Integer)
     alliance: Mapped[str] = mapped_column(String(160))
     color: Mapped[str] = mapped_column(String(9))
-    vice_and_substitutes: Mapped[list] = mapped_column(JSONB, default=list)
+    vice_and_substitutes: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, default=list)
     overall_status: Mapped[str] = mapped_column(String(32), default="COUNTING")
     elected: Mapped[bool] = mapped_column(Boolean, default=False)
     updated_at: Mapped[datetime] = mapped_column(
