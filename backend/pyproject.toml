@@ -129,3 +129,34 @@ omit = ["app/collector/main.py", "app/worker/main.py"]
 [tool.coverage.report]
 fail_under = 85
 show_missing = true
+
+[tool.importlinter]
+root_packages = ["app"]
+
+[[tool.importlinter.contracts]]
+name = "layers: processes -> modules -> infra -> core"
+type = "layers"
+# core/main.py gathers the routers and core/models.py the models: the natural exceptions (structure.md).
+layers = ["app.collector | app.worker", "app.modules", "app.infra", "app.core"]
+ignore_imports = [
+  "app.core.main -> app.modules.**",
+  "app.core.main -> app.infra.**",
+  "app.core.models -> app.modules.**",
+]
+
+[[tool.importlinter.contracts]]
+name = "modules: lower modules never import upper ones"
+type = "layers"
+containers = ["app.modules"]
+layers = [
+  "admin",
+  "public",
+  "alerts",
+  # accounts owns CurrentUser/Admin, which the modules above it use.
+  "accounts",
+  "results",
+  "events",
+  "ballot_reports",
+  "elections",
+  "geography",
+]

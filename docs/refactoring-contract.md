@@ -35,7 +35,7 @@ app/
 │   │                parsers/ (split by file kind: municipalities, results, follow_up, sections, auxiliary)
 │   ├── queue/       Redis job queue (was worker/fila.py)
 │   └── realtime/    hub.py, topics.py (WebSocket hub and Redis pub/sub topics)
-├── modules/         layer order bottom → top:
+├── modules/         layer order top → bottom: admin, public, alerts, accounts, results, events, ballot_reports, elections, geography (guaranteed by `lint-imports`)
 │   ├── geography/       UF, Municipio, Zona, LocalVotacao, Secao models; geo area parsing (was services/recortes.py)
 │   ├── elections/       Eleicao, EleicaoCargo, Candidato models; party colors (was services/cores.py); candidate status (was services/situacao.py)
 │   ├── ballot_reports/  Boletim, ResultadoLocal models; on-demand section requests (was services/demanda.py)
