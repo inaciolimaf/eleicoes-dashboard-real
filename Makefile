@@ -1,6 +1,6 @@
 # Eleições Dashboard — comandos principais. `make` sem alvo lista os comandos.
 .PHONY: help env up up-oficial dev down reset logs ps test test-unit lint format types docs boundaries \
-        migrate revision web-test web-format web-types web-build web-coverage e2e mobile \
+        migrate revision web-test web-format web-types web-build web-coverage e2e mobile e2e-flows \
         fake-status fake-velocidade fake-reiniciar fake-ir
 
 COMPOSE = docker compose
@@ -86,11 +86,14 @@ web-build: ## build de produção do frontend
 web-coverage: ## vitest com cobertura (falha abaixo de 60%)
 	cd frontend && npm run coverage
 
-e2e: ## Playwright: smoke de todas as rotas
+e2e: web-build ## Playwright: every route opens without errors (needs the API on API_URL)
 	cd frontend && npm run e2e
 
-mobile: ## Playwright: todas as rotas em 390x844
+mobile: web-build ## Playwright: every route at 390x844 without horizontal overflow
 	cd frontend && npm run mobile
+
+e2e-flows: web-build ## Playwright: real flows (login, explore, dashboards); needs E2E_EMAIL/E2E_SENHA
+	cd frontend && npm run e2e:flows
 
 # --- Mock do TSE ------------------------------------------------------------
 fake-status:

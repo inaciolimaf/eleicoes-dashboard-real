@@ -11,7 +11,8 @@ const HEX = "#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})";
 const REUSE = {
   color: {
     selector: `Literal[value=/^${HEX}$/], TemplateElement[value.raw=/^${HEX}$/]`,
-    message: "Use a color token or a palette from src/lib/palettes.ts or src/lib/palettes/<module>.ts instead of a hex literal.",
+    message:
+      "Use a color token or a palette from src/lib/palettes.ts or src/lib/palettes/<module>.ts instead of a hex literal.",
   },
   number: {
     selector: "CallExpression[callee.property.name='toLocaleString']",
@@ -126,7 +127,10 @@ export default tseslint.config(
     files: ["src/components/**/*.{ts,tsx}", "src/lib/**/*.{ts,tsx}", "src/api/**/*.{ts,tsx}"],
     rules: { "no-restricted-imports": ["error", { patterns: SHARED_IMPORTS }] },
   },
-  { files: ["src/lib/palettes.ts", "src/lib/palettes/*.ts", "src/theme.ts"], rules: { "no-restricted-syntax": syntax("color") } },
+  {
+    files: ["src/lib/palettes.ts", "src/lib/palettes/*.ts", "src/theme.ts"],
+    rules: { "no-restricted-syntax": syntax("color") },
+  },
   { files: ["src/lib/formatting.ts"], rules: { "no-restricted-syntax": syntax("number") } },
   ...(STRICT || PENDING.length === 0
     ? []
