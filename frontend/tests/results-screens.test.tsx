@@ -118,6 +118,12 @@ describe("candidates screen", () => {
     }),
   ];
 
+  it("titles the list with the office name the API sends", async () => {
+    fakeApi({ ...shellAnswers(), "GET /candidates": [candidate({ office_name: "Cargo da API" })] });
+    await renderScreen("/candidatos");
+    expect(await screen.findByRole("heading", { name: "Cargo da API" })).toBeInTheDocument();
+  });
+
   it("lists the candidates of the office and filters them by name", async () => {
     const api = fakeApi({ ...shellAnswers(), "GET /candidates": list });
     const { user } = await renderScreen("/candidatos");

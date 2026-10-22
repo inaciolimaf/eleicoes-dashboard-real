@@ -15,7 +15,7 @@ import { filterCandidates, MAX_SHOWN_CANDIDATES, partyOptions } from "./candidat
 const DISTRICT_OFFICE = 8;
 
 interface CandidatesToolbarProps {
-  office: number;
+  officeName: string;
   round: number;
   byState: boolean;
   state: string | null;
@@ -35,7 +35,7 @@ function CandidatesToolbar(props: CandidatesToolbarProps) {
         <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
           Candidatos · {props.round}º turno
         </Text>
-        <Title order={2}>{OFFICE_NAME[props.office] ?? "Candidatos"}</Title>
+        <Title order={2}>{props.officeName}</Title>
       </Stack>
       <Group gap="xs">
         {props.byState && (
@@ -77,9 +77,9 @@ function CandidatesBody({
   query: UseQueryResult<CandidateDto[], Error>;
   candidates: CandidateDto[];
 }) {
-  if (query.isLoading) return <Loading linhas={6} />;
-  if (query.error) return <ErrorView erro={query.error} onRetry={() => query.refetch()} />;
-  if (!candidates.length) return <NoData titulo="Nenhum candidato encontrado" />;
+  if (query.isLoading) return <Loading rows={6} />;
+  if (query.error) return <ErrorView error={query.error} onRetry={() => query.refetch()} />;
+  if (!candidates.length) return <NoData title="Nenhum candidato encontrado" />;
   return <CandidateGrid candidates={candidates.slice(0, MAX_SHOWN_CANDIDATES)} />;
 }
 
@@ -98,10 +98,11 @@ export function CandidatesScreen() {
   const candidates = useMemo(() => query.data ?? [], [query.data]);
   const parties = useMemo(() => partyOptions(candidates), [candidates]);
   const shown = useMemo(() => filterCandidates(candidates, { search, party }), [candidates, search, party]);
+  const officeName = candidates[0]?.office_name ?? OFFICE_NAME[filter.cargo] ?? "Candidatos";
   return (
     <Stack gap="md">
       <CandidatesToolbar
-        office={filter.cargo}
+        officeName={officeName}
         round={filter.turno}
         byState={byState}
         state={state}

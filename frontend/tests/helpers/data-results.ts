@@ -229,6 +229,7 @@ export function candidate(overrides: Partial<CandidateDto> = {}): CandidateDto {
     photo_url: "",
     state_code: null,
     office_code: 1,
+    office_name: "Presidente",
     overall_status: "COUNTING",
     elected: false,
     vice_and_substitutes: [],

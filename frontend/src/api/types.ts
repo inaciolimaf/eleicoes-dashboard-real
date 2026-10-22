@@ -706,6 +706,8 @@ export interface components {
             state_code: string | null;
             /** Office Code */
             office_code: number;
+            /** Office Name */
+            office_name: string;
             /** Overall Status */
             overall_status: string;
             /** Elected */
@@ -737,6 +739,8 @@ export interface components {
             state_code: string | null;
             /** Office Code */
             office_code: number;
+            /** Office Name */
+            office_name: string;
             /** Overall Status */
             overall_status: string;
             /** Elected */
