@@ -35,7 +35,7 @@ class CatalogSteps(RequestSteps):
         self.catalog = catalog
         self.urls = MontadorUrls(self.settings.tse_base_url, catalog.templates, event.ciclo, event.cd)
         async with unit_of_work(self.sessionmaker) as session:
-            self.elections = await ingestion.ingerir_catalogo(session, catalog, self.settings.tse_ambiente)
+            self.elections = await ingestion.ingerir_catalogo(session, catalog, self.settings.tse_environment)
         if is_new:
             self.fetcher.clear_404()
             await self.load_municipalities()
@@ -95,9 +95,9 @@ class CatalogSteps(RequestSteps):
     async def load_polling_places(self) -> None:
         async with self.sessionmaker() as session:
             count = (await session.execute(select(func.count()).select_from(PollingPlace))).scalar_one()
-        if count > 0 or not self.settings.locais_votacao_url:
+        if count > 0 or not self.settings.polling_places_url:
             return
-        r = await self.fetcher.get(self.settings.locais_votacao_url, use_etag=False)
+        r = await self.fetcher.get(self.settings.polling_places_url, use_etag=False)
         if r.status != 200 or not r.body:
             log.warning("não foi possível baixar locais de votação (%s)", r.status)
             return

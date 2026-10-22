@@ -107,8 +107,8 @@ async def _alerts_polling_place(
 ) -> None:
     item = await resultados.item_local(session, round_, office_code, place_id)
     item_status = item["status"] if item else ""
-    for alert in await alertas.ativos(session):
-        text = alertas.avaliar_local(alert, place_id, item_status)
+    for alert in await alertas.active_alerts(session):
+        text = alertas.evaluate_polling_place(alert, place_id, item_status)
         if text:
-            await alertas.marcar_disparado(session, alert)
+            await alertas.mark_triggered(session, alert)
             out.add_alert(alert, text)

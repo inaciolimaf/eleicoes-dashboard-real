@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import os
 import time
 import uuid
 from collections.abc import Awaitable, Callable
@@ -49,8 +48,8 @@ class Collector(ResultSteps, TrackingSteps, DemandSteps):
         self.settings = settings
         self.sessionmaker = sessionmaker
         self.redis = redis
-        self.fetcher = fetcher or Fetcher(settings.tse_max_rps, settings.tse_concorrencia)
-        self.signing_key = chave_do_ambiente(settings.tse_ambiente) if settings.tse_verificar_jws else None
+        self.fetcher = fetcher or Fetcher(settings.tse_max_rps, settings.tse_concurrency)
+        self.signing_key = chave_do_ambiente(settings.tse_environment) if settings.tse_verify_jws else None
         self.catalog = None
         self.urls = None
         self.elections = []
@@ -90,7 +89,7 @@ class Collector(ResultSteps, TrackingSteps, DemandSteps):
         file is not downloaded, so its ETag does not change and it is fetched again when the queue empties.
         """
         try:
-            return await queue.low_priority_size(self.redis) > self.settings.fila_max
+            return await queue.low_priority_size(self.redis) > self.settings.queue_max
         except Exception:
             return False
 
@@ -154,10 +153,10 @@ class Collector(ResultSteps, TrackingSteps, DemandSteps):
             "section_queue": self.section_queue.qsize(),
             "sections_collected": len(self.sections_done),
             "municipalities": len(self.municipalities),
-            "section_mode": self.settings.modo_secoes,
+            "section_mode": self.settings.section_mode,
             "watched": len(self.watched),
             "paused": self.paused,
-            "environment": self.settings.tse_ambiente,
+            "environment": self.settings.tse_environment,
             "base_url": self.settings.tse_base_url,
             "max_rps": self.settings.tse_max_rps,
             "updated_at": now_iso(),
@@ -185,15 +184,15 @@ class Collector(ResultSteps, TrackingSteps, DemandSteps):
                 log.exception("falha ao carregar catálogo")
             if self.urls is None:
                 await asyncio.sleep(5)
-        municipality_workers = int(os.getenv("COLETOR_WORKERS_MUNICIPIO", "8"))
-        section_workers = int(os.getenv("COLETOR_WORKERS_SECAO", "16"))
+        municipality_workers = self.settings.collector_municipality_workers
+        section_workers = self.settings.collector_section_workers
         tasks = [
             self._renew_leadership(),
             self._publish_metrics(),
             self._refresh_watched(),
-            self._loop("catalogo", self.settings.intervalo_catalogo, self.refresh_catalog),
-            self._loop("principal", self.settings.intervalo_principal, self.primary_cycle),
-            self._loop("acompanhamento", self.settings.intervalo_acompanhamento, self.tracking_cycle),
+            self._loop("catalogo", self.settings.interval_catalog, self.refresh_catalog),
+            self._loop("principal", self.settings.interval_main, self.primary_cycle),
+            self._loop("acompanhamento", self.settings.interval_follow_up, self.tracking_cycle),
             self._loop("sob_demanda", 3, self.on_demand_cycle),
             *(self._consume_municipalities() for _ in range(municipality_workers)),
             *(self._consume_sections() for _ in range(section_workers)),

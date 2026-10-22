@@ -154,7 +154,7 @@ async def montar_resultado(
     coverage_flag = (cd == 1 and r.level == "country") or (cd != 1 and r.level == "state")
     cands = line.get("candidates") or []
     meta = await candidate_meta(session, [c["sq"] for c in cands])
-    statuses = candidate_status.calcular(
+    statuses = candidate_status.calculate(
         cands,
         seats,
         bool(line.get("final_tally")),

@@ -73,15 +73,15 @@ def banco_migrado():
 @pytest_asyncio.fixture(scope="session")
 async def engine(banco_migrado):
     eng = create_async_engine(os.environ["TEST_DATABASE_URL"], pool_size=5, max_overflow=10)
-    db_mod.configurar_engine(eng)
+    db_mod.configure_engine(eng)
     yield eng
     await eng.dispose()
 
 
 @pytest_asyncio.fixture(scope="session")
 async def redis_cliente():
-    cli = redis_mod.criar_redis(os.environ["TEST_REDIS_URL"])
-    redis_mod.configurar_redis(cli)
+    cli = redis_mod.create_redis(os.environ["TEST_REDIS_URL"])
+    redis_mod.configure_redis(cli)
     await cli.flushdb()
     yield cli
     await cli.flushdb()

@@ -128,4 +128,4 @@ class CollectorBase:
     def _section_done(self, section_id: str) -> bool:
         """Whether the section was downloaded recently (always, in "all sections" mode)."""
         done = self.sections_done.get(section_id)
-        return done is not None and (self.settings.modo_secoes == "todas" or time.monotonic() - done < 120)
+        return done is not None and (self.settings.section_mode == "todas" or time.monotonic() - done < 120)

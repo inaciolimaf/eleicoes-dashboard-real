@@ -77,7 +77,7 @@ class TrackingSteps(CatalogSteps):
             return
         self.pending_municipalities.add((round_number, municipality_id))
         priority = 0 if municipality_id in self.watched else 1
-        interval = self.settings.intervalo_min_municipio / (3 if priority == 0 else 1)
+        interval = self.settings.interval_min_municipality / (3 if priority == 0 else 1)
         wait = interval - (
             time.monotonic() - self.last_municipality_collection.get((round_number, municipality_id), -1e9)
         )

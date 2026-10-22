@@ -16,10 +16,10 @@ from app.modules.geography import (
     Municipality,
     PollingPlace,
     PollingSection,
-    local_id,
-    municipio_id,
-    secao_id,
-    zona_id,
+    municipality_id_of,
+    polling_place_id_of,
+    section_id_of,
+    zone_id_of,
 )
 from app.modules.results.ingestion.common import now
 from app.modules.results.ingestion.tally import recalculate_polling_place
@@ -80,10 +80,10 @@ async def ingest_ballot_report(
 def _keys(uf: str, bu: BoletimUrna) -> _Keys:
     return _Keys(
         state_code=uf,
-        municipality_id=municipio_id(uf, bu.municipio),
-        zone_id=zona_id(uf, bu.municipio, bu.zona),
-        place_id=local_id(uf, bu.municipio, bu.zona, bu.local),
-        section_id=secao_id(uf, bu.municipio, bu.zona, bu.secao),
+        municipality_id=municipality_id_of(uf, bu.municipio),
+        zone_id=zone_id_of(uf, bu.municipio, bu.zona),
+        place_id=polling_place_id_of(uf, bu.municipio, bu.zona, bu.local),
+        section_id=section_id_of(uf, bu.municipio, bu.zona, bu.secao),
     )
 
 

@@ -28,8 +28,3 @@ def get_redis() -> Redis:
 def configure_redis(client: Redis) -> None:
     global _redis
     _redis = client
-
-
-# TEMPORARY: removed by the main agent after integration (tests/conftest.py still uses the old names).
-criar_redis = create_redis
-configurar_redis = configure_redis

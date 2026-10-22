@@ -41,7 +41,7 @@ async def ensure_candidates(session: AsyncSession, ctx: ResultContext, res: Resu
 async def _upsert_candidates(
     session: AsyncSession, ctx: ResultContext, res: ResultadoTSE, seats: int
 ) -> None:
-    statuses = candidate_status.calcular(
+    statuses = candidate_status.calculate(
         [
             {"sq": c.sqcand, "v": c.votos, "e": c.eleito, "st": c.situacao_tse, "d": c.destinacao}
             for c in res.candidatos

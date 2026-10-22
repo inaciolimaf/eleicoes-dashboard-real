@@ -145,8 +145,8 @@ async def _active_children_topics(proc: Processor, c: ingestao.Contexto, r: GeoA
 async def _alerts_result(
     session: AsyncSession, out: Outbox, line: dict[str, Any], events: list[dict[str, Any]]
 ) -> None:
-    for alert in await alertas.ativos(session):
-        text = alertas.avaliar_resultado(alert, line, events)
+    for alert in await alertas.active_alerts(session):
+        text = alertas.evaluate_result(alert, line, events)
         if text:
-            await alertas.marcar_disparado(session, alert)
+            await alertas.mark_triggered(session, alert)
             out.add_alert(alert, text)

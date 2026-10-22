@@ -15,11 +15,3 @@ __all__ = [
     "invalidate_cache",
     "mark_triggered",
 ]
-
-# TEMPORARY: removed by the main agent after integration. The collector, the worker and the
-# integration tests of other slices still call the old names of this module.
-ativos = active_alerts
-invalidar_cache = invalidate_cache
-avaliar_resultado = evaluate_result
-avaliar_local = evaluate_polling_place
-marcar_disparado = mark_triggered

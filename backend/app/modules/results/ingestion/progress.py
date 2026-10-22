@@ -9,7 +9,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infra.tse.parsers import AcompanhamentoTSE, ProgressTSE
-from app.modules.geography import municipio_id
+from app.modules.geography import municipality_id_of
 from app.modules.results.ingestion.common import now
 from app.modules.results.models import CurrentProgress, ProgressSnapshot
 
@@ -52,7 +52,7 @@ def _area_of(item: ProgressTSE, file_uf: str) -> _Area:
         return _Area("country", "br", "br")
     if item.tipo == "uf":
         return _Area("state", item.codigo, item.codigo)
-    geo_area_id = item.codigo if item.codigo[:2].isalpha() else municipio_id(file_uf, int(item.codigo))
+    geo_area_id = item.codigo if item.codigo[:2].isalpha() else municipality_id_of(file_uf, int(item.codigo))
     return _Area("municipality", geo_area_id, file_uf)
 
 

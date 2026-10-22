@@ -26,7 +26,3 @@ __all__ = [
     "section_id_of",
     "zone_id_of",
 ]
-
-# TEMPORARY: removed by the main agent after integration. The results and collector slices still
-# import these Portuguese names.
-from app.modules.geography.geo_area.ids import local_id, municipio_id, secao_id, zona_id  # noqa: F401

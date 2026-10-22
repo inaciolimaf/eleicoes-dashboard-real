@@ -2,8 +2,8 @@
 
 import asyncio
 import logging
-import os
 
+from app.core.config import get_settings
 from app.core.db import get_sessionmaker
 from app.core.redis import get_redis
 from app.infra import queue
@@ -35,11 +35,10 @@ async def consumer(nome: str, proc: Processor) -> None:
 
 
 async def main() -> None:
-    logging.basicConfig(
-        level=os.getenv("LOG_LEVEL", "INFO"), format="%(asctime)s %(levelname)s %(name)s %(message)s"
-    )
+    settings = get_settings()
+    logging.basicConfig(level=settings.log_level, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     proc = Processor(get_sessionmaker(), get_redis())
-    n = int(os.getenv("WORKER_CONCORRENCIA", "4"))
+    n = settings.worker_concurrency
     log.info("worker iniciado com %d consumidores", n)
     await asyncio.gather(*(consumer(f"c{i}", proc) for i in range(n)))
 

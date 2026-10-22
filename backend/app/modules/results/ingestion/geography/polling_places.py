@@ -17,10 +17,10 @@ from app.modules.geography import (
     Municipality,
     PollingPlace,
     PollingSection,
-    local_id,
-    municipio_id,
-    secao_id,
-    zona_id,
+    municipality_id_of,
+    polling_place_id_of,
+    section_id_of,
+    zone_id_of,
 )
 from app.modules.results.ingestion.geography.areas import insert_zones
 
@@ -104,12 +104,12 @@ class _PollingPlaceLoad:
         parsed = _parse_csv_section(row)
         if parsed is None:
             return
-        municipality = self.municipalities.get(municipio_id(parsed.uf, parsed.cd_mun))
+        municipality = self.municipalities.get(municipality_id_of(parsed.uf, parsed.cd_mun))
         if municipality is None:
             return
         municipality_key = municipality.id
-        place_key = local_id(parsed.uf, parsed.cd_mun, parsed.zone, parsed.place_number)
-        zone_key = zona_id(parsed.uf, parsed.cd_mun, parsed.zone)
+        place_key = polling_place_id_of(parsed.uf, parsed.cd_mun, parsed.zone, parsed.place_number)
+        zone_key = zone_id_of(parsed.uf, parsed.cd_mun, parsed.zone)
         self.zones[zone_key] = {
             "id": zone_key,
             "municipality_id": municipality_key,
@@ -153,7 +153,7 @@ def _section_row(
     parsed: _CsvSection, municipality_key: str, zone_key: str, place_key: str, voters: int
 ) -> dict[str, Any]:
     return {
-        "id": secao_id(parsed.uf, parsed.cd_mun, parsed.zone, parsed.section),
+        "id": section_id_of(parsed.uf, parsed.cd_mun, parsed.zone, parsed.section),
         "municipality_id": municipality_key,
         "electoral_zone_id": zone_key,
         "polling_place_id": place_key,

@@ -17,7 +17,7 @@ class RequestSteps(CollectorBase):
         """Keeps the raw file in `DIR_BRUTOS`, named by the TSE generation id; I/O errors are ignored."""
         try:
             rel = url.split("://", 1)[-1].split("/", 1)[-1]
-            destination = Path(self.settings.dir_brutos) / self.settings.tse_ambiente / rel
+            destination = Path(self.settings.raw_dir) / self.settings.tse_environment / rel
             destination = destination.with_name(f"{destination.name}.{idg or int(time.time())}")
             destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_bytes(body)
@@ -31,7 +31,7 @@ class RequestSteps(CollectorBase):
 
         Returns (status, body, verified): `verified` is True only when the signature was checked.
         """
-        if self.settings.tse_usar_jws and not self.jws_disabled and url_json.endswith(".json"):
+        if self.settings.tse_use_jws and not self.jws_disabled and url_json.endswith(".json"):
             url = url_json[:-5] + ".jws"
             r = await self.fetcher.get(url, high_priority=high_priority)
             if r.status == 200 and r.body is not None:

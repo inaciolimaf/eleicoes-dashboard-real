@@ -10,7 +10,14 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infra.tse.parsers import MunicipioTSE, SecaoTSE
-from app.modules.geography import ElectoralZone, Municipality, PollingSection, municipio_id, secao_id, zona_id
+from app.modules.geography import (
+    ElectoralZone,
+    Municipality,
+    PollingSection,
+    municipality_id_of,
+    section_id_of,
+    zone_id_of,
+)
 
 MUNICIPALITY_BATCH = 1000
 ZONE_BATCH = 2000
@@ -30,7 +37,7 @@ async def ingest_municipalities(
     rows: list[dict[str, Any]] = []
     zones: list[dict[str, Any]] = []
     for m in municipalities:
-        key = municipio_id(m.uf, m.cd)
+        key = municipality_id_of(m.uf, m.cd)
         rows.append(_municipality_row(m, geo.get(m.cd_ibge or -1, ()), key))
         zones.extend(_zone_row(m.uf, m.cd, z, key) for z in m.zonas)
     await _upsert_municipalities(session, rows)
@@ -56,7 +63,7 @@ def _municipality_row(m: MunicipioTSE, geo: tuple[Any, ...], key: str) -> dict[s
 
 def _zone_row(uf: str, cd_mun: int, zone: int, municipality_key: str) -> dict[str, Any]:
     return {
-        "id": zona_id(uf, cd_mun, zone),
+        "id": zone_id_of(uf, cd_mun, zone),
         "municipality_id": municipality_key,
         "state_code": uf,
         "number": zone,
@@ -91,8 +98,8 @@ async def ingest_sections(session: AsyncSession, sections: list[SecaoTSE]) -> in
     zones: dict[str, dict[str, Any]] = {}
     rows: list[dict[str, Any]] = []
     for s in sections:
-        municipality_key = municipio_id(s.uf, s.municipio)
-        zone_key = zona_id(s.uf, s.municipio, s.zona)
+        municipality_key = municipality_id_of(s.uf, s.municipio)
+        zone_key = zone_id_of(s.uf, s.municipio, s.zona)
         zones[zone_key] = {
             "id": zone_key,
             "municipality_id": municipality_key,
@@ -110,7 +117,7 @@ async def ingest_sections(session: AsyncSession, sections: list[SecaoTSE]) -> in
 
 def _section_row(s: SecaoTSE, municipality_key: str, zone_key: str) -> dict[str, Any]:
     return {
-        "id": secao_id(s.uf, s.municipio, s.zona, s.secao),
+        "id": section_id_of(s.uf, s.municipio, s.zona, s.secao),
         "municipality_id": municipality_key,
         "electoral_zone_id": zone_key,
         "state_code": s.uf,

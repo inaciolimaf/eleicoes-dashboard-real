@@ -105,8 +105,10 @@ async def detalhe_secao(session: AsyncSession, turno: int, sid: str) -> dict[str
     if sec is None and ballot is None:
         return None
     mun = await session.get(Municipality, r.municipality_id)
-    local_id = (sec.polling_place_id if sec else None) or (ballot.polling_place_id if ballot else None)
-    loc = await session.get(PollingPlace, local_id) if local_id else None
+    polling_place_id = (sec.polling_place_id if sec else None) or (
+        ballot.polling_place_id if ballot else None
+    )
+    loc = await session.get(PollingPlace, polling_place_id) if polling_place_id else None
     offices = await _section_offices(session, turno, ballot, r.uf) if ballot else []
     return {
         "id": sid,
@@ -114,7 +116,7 @@ async def detalhe_secao(session: AsyncSession, turno: int, sid: str) -> dict[str
         "state_code": r.uf,
         "municipality": {"id": r.municipality_id, "name": mun.name if mun else r.municipality_id},
         "zone": {"id": r.zone_id, "number": r.zone},
-        "polling_place": {"id": local_id, "name": loc.name if loc else None},
+        "polling_place": {"id": polling_place_id, "name": loc.name if loc else None},
         **_ballot_fields(ballot, sec),
         "offices": offices,
     }

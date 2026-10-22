@@ -64,10 +64,6 @@ def configure_engine(engine: AsyncEngine) -> None:
     _sessionmaker = async_sessionmaker(engine, expire_on_commit=False)
 
 
-# TEMPORARY: removed by the main agent after integration (tests/conftest.py still uses the old name).
-configurar_engine = configure_engine
-
-
 @asynccontextmanager
 async def unit_of_work(
     factory: async_sessionmaker[AsyncSession] | None = None,

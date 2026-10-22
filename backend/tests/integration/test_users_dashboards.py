@@ -21,7 +21,7 @@ async def cli(banco_limpo):
         yield c
 
 
-async def registrar(cli, email="ana@exemplo.com"):
+async def sign_up(cli, email="ana@exemplo.com"):
     r = await cli.post(
         "/api/v1/auth/register", json={"email": email, "password": "segredo123", "name": "Ana"}
     )
@@ -30,9 +30,9 @@ async def registrar(cli, email="ana@exemplo.com"):
 
 
 async def test_register_login_and_first_user_is_admin(cli):
-    h, u = await registrar(cli)
+    h, u = await sign_up(cli)
     assert u["is_admin"] is True
-    h2, u2 = await registrar(cli, "bia@exemplo.com")
+    h2, u2 = await sign_up(cli, "bia@exemplo.com")
     assert u2["is_admin"] is False
     dup = await cli.post(
         "/api/v1/auth/register", json={"email": "ana@exemplo.com", "password": "segredo123", "name": "x"}
@@ -49,7 +49,7 @@ async def test_register_login_and_first_user_is_admin(cli):
 
 
 async def test_dashboards_crud_default_and_sharing(cli):
-    h, _ = await registrar(cli)
+    h, _ = await sign_up(cli)
     p1 = (
         await cli.post(
             "/api/v1/dashboards", json={"name": "Noite", "config": CONFIG, "is_default": True}, headers=h
@@ -86,7 +86,7 @@ async def test_dashboards_crud_default_and_sharing(cli):
     )
     sem_tempo = await cli.post(f"/api/v1/dashboards/{p2['id']}/shares", json={"mode": "frozen"}, headers=h)
     assert sem_tempo.status_code == 422 and sem_tempo.json()["detail"]
-    h2, _ = await registrar(cli, "bia@exemplo.com")
+    h2, _ = await sign_up(cli, "bia@exemplo.com")
     assert (await cli.get(f"/api/v1/dashboards/{p1['id']}", headers=h2)).status_code == 404
     assert (await cli.delete(f"/api/v1/dashboards/{p1['id']}", headers=h)).status_code == 204
     assert len((await cli.get("/api/v1/dashboards", headers=h)).json()) == 1
@@ -94,7 +94,7 @@ async def test_dashboards_crud_default_and_sharing(cli):
 
 
 async def test_favorites_alerts_preferences(cli):
-    h, _ = await registrar(cli)
+    h, _ = await sign_up(cli)
     await cli.post(
         "/api/v1/favorites", json={"type": "geo_area", "ref": "sp71072", "label": "São Paulo"}, headers=h
     )
@@ -146,7 +146,7 @@ async def test_favorites_alerts_preferences(cli):
 
 
 async def test_admin_coletor(cli, redis_cliente):
-    h, _ = await registrar(cli)
+    h, _ = await sign_up(cli)
     assert (await cli.post("/api/v1/admin/collector/pause", headers=h)).json() == {"paused": True}
     assert await redis_cliente.get("collector:paused")
     await cli.post("/api/v1/admin/collector/resume", headers=h)
@@ -229,7 +229,7 @@ async def test_commit_failure_becomes_500_not_200(banco_limpo):
 
 
 async def test_attempt_limit_blocks_the_sixth_even_with_right_password(cli):
-    await registrar(cli)
+    await sign_up(cli)
     for _ in range(5):
         errada = await cli.post("/api/v1/auth/login", json={"email": "ana@exemplo.com", "password": "errada"})
         assert errada.status_code == 401
@@ -244,7 +244,7 @@ async def test_attempt_limit_blocks_the_sixth_even_with_right_password(cli):
 
 
 async def test_successful_login_clears_the_email_counter(cli, redis_cliente):
-    await registrar(cli)
+    await sign_up(cli)
     for _ in range(4):
         await cli.post("/api/v1/auth/login", json={"email": "ana@exemplo.com", "password": "errada"})
     ok = await cli.post("/api/v1/auth/login", json={"email": "ana@exemplo.com", "password": "segredo123"})
@@ -255,7 +255,7 @@ async def test_successful_login_clears_the_email_counter(cli, redis_cliente):
 async def test_login_works_again_after_the_window(cli, monkeypatch):
     agora = [1_000_000.0]
     monkeypatch.setattr(login_limit, "clock", lambda: agora[0])
-    await registrar(cli)
+    await sign_up(cli)
     for _ in range(5):
         await cli.post("/api/v1/auth/login", json={"email": "ana@exemplo.com", "password": "errada"})
     bloqueada = await cli.post(

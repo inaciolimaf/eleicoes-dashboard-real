@@ -104,12 +104,12 @@ class ResultSteps(SectionSteps):
         for e in [x for x in self.elections if x.round == round_number]:
             for office_code in offices_of_state([c.office_code for c in e.offices], uf):
                 tasks.append(self.fetch_result(round_number, e, office_code, uf, municipality_code))
-                if self.settings.coletar_zonas and len(m["zonas"]) > 1:
+                if self.settings.collect_zones and len(m["zonas"]) > 1:
                     tasks.extend(
                         self.fetch_result(round_number, e, office_code, uf, municipality_code, z)
                         for z in m["zonas"]
                     )
         await asyncio.gather(*tasks)
-        if self.settings.coletar_secoes and self.settings.modo_secoes == "todas":
+        if self.settings.collect_sections and self.settings.section_mode == "todas":
             await self.load_sections_of_state(uf)
             self.schedule_municipality_sections(round_number, uf, municipality_code, municipality_id)
