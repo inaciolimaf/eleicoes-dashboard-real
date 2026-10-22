@@ -134,8 +134,12 @@ export function migrate(config: unknown): DashboardConfig | null {
   return { ...parsed.data, schemaVersion: SCHEMA_VERSION };
 }
 
+/** Sequence within the process: ids made in the same millisecond still differ. */
+let widgetSequence = 0;
+
 export function newWidgetId(): string {
-  return `w${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+  widgetSequence += 1;
+  return `w${Date.now().toString(36)}${widgetSequence.toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 }
 
 export function describeZodError(error: z.ZodError): string {
