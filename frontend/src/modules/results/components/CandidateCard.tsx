@@ -75,8 +75,8 @@ function ResultStats({ candidate, large }: { candidate: CandidateDetailDto; larg
           % válidos
         </Text>
         <Num
-          valor={result.valid_pct}
-          tipo="pct"
+value={result.valid_pct}
+kind="pct"
           style={{ fontSize: large ? "2rem" : "1.4rem", fontWeight: 800 }}
         />
       </Stack>
@@ -84,7 +84,7 @@ function ResultStats({ candidate, large }: { candidate: CandidateDetailDto; larg
         <Text size="xs" c="dimmed" tt="uppercase" fw={600}>
           Votos
         </Text>
-        <Num valor={result.votes} style={{ fontSize: large ? "1.3rem" : "1rem", fontWeight: 600 }} />
+        <Num value={result.votes} style={{ fontSize: large ? "1.3rem" : "1rem", fontWeight: 600 }} />
       </Stack>
       <Stack gap={0}>
         <Text size="xs" c="dimmed" tt="uppercase" fw={600}>
@@ -113,9 +113,9 @@ export function CandidateCard({
   const query = useCandidate(tseCandidateId, filter.turno, filter.t);
   const candidateColor = useCandidateColor();
   if (!tseCandidateId)
-    return <NoData titulo="Escolha um candidato">Configure o widget para escolher o candidato.</NoData>;
-  if (query.isLoading) return <Loading linhas={2} />;
-  if (query.error) return <ErrorView erro={query.error} onRetry={() => query.refetch()} />;
+    return <NoData title="Escolha um candidato">Configure o widget para escolher o candidato.</NoData>;
+  if (query.isLoading) return <Loading rows={2} />;
+  if (query.error) return <ErrorView error={query.error} onRetry={() => query.refetch()} />;
   const candidate = query.data;
   if (!candidate) return <NoData />;
   const color = candidateColor(candidate.tse_candidate_id, candidate.color, candidate.ballot_number);
@@ -142,14 +142,15 @@ export function CandidateCard({
             {candidate.name}
           </Text>
           <Text size="sm">
-            {candidate.party_abbreviation}
-            {candidate.alliance && candidate.alliance !== candidate.party_abbreviation
-              ? ` · ${candidate.alliance}`
-              : ""}{" "}
-            ·{" "}
-            {candidate.state_code
-              ? ` · ${STATE_BY_CODE[candidate.state_code]?.nome ?? candidate.state_code.toUpperCase()}`
-              : ""}
+            {[
+              candidate.party_abbreviation,
+              candidate.alliance && candidate.alliance !== candidate.party_abbreviation ? candidate.alliance : null,
+              candidate.state_code
+                ? (STATE_BY_CODE[candidate.state_code]?.nome ?? candidate.state_code.toUpperCase())
+                : null,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
           </Text>
           {candidate.vice_and_substitutes?.length > 0 && (
             <Text size="xs" c="dimmed">
