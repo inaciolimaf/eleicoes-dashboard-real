@@ -7,13 +7,16 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --port 4173 --strictPort",
-    "lint": "eslint src tests",
+    "lint": "eslint src tests e2e",
     "typecheck": "tsc --noEmit",
     "types": "openapi-typescript ../openapi.json -o src/api/types.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
-    "coverage": "vitest run --coverage"
+    "coverage": "vitest run --coverage",
+    "e2e": "playwright test --project=routes",
+    "mobile": "playwright test --project=mobile",
+    "e2e:flows": "playwright test --project=flows"
   },
   "dependencies": {
     "@deck.gl/aggregation-layers": "^9.4.0",
@@ -48,6 +51,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
+    "@playwright/test": "1.64.0",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
