@@ -1,6 +1,6 @@
 """Real-time topics and publication through Redis pub/sub.
 
-Topic format (see `docs/refactoring-contract.md` and `frontend/src/modules/realtime/topics.ts`):
+Topic format (see `docs/system/processing.md` and `frontend/src/modules/realtime/topics.ts`):
 `results:{round}:{office}:{level}:{id}`, `children:{round}:{office}:{level}:{id}[:{child_level}]`,
 `polling_places:{round}:{office}:{municipality}`, `events:{round}`, `progress:{round}`, `status`,
 `user:{id}`.

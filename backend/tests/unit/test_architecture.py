@@ -1,6 +1,6 @@
 """Architecture rules, checked on the AST of `backend/app` (nothing is imported or executed).
 
-The rules are the guarantees of docs/refactoring-contract.md and the server runtime notes:
+The rules are design guarantees no third-party lint covers (see CLAUDE.md, "Code rules"):
 
 - only `app/core/db.py` calls `.commit()` (the unit of work owns the transaction);
 - SQL goes through the SQLAlchemy query builder: no `sqlalchemy.text` and no SQL strings, except the

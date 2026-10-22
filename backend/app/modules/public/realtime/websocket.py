@@ -1,4 +1,4 @@
-"""WebSocket /api/v1/ws (protocol in docs/refactoring-contract.md and frontend/src/realtime/socket.ts).
+"""WebSocket /api/v1/ws (protocol in docs/system/public-api.md and frontend/src/modules/realtime/socket.ts).
 
 Client -> server: `{"op": "subscribe"|"unsubscribe", "topics": [...]}`, `{"op": "auth", "token"}`,
 `{"op": "ping"}`, `{"op": "resume"}`. Server -> client: `{"type", "topic", "seq", "data"}`, or
