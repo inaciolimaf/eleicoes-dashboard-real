@@ -82,4 +82,11 @@ describe("events screen", () => {
     const link = await screen.findByRole("link", { name: "Ana Azul eleita" });
     expect(link).toHaveAttribute("href", "/explorar/uf/sp");
   });
+
+  it("draws the icon of each API event type, not only the default flag", async () => {
+    fakeApi({ "GET /events": [{ ...EVENTS[0], id: "e3", type: "lead_change", title: "Virada no estado" }] });
+    const { container } = await renderScreen("/eventos");
+    await screen.findByText("Virada no estado");
+    expect(container.querySelector(".tabler-icon-arrows-exchange")).not.toBeNull();
+  });
 });

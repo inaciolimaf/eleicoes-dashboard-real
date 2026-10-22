@@ -2,7 +2,6 @@ import type { EventType } from "../../../api/models";
 import { ActionIcon, Anchor, Badge, Group, ScrollArea, Stack, Text, ThemeIcon, Tooltip } from "@mantine/core";
 import {
   IconArrowsExchange,
-  IconCircleCheck,
   IconClockPlay,
   IconFlag,
   IconMathFunction,
@@ -25,16 +24,14 @@ import { useTime } from "../../../lib/time-store";
 import { usePrefs } from "../../../lib/prefs-store";
 import { Loading, ErrorView, NoData } from "../../../components/States";
 
-// Keys are the Portuguese type names the icons were first written for; API types are
-// English, so only the default icon applies today. Kept as they are (behavior).
-export const EVENT_ICONS: Record<string, Icon> = {
-  virada: IconArrowsExchange,
-  marco: IconFlag,
-  eleito: IconTrophy,
-  segundo_turno: IconRepeat,
-  matematicamente_definido: IconMathFunction,
-  finalizado: IconCircleCheck,
-  inicio: IconPlayerPlay,
+/** Icon of each event type, keyed by the API values. */
+export const EVENT_ICONS: Record<EventType, Icon> = {
+  start: IconPlayerPlay,
+  milestone: IconFlag,
+  lead_change: IconArrowsExchange,
+  elected: IconTrophy,
+  mathematically_decided: IconMathFunction,
+  runoff: IconRepeat,
 };
 
 export const EVENT_TYPES = Object.keys(EVENT_LABELS).map((k) => ({ value: k, label: EVENT_LABELS[k] }));
@@ -155,11 +152,11 @@ export function EventFeed({ tipos, limite = 50, cargo, nivel, id, compacto, altu
     f.t,
   );
   useLive([topic.events(f.turno)]);
-  if (q.isLoading) return <Loading linhas={5} />;
-  if (q.error) return <ErrorView erro={q.error} onRetry={() => q.refetch()} />;
+  if (q.isLoading) return <Loading rows={5} />;
+  if (q.error) return <ErrorView error={q.error} onRetry={() => q.refetch()} />;
   if (!q.data?.length)
     return (
-      <NoData titulo="Nenhum evento ainda">
+      <NoData title="Nenhum evento ainda">
         Viradas, marcos da apuração e eleitos aparecem aqui em tempo real.
       </NoData>
     );
