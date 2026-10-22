@@ -1,3 +1,4 @@
+import type { SearchType } from "../api/models";
 import {
   Alert,
   Badge,
@@ -22,6 +23,13 @@ import { useFiltro } from "../store/filtro";
 import { usePaineis } from "./repo";
 import { SCHEMA_VERSION, arquivoPainelZ, configPainelZ, descreverErroZod, type ConfigPainel } from "./schema";
 import { TEMPLATES, type Template } from "./templates";
+
+/** Nível de busca de cada tipo de pedido do modelo (`pede`). */
+const PEDE_NIVEL: Record<"uf" | "municipio" | "local", SearchType> = {
+  uf: "state",
+  municipio: "municipality",
+  local: "polling_place",
+};
 
 const BRANCO: Template = {
   id: "branco",
@@ -177,7 +185,7 @@ export function NovoPainelModal({ aberto, onClose }: { aberto: boolean; onClose:
                   label={
                     sel.pede === "uf" ? "UF" : sel.pede === "municipio" ? "Município" : "Local de votação"
                   }
-                  tipos={[sel.pede]}
+                  tipos={[PEDE_NIVEL[sel.pede]]}
                   incluirBrasil={false}
                   incluirUfs={sel.pede === "uf"}
                   value={recorte}

@@ -19,7 +19,7 @@ import { aplicarFiltroDoPainel } from "../paineis/PainelView";
 import { usePaineis } from "../paineis/repo";
 import { templatePadrao } from "../paineis/templates";
 import { useLive } from "../realtime/useLive";
-import { topico } from "../realtime/topicos";
+import { topic } from "../realtime/topics";
 import { useFiltro } from "../store/filtro";
 import { useUi } from "../store/ui";
 
@@ -32,7 +32,7 @@ export default function TvPage() {
   const idle = useIdle(3500);
   const setModoTv = useUi((s) => s.setModoTv);
   const turno = useFiltro((s) => s.turno);
-  useLive([topico.eventos(turno), topico.status()]);
+  useLive([topic.events(turno), topic.status()]);
   const lista = useMemo(
     () =>
       repo.paineis.length
@@ -42,7 +42,7 @@ export default function TvPage() {
   );
   const inicio = Math.max(
     0,
-    lista.findIndex((p) => p.id === sp.get("inicio")),
+    lista.findIndex((p) => p.id === sp.get("start")),
   );
   const [idx, setIdx] = useState(inicio);
   const [rodando, setRodando] = useState(true);

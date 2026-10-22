@@ -16,7 +16,7 @@ import {
 } from "@tabler/icons-react";
 import { Component, useCallback, useMemo, useRef, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import type { Nivel } from "../api/types";
+import type { Level } from "../api/models";
 import { FiltroProvider, useFiltroEfetivo, type FiltroParcial } from "../lib/filtro-efetivo";
 import { exportarDados, exportarPng } from "../lib/exportar";
 import { linkRecorte, nomeRecortePadrao } from "../lib/recortes";
@@ -126,7 +126,7 @@ export function WidgetFrame({
 }: Props) {
   const def = REGISTRO[widget.tipo];
   const cfg = useMemo(() => ({ ...def.padrao, ...widget.config }), [def.padrao, widget.config]);
-  const titulo = (typeof cfg.titulo === "string" && cfg.titulo) || def.nome;
+  const titulo = (typeof cfg.title === "string" && cfg.title) || def.nome;
   const { ref, height } = useElementSize();
   const cardRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -134,9 +134,9 @@ export function WidgetFrame({
   const fixo = filtroDoWidget(widget);
 
   const selecionar = useCallback(
-    (nivel: Nivel, id: string, nome: string) => {
+    (nivel: Level, id: string, nome: string) => {
       const clique = cfg.clique === "navegar" ? "navegar" : "filtrar";
-      if (nivel === "local" || nivel === "secao" || clique === "navegar" || fixo)
+      if (nivel === "polling_place" || nivel === "section" || clique === "navegar" || fixo)
         navigate(linkRecorte(nivel, id));
       else setRecorte(nivel, id, nome);
     },
@@ -221,7 +221,7 @@ function ExportMenu({
   const f = useFiltroEfetivo();
   const def = REGISTRO[widget.tipo];
   const filhos =
-    widget.config?.nivelFilhos === "municipio" && f.nivel === "br" ? ("municipio" as Nivel) : null;
+    widget.config?.nivelFilhos === "municipio" && f.nivel === "country" ? ("municipality" as Level) : null;
   return (
     <Menu position="bottom-end" withinPortal shadow="md" width={210}>
       <Menu.Target>

@@ -19,7 +19,7 @@ import { IconAdjustments, IconArrowUp, IconCompass } from "@tabler/icons-react";
 import { useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useResultados } from "../api/hooks";
-import type { Nivel } from "../api/types";
+import type { Level } from "../api/models";
 import { MapaEleitoral, TIPOS_MAPA, type TipoMapa } from "../components/mapas";
 import { ComResultados, useCargoSemResultadoBr } from "../components/resultados/ComResultados";
 import { Placar } from "../components/resultados/Placar";
@@ -29,6 +29,7 @@ import { sistemaPadrao } from "../lib/cargos";
 import { fmtPct } from "../lib/format";
 import { useFiltro } from "../store/filtro";
 import { usePrefs } from "../store/prefs";
+import { asLevel } from "../lib/recortes";
 
 /** Mapa em tela cheia com seletor de tipo (RF-05) e painel lateral. */
 export default function MapasPage() {
@@ -44,10 +45,10 @@ export default function MapasPage() {
   const todosMun = sp.get("mun") === "1";
   const semBr = useCargoSemResultadoBr(f.cargo, f.nivel);
   const res = useResultados({ turno: f.turno, cargo: f.cargo, nivel: f.nivel, id: f.id, t: f.t }, !semBr);
-  const proporcional = (res.data?.cargo.sistema ?? sistemaPadrao(f.cargo)) === "proporcional";
-  const nivelMapa: Nivel = f.nivel === "secao" ? "zona" : f.nivel;
-  const idMapa = f.nivel === "secao" ? (zonaDoId("secao", f.id) ?? f.id) : f.id;
-  const pai = res.data?.recorte.breadcrumb?.[res.data.recorte.breadcrumb.length - 2];
+  const proporcional = (res.data?.office.voting_system ?? sistemaPadrao(f.cargo)) === "proporcional";
+  const nivelMapa: Level = f.nivel === "section" ? "zone" : f.nivel;
+  const idMapa = f.nivel === "section" ? (zonaDoId("section", f.id) ?? f.id) : f.id;
+  const pai = res.data?.geo_area.breadcrumb?.[res.data.geo_area.breadcrumb.length - 2];
 
   const setParam = (k: string, v: string | null) => {
     const n = new URLSearchParams(sp);
@@ -56,8 +57,8 @@ export default function MapasPage() {
     setSp(n, { replace: true });
   };
 
-  const selecionar = (nivel: Nivel, id: string, nome: string) => {
-    if (nivel === "local" || nivel === "secao") navigate(linkRecorte(nivel, id));
+  const selecionar = (nivel: Level, id: string, nome: string) => {
+    if (nivel === "polling_place" || nivel === "section") navigate(linkRecorte(nivel, id));
     else g.setRecorte(nivel, id, nome);
   };
 
@@ -71,20 +72,20 @@ export default function MapasPage() {
             Recorte
           </Text>
           <Text fw={800} size="lg" lineClamp={1}>
-            {res.data?.recorte.nome ?? g.nome ?? nomeRecortePadrao(f.nivel, f.id)}
+            {res.data?.geo_area.name ?? g.nome ?? nomeRecortePadrao(f.nivel, f.id)}
           </Text>
-          {res.data && !res.data.sem_dados && (
+          {res.data && !res.data.no_data && (
             <Text size="xs" c="dimmed">
-              {fmtPct(res.data.totais.pct_secoes)} das seções apuradas
+              {fmtPct(res.data.totals.pct_sections)} das seções apuradas
             </Text>
           )}
         </Stack>
         <Group gap={4}>
           {pai && (
-            <Tooltip label={`Subir para ${pai.nome}`}>
+            <Tooltip label={`Subir para ${pai.name}`}>
               <ActionIcon
                 variant="default"
-                onClick={() => g.setRecorte(pai.nivel, pai.id, pai.nome)}
+                onClick={() => g.setRecorte(asLevel(pai.level), pai.id, pai.name)}
                 aria-label="Subir um nível"
               >
                 <IconArrowUp size={16} />
@@ -126,7 +127,7 @@ export default function MapasPage() {
           </UnstyledButton>
         ))}
       </Stack>
-      {f.nivel === "br" && (
+      {f.nivel === "country" && (
         <Switch
           label="Todos os municípios do Brasil"
           checked={todosMun}

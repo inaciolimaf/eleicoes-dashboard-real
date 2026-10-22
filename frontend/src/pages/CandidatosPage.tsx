@@ -25,19 +25,26 @@ import { useFiltro } from "../store/filtro";
 export default function CandidatosPage() {
   const f = useFiltro();
   const el = useEleicoes();
-  const abr = infoCargo(el.data, f.cargo)?.abrangencia ?? abrangenciaPadrao(f.cargo);
+  const abr = infoCargo(el.data, f.cargo)?.coverage ?? abrangenciaPadrao(f.cargo);
   const [uf, setUf] = useState<string | null>(ufDoId(f.nivel, f.id) ?? (f.cargo === 8 ? "df" : "sp"));
   const [busca, setBusca] = useState("");
   const [partido, setPartido] = useState<string | null>(null);
   const q = useCandidatos(f.turno, f.cargo, abr === "uf" ? uf : null, abr !== "uf" || !!uf);
   const corCand = useCorCandidato();
-  const partidos = useMemo(() => [...new Set((q.data ?? []).map((c) => c.partido_sigla))].sort(), [q.data]);
+  const partidos = useMemo(
+    () => [...new Set((q.data ?? []).map((c) => c.party_abbreviation))].sort(),
+    [q.data],
+  );
   const lista = useMemo(() => {
     const b = semAcento(busca.trim());
     return (q.data ?? [])
-      .filter((c) => !partido || c.partido_sigla === partido)
-      .filter((c) => !b || semAcento(`${c.nome_urna} ${c.nome} ${c.numero} ${c.partido_sigla}`).includes(b))
-      .sort((a, b2) => a.numero - b2.numero);
+      .filter((c) => !partido || c.party_abbreviation === partido)
+      .filter(
+        (c) =>
+          !b ||
+          semAcento(`${c.ballot_name} ${c.name} ${c.ballot_number} ${c.party_abbreviation}`).includes(b),
+      )
+      .sort((a, b2) => (a.ballot_number ?? 0) - (b2.ballot_number ?? 0));
   }, [q.data, busca, partido]);
   return (
     <Stack gap="md">
@@ -86,12 +93,16 @@ export default function CandidatosPage() {
       ) : (
         <SimpleGrid cols={{ base: 1, xs: 2, md: 3, xl: 4 }} spacing="sm">
           {lista.slice(0, 600).map((c) => {
-            const cor = corCand(c.sqcand, c.cor, c.numero);
+            const cor = corCand(c.tse_candidate_id, c.color, c.ballot_number);
             return (
-              <UnstyledButton key={c.sqcand} component={Link} to={`/candidatos/${c.sqcand}`}>
+              <UnstyledButton
+                key={c.tse_candidate_id}
+                component={Link}
+                to={`/candidatos/${c.tse_candidate_id}`}
+              >
                 <Card p="sm" h="100%" className="clicavel">
                   <Group wrap="nowrap" gap="sm">
-                    <AvatarCandidato fotoUrl={c.foto_url} nome={c.nome_urna} cor={cor} size={48} />
+                    <AvatarCandidato fotoUrl={c.photo_url} nome={c.ballot_name} cor={cor} size={48} />
                     <Stack gap={2} style={{ minWidth: 0 }}>
                       <Group gap={6} wrap="nowrap">
                         <Badge
@@ -100,16 +111,16 @@ export default function CandidatosPage() {
                           className="num"
                           styles={{ root: { color: "#fff" } }}
                         >
-                          {c.numero}
+                          {c.ballot_number}
                         </Badge>
                         <Text fw={700} lineClamp={1}>
-                          {c.nome_urna}
+                          {c.ballot_name}
                         </Text>
                       </Group>
                       <Text size="xs" c="dimmed" lineClamp={1}>
-                        {c.partido_sigla}
-                        {c.agremiacao && c.agremiacao !== c.partido_sigla ? ` · ${c.agremiacao}` : ""}
-                        {c.uf ? ` · ${c.uf.toUpperCase()}` : ""}
+                        {c.party_abbreviation}
+                        {c.alliance && c.alliance !== c.party_abbreviation ? ` · ${c.alliance}` : ""}
+                        {c.state_code ? ` · ${c.state_code.toUpperCase()}` : ""}
                       </Text>
                     </Stack>
                   </Group>

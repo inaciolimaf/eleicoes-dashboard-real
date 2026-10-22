@@ -1,30 +1,30 @@
 import { Group, Text, Tooltip } from "@mantine/core";
 import { IconShieldCheck, IconShieldQuestion, IconShieldX } from "@tabler/icons-react";
-import type { ResultadosComDados } from "../../api/types";
+import type { ResultsWithDataDto } from "../../api/models";
 import { fmtDataHora, fmtHora } from "../../lib/time";
 
 /** Rodapé de transparência (RF-10): fonte, idg, horário e assinatura JWS. */
-export function FonteDados({ res }: { res: ResultadosComDados }) {
+export function FonteDados({ res }: { res: ResultsWithDataDto }) {
   const Icone =
-    res.jws_verificado === true
+    res.jws_verified === true
       ? IconShieldCheck
-      : res.jws_verificado === false
+      : res.jws_verified === false
         ? IconShieldX
         : IconShieldQuestion;
-  const cor = res.jws_verificado === true ? "teal" : res.jws_verificado === false ? "red" : "gray";
+  const cor = res.jws_verified === true ? "teal" : res.jws_verified === false ? "red" : "gray";
   return (
     <Tooltip
       label={
         <>
-          Fonte: {res.fonte === "tse" ? "arquivo de resultados do TSE" : "soma dos boletins de urna (BU)"}
-          {res.idg ? ` · idg ${res.idg}` : ""}
+          Fonte: {res.source === "tse" ? "arquivo de resultados do TSE" : "soma dos boletins de urna (BU)"}
+          {res.generation_id ? ` · idg ${res.generation_id}` : ""}
           <br />
-          Totalizado em {fmtDataHora(res.totalizado_em)} · capturado em {fmtDataHora(res.capturado_em)}
+          Totalizado em {fmtDataHora(res.tallied_at)} · capturado em {fmtDataHora(res.captured_at)}
           <br />
           Assinatura JWS:{" "}
-          {res.jws_verificado === true
+          {res.jws_verified === true
             ? "verificada"
-            : res.jws_verificado === false
+            : res.jws_verified === false
               ? "FALHOU"
               : "não verificada"}
         </>
@@ -33,7 +33,7 @@ export function FonteDados({ res }: { res: ResultadosComDados }) {
       <Group gap={4} wrap="nowrap" style={{ cursor: "help" }}>
         <Icone size={14} color={`var(--mantine-color-${cor}-5)`} />
         <Text size="xs" c="dimmed" className="num">
-          {res.fonte === "tse" ? "TSE" : "BU"} · {fmtHora(res.totalizado_em)}
+          {res.source === "tse" ? "TSE" : "BU"} · {fmtHora(res.tallied_at)}
         </Text>
       </Group>
     </Tooltip>

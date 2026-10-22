@@ -35,9 +35,9 @@ export function SeletorEleicao({ largura = 158 }: { largura?: number | string })
   const opcoes = useMemo(() => {
     const m = new Map<string, string>();
     for (const e of el.data ?? []) {
-      const c = e.ciclo ?? "ele2026";
+      const c = e.cycle ?? "ele2026";
       const ano = c.replace(/\D/g, "") || "2026";
-      m.set(`${c}|${e.turno}`, `${ano} · ${e.turno}º turno`);
+      m.set(`${c}|${e.round}`, `${ano} · ${e.round}º turno`);
     }
     if (!m.size) {
       m.set("ele2026|1", "2026 · 1º turno");
@@ -70,7 +70,7 @@ export function SeletorEleicao({ largura = 158 }: { largura?: number | string })
 export function SeletorCargo({ soSelect }: { soSelect?: boolean }) {
   const el = useEleicoes();
   const { cargo, turno, ciclo, nivel, id, setFiltro } = useFiltro();
-  const disponiveis = cargosDoTurno(el.data, turno, ciclo).map((c) => Number(c.cd));
+  const disponiveis = cargosDoTurno(el.data, turno, ciclo).map((c) => Number(c.office_code));
   const opcoes = OPCOES_CARGO.map((o) => ({
     value: o.valor,
     label: o.rotulo,
@@ -93,7 +93,7 @@ export function SeletorCargo({ soSelect }: { soSelect?: boolean }) {
     const uf = ufDoId(nivel, id);
     const novo = cargoParaUf(cd, uf);
     // exterior só existe para Presidente: mantém o recorte quando faz sentido
-    if (uf === "zz" && novo !== 1) setFiltro({ cargo: novo, nivel: "br", id: "br", nome: "Brasil" });
+    if (uf === "zz" && novo !== 1) setFiltro({ cargo: novo, nivel: "country", id: "br", nome: "Brasil" });
     else setFiltro({ cargo: novo });
   };
   if (soSelect)

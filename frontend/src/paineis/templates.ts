@@ -1,6 +1,6 @@
 import type { ConfigPainel, WidgetCfg } from "./schema";
 import { SCHEMA_VERSION } from "./schema";
-import type { Nivel } from "../api/types";
+import type { Level } from "../api/models";
 
 export interface Template {
   id: string;
@@ -8,7 +8,7 @@ export interface Template {
   descricao: string;
   /** recorte que o usuário precisa escolher ao criar */
   pede?: "uf" | "municipio" | "local";
-  criar: (p: { nivel?: Nivel; recorte?: string; nome?: string; turno?: number }) => ConfigPainel;
+  criar: (p: { nivel?: Level; recorte?: string; nome?: string; turno?: number }) => ConfigPainel;
 }
 
 const w = (
@@ -29,7 +29,7 @@ const w = (
   ...extra,
 });
 
-const filtro = (cargo: number, nivel: Nivel, recorte: string, turno = 1) => ({
+const filtro = (cargo: number, nivel: Level, recorte: string, turno = 1) => ({
   ambiente: "oficial",
   ciclo: "ele2026",
   turno,
@@ -47,7 +47,7 @@ export const TEMPLATES: Template[] = [
     criar: ({ turno = 1 } = {}) => ({
       schemaVersion: SCHEMA_VERSION,
       nome: "Noite da eleição",
-      filtroGlobal: filtro(1, "br", "br", turno),
+      filtroGlobal: filtro(1, "country", "br", turno),
       widgets: [
         w("w1", "placar", 0, 0, 5, 10, { titulo: "Presidente", topN: 0 }),
         w("w2", "mapa", 5, 0, 7, 14, { tipo: "vencedores" }),
@@ -68,7 +68,7 @@ export const TEMPLATES: Template[] = [
     criar: ({ recorte = "sp", nome } = {}) => ({
       schemaVersion: SCHEMA_VERSION,
       nome: nome ? `Meu estado – ${nome}` : "Meu estado",
-      filtroGlobal: filtro(3, "uf", recorte),
+      filtroGlobal: filtro(3, "state", recorte),
       widgets: [
         w("w1", "placar", 0, 0, 5, 9, { titulo: "Governador" }),
         w("w2", "mapa", 5, 0, 7, 13, { tipo: "vencedores" }),
@@ -80,7 +80,7 @@ export const TEMPLATES: Template[] = [
           5,
           9,
           { titulo: "Senado" },
-          { herda: false, filtros: { cargo: 5, nivel: "uf", recorte } },
+          { herda: false, filtros: { cargo: 5, nivel: "state", recorte } },
         ),
         w("w4", "totais", 5, 13, 7, 6, {}),
         w("w5", "tabela", 0, 19, 12, 10, {
@@ -94,7 +94,7 @@ export const TEMPLATES: Template[] = [
           6,
           8,
           { titulo: "Presidente na UF", topN: 4 },
-          { herda: false, filtros: { cargo: 1, nivel: "uf", recorte } },
+          { herda: false, filtros: { cargo: 1, nivel: "state", recorte } },
         ),
         w("w7", "evolucao", 6, 29, 6, 8, {}),
       ],
@@ -108,7 +108,7 @@ export const TEMPLATES: Template[] = [
     criar: ({ recorte = "sp71072", nome } = {}) => ({
       schemaVersion: SCHEMA_VERSION,
       nome: nome ? `Minha cidade – ${nome}` : "Minha cidade",
-      filtroGlobal: filtro(1, "municipio", recorte),
+      filtroGlobal: filtro(1, "municipality", recorte),
       widgets: [
         w("w1", "placar", 0, 0, 5, 9, { titulo: "Presidente" }),
         w("w2", "mapa", 5, 0, 7, 13, { tipo: "vencedores" }),
@@ -120,7 +120,7 @@ export const TEMPLATES: Template[] = [
           5,
           8,
           { titulo: "Governador" },
-          { herda: false, filtros: { cargo: 3, nivel: "municipio", recorte } },
+          { herda: false, filtros: { cargo: 3, nivel: "municipality", recorte } },
         ),
         w("w4", "totais", 5, 13, 7, 6, {}),
         w("w5", "tabela", 0, 19, 12, 9, {}),
@@ -136,7 +136,7 @@ export const TEMPLATES: Template[] = [
     criar: ({ recorte = "sp71072-z0001-l1015", nome } = {}) => ({
       schemaVersion: SCHEMA_VERSION,
       nome: nome ? `Meu colégio – ${nome}` : "Meu colégio",
-      filtroGlobal: filtro(1, "local", recorte),
+      filtroGlobal: filtro(1, "polling_place", recorte),
       widgets: [
         w("w1", "local", 0, 0, 5, 12, { localId: recorte }),
         w("w2", "placar", 5, 0, 7, 9, { titulo: "Presidente no local" }),
@@ -149,7 +149,7 @@ export const TEMPLATES: Template[] = [
           5,
           8,
           { titulo: "Governador no local" },
-          { herda: false, filtros: { cargo: 3, nivel: "local", recorte } },
+          { herda: false, filtros: { cargo: 3, nivel: "polling_place", recorte } },
         ),
         w(
           "w5",
@@ -159,7 +159,7 @@ export const TEMPLATES: Template[] = [
           7,
           8,
           { titulo: "Senado no local" },
-          { herda: false, filtros: { cargo: 5, nivel: "local", recorte } },
+          { herda: false, filtros: { cargo: 5, nivel: "polling_place", recorte } },
         ),
       ],
     }),
@@ -172,7 +172,7 @@ export const TEMPLATES: Template[] = [
     criar: ({ recorte = "sp", nome } = {}) => ({
       schemaVersion: SCHEMA_VERSION,
       nome: nome ? `Câmara – ${nome}` : "Câmara dos Deputados",
-      filtroGlobal: filtro(6, "uf", recorte),
+      filtroGlobal: filtro(6, "state", recorte),
       widgets: [
         w("w1", "hemiciclo", 0, 0, 6, 10, {}),
         w("w2", "placar", 6, 0, 6, 14, { titulo: "Candidatos mais votados", topN: 25 }),
@@ -189,7 +189,7 @@ export const TEMPLATES: Template[] = [
     criar: () => ({
       schemaVersion: SCHEMA_VERSION,
       nome: "Senado 2026",
-      filtroGlobal: filtro(5, "br", "br"),
+      filtroGlobal: filtro(5, "country", "br"),
       widgets: [
         w("w1", "mapa", 0, 0, 7, 13, { tipo: "vencedores", titulo: "Líder por UF" }),
         w(
@@ -200,13 +200,13 @@ export const TEMPLATES: Template[] = [
           5,
           10,
           { titulo: "Senado em SP" },
-          { herda: false, filtros: { cargo: 5, nivel: "uf", recorte: "sp" } },
+          { herda: false, filtros: { cargo: 5, nivel: "state", recorte: "sp" } },
         ),
         w("w3", "tabela", 0, 13, 7, 10, {
           colunas: ["nome", "pct_secoes", "lider", "segundo", "margem_pp", "votos_validos"],
         }),
         w("w4", "heatmap", 7, 10, 5, 9, {}),
-        w("w5", "eventos", 7, 19, 5, 8, { tipos: ["eleito", "virada"] }),
+        w("w5", "eventos", 7, 19, 5, 8, { tipos: ["elected", "lead_change"] }),
       ],
     }),
   },

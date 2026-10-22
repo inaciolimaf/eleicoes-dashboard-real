@@ -1,5 +1,5 @@
 import { createContext, useContext, useMemo, type ReactNode } from "react";
-import type { Nivel } from "../api/types";
+import type { Level } from "../api/models";
 import { useFiltro } from "../store/filtro";
 import { useTempo } from "../store/tempo";
 import { cargoParaUf } from "./cargos";
@@ -8,7 +8,7 @@ import { ufDoId } from "./recortes";
 export interface FiltroEfetivo {
   turno: number;
   cargo: number;
-  nivel: Nivel;
+  nivel: Level;
   id: string;
   /** ISO ou null (= ao vivo) */
   t: string | null;

@@ -2,7 +2,7 @@ import { Group, Stack, Text, Tooltip, UnstyledButton } from "@mantine/core";
 import { useEffect, useState } from "react";
 import { useStatus } from "../../api/hooks";
 import { useLive } from "../../realtime/useLive";
-import { topico } from "../../realtime/topicos";
+import { topic } from "../../realtime/topics";
 import { useTempo } from "../../store/tempo";
 import { useUi } from "../../store/ui";
 import { fmtDataCurta, fmtHora, minutosDesde } from "../../lib/time";
@@ -19,7 +19,7 @@ export const AMBIENTE: Record<string, string> = {
 /** Indicador AO VIVO (status + ws), com "Desatualizado há X min" e modo replay. */
 export function LiveIndicator({ compacto }: { compacto?: boolean }) {
   const q = useStatus();
-  useLive([topico.status()]);
+  useLive([topic.status()]);
   const t = useTempo((s) => s.t);
   const aoVivo = useTempo((s) => s.aoVivo);
   const ws = useUi((s) => s.wsEstado);
@@ -38,11 +38,11 @@ export function LiveIndicator({ compacto }: { compacto?: boolean }) {
     rotulo = `REPLAY ${fmtHora(t, false)}`;
     cor = "yellow";
   } else if (s) {
-    const atraso = minutosDesde(s.ultima_coleta ?? s.ultima_totalizacao, null);
-    if (!s.ao_vivo) {
+    const atraso = minutosDesde(s.last_collection ?? s.last_tally, null);
+    if (!s.live) {
       rotulo =
-        s.inicio_divulgacao && minutosDesde(s.inicio_divulgacao, null)! < 0
-          ? `Divulgação às ${fmtHora(s.inicio_divulgacao, false)}`
+        s.release_start && minutosDesde(s.release_start, null)! < 0
+          ? `Divulgação às ${fmtHora(s.release_start, false)}`
           : "Fora do ar";
     } else if (atraso !== null && atraso > 5) {
       rotulo = `Desatualizado há ${Math.round(atraso)} min`;
@@ -58,11 +58,11 @@ export function LiveIndicator({ compacto }: { compacto?: boolean }) {
 
   const dica = (
     <Stack gap={0}>
-      {s && <span>Ambiente: {AMBIENTE[s.ambiente] ?? s.ambiente}</span>}
-      {s && <span>Última totalização: {fmtDataCurta(s.ultima_totalizacao)}</span>}
-      {s && <span>Última verificação: {fmtHora(s.ultima_coleta)}</span>}
-      {s?.pct_secoes_br != null && <span>Seções apuradas (BR): {fmtPct(s.pct_secoes_br)}</span>}
-      {s?.coletor.pausado && <span>Coletor pausado</span>}
+      {s && <span>Ambiente: {AMBIENTE[s.tse_environment] ?? s.tse_environment}</span>}
+      {s && <span>Última totalização: {fmtDataCurta(s.last_tally)}</span>}
+      {s && <span>Última verificação: {fmtHora(s.last_collection)}</span>}
+      {s?.pct_sections_br != null && <span>Seções apuradas (BR): {fmtPct(s.pct_sections_br)}</span>}
+      {s?.collector.paused && <span>Coletor pausado</span>}
       <span>
         Tempo real: {ws === "aberto" ? "conectado" : ws === "reconectando" ? "reconectando…" : "conectando…"}
       </span>
@@ -84,9 +84,9 @@ export function LiveIndicator({ compacto }: { compacto?: boolean }) {
             >
               {rotulo}
             </Text>
-            {!t && s?.ultima_totalizacao && (
+            {!t && s?.last_tally && (
               <Text fz={10} c="dimmed" className="num" style={{ whiteSpace: "nowrap" }}>
-                {fmtHora(s.ultima_totalizacao, !compacto)} BRT
+                {fmtHora(s.last_tally, !compacto)} BRT
               </Text>
             )}
           </Stack>

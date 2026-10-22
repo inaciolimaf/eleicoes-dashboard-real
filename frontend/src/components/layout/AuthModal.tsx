@@ -28,8 +28,8 @@ export function AuthModal() {
           : await registro.mutateAsync(v);
       notifications.show({
         color: "teal",
-        title: `Olá, ${r.usuario.nome.split(" ")[0]}!`,
-        message: r.usuario.is_admin ? "Você é administrador." : "Sessão iniciada.",
+        title: `Olá, ${r.user.name.split(" ")[0]}!`,
+        message: r.user.is_admin ? "Você é administrador." : "Sessão iniciada.",
       });
       form.reset();
       setAberto(false);

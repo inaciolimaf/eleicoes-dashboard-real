@@ -1,6 +1,6 @@
 import type { Icon } from "@tabler/icons-react";
 import type { ComponentType } from "react";
-import type { Nivel } from "../api/types";
+import type { Level } from "../api/models";
 import type { TipoWidget, WidgetCfg } from "../paineis/schema";
 
 export interface WidgetProps {
@@ -9,7 +9,7 @@ export interface WidgetProps {
   /** altura útil (px) do corpo do widget */
   altura: number;
   /** clique em mapa/tabela: filtra o painel (cross-filtering) ou navega, conforme a configuração */
-  selecionar: (nivel: Nivel, id: string, nome: string) => void;
+  selecionar: (nivel: Level, id: string, nome: string) => void;
 }
 
 export type TipoCampo =

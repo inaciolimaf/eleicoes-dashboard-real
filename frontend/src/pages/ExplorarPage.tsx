@@ -19,7 +19,7 @@ import { IconArrowUp, IconDownload, IconMaximize, IconStar, IconStarFilled } fro
 import { useEffect, useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { useResultados } from "../api/hooks";
-import type { Nivel } from "../api/types";
+import type { Level } from "../api/models";
 import { BlocoTotais } from "../components/resultados/BlocoTotais";
 import { Placar } from "../components/resultados/Placar";
 import { ComResultados, EscolhaUf, useCargoSemResultadoBr } from "../components/resultados/ComResultados";
@@ -32,7 +32,7 @@ import { FiltroProvider, useFiltroEfetivo } from "../lib/filtro-efetivo";
 import {
   NIVEL_PLURAL,
   NIVEL_ROTULO,
-  isNivel,
+  nivelDoSegmento,
   linkRecorte,
   nivelFilho,
   nomeRecortePadrao,
@@ -41,6 +41,7 @@ import { NOME_CARGO, sistemaPadrao } from "../lib/cargos";
 import { exportarDados } from "../lib/exportar";
 import { useFiltro } from "../store/filtro";
 import { useFavoritos } from "../store/favoritos";
+import { asLevel } from "../lib/recortes";
 
 function Secao({
   titulo,
@@ -62,34 +63,34 @@ function Secao({
   );
 }
 
-function ConteudoExplorar({ nivel, id }: { nivel: Nivel; id: string }) {
+function ConteudoExplorar({ nivel, id }: { nivel: Level; id: string }) {
   const f = useFiltroEfetivo();
   const navigate = useNavigate();
   const semBr = useCargoSemResultadoBr(f.cargo, nivel);
   const res = useResultados({ turno: f.turno, cargo: f.cargo, nivel, id, t: f.t }, !semBr);
-  const proporcional = (res.data?.cargo.sistema ?? sistemaPadrao(f.cargo)) === "proporcional";
+  const proporcional = (res.data?.office.voting_system ?? sistemaPadrao(f.cargo)) === "proporcional";
   const [tipoMapa, setTipoMapa] = useState<TipoMapa>("vencedores");
   const [todosMun, setTodosMun] = useState(false);
   const [eixo, setEixo] = useState<"t" | "pct_secoes">("t");
   const [metrica, setMetrica] = useState<"pct" | "votos" | "diferenca">("pct");
   const { eFavorito, alternar } = useFavoritos();
   const filho = nivelFilho(nivel);
-  const nome = res.data?.recorte.nome ?? nomeRecortePadrao(nivel, id);
-  const ir = (n: Nivel, i: string, nm?: string) => {
-    if (n !== "local" && n !== "secao") useFiltro.getState().setRecorte(n, i, nm);
+  const nome = res.data?.geo_area.name ?? nomeRecortePadrao(nivel, id);
+  const ir = (n: Level, i: string, nm?: string) => {
+    if (n !== "polling_place" && n !== "section") useFiltro.getState().setRecorte(n, i, nm);
     navigate(linkRecorte(n, i));
   };
-  const pai = res.data?.recorte.breadcrumb?.[res.data.recorte.breadcrumb.length - 2];
-  const fav = eFavorito("recorte", `${nivel}:${id}`);
-  const filhosParam: Nivel | null = nivel === "br" && todosMun ? "municipio" : null;
+  const pai = res.data?.geo_area.breadcrumb?.[res.data.geo_area.breadcrumb.length - 2];
+  const fav = eFavorito("geo_area", `${nivel}:${id}`);
+  const filhosParam: Level | null = nivel === "country" && todosMun ? "municipality" : null;
 
   const tiposMapa = TIPOS_MAPA.filter((t) => !t.proporcional || proporcional);
   const mapa = (
     <Secao
-      titulo={`Mapa · ${nivel === "br" ? (todosMun ? "municípios" : "UFs") : nivel === "uf" ? "municípios" : "locais de votação"}`}
+      titulo={`Mapa · ${nivel === "country" ? (todosMun ? "municípios" : "UFs") : nivel === "state" ? "municípios" : "locais de votação"}`}
       extra={
         <Group gap="xs">
-          {nivel === "br" && (
+          {nivel === "country" && (
             <Switch
               size="xs"
               label="Todos os municípios"
@@ -126,7 +127,7 @@ function ConteudoExplorar({ nivel, id }: { nivel: Nivel; id: string }) {
 
   const tabela = filho && (
     <Secao
-      titulo={`${NIVEL_PLURAL[nivel === "br" && todosMun ? "municipio" : filho]} de ${nome}`}
+      titulo={`${NIVEL_PLURAL[nivel === "country" && todosMun ? "municipality" : filho]} de ${nome}`}
       extra={
         <Menu position="bottom-end">
           <Menu.Target>
@@ -154,7 +155,7 @@ function ConteudoExplorar({ nivel, id }: { nivel: Nivel; id: string }) {
         id={id}
         filhos={filhosParam}
         colunas={
-          nivel === "br" && !todosMun
+          nivel === "country" && !todosMun
             ? [
                 "nome",
                 "regiao",
@@ -203,7 +204,7 @@ function ConteudoExplorar({ nivel, id }: { nivel: Nivel; id: string }) {
               <ActionIcon
                 variant="subtle"
                 color="yellow"
-                onClick={() => alternar({ tipo: "recorte", ref: `${nivel}:${id}`, rotulo: nome })}
+                onClick={() => alternar({ type: "geo_area", ref: `${nivel}:${id}`, label: nome })}
                 aria-label="Favoritar"
               >
                 {fav ? <IconStarFilled size={18} /> : <IconStar size={18} />}
@@ -217,9 +218,9 @@ function ConteudoExplorar({ nivel, id }: { nivel: Nivel; id: string }) {
               size="xs"
               variant="default"
               leftSection={<IconArrowUp size={14} />}
-              onClick={() => ir(pai.nivel, pai.id, pai.nome)}
+              onClick={() => ir(asLevel(pai.level), pai.id, pai.name)}
             >
-              {pai.nome}
+              {pai.name}
             </Button>
           )}
           {!semBr && (
@@ -248,10 +249,10 @@ function ConteudoExplorar({ nivel, id }: { nivel: Nivel; id: string }) {
           <Grid.Col span={{ base: 12, lg: 5 }}>
             <Stack gap="md">
               <Card p="md">
-                <EscolhaUf cargo={f.cargo} onUf={(uf, nm) => ir("uf", uf, nm)} />
+                <EscolhaUf cargo={f.cargo} onUf={(uf, nm) => ir("state", uf, nm)} />
               </Card>
               <Secao titulo="Progresso por UF">
-                <HeatmapProgresso onSelecionarUf={(uf, nm) => ir("uf", uf, nm)} />
+                <HeatmapProgresso onSelecionarUf={(uf, nm) => ir("state", uf, nm)} />
               </Secao>
             </Stack>
           </Grid.Col>
@@ -275,7 +276,7 @@ function ConteudoExplorar({ nivel, id }: { nivel: Nivel; id: string }) {
           </Grid.Col>
           <Grid.Col span={{ base: 12, lg: 7 }}>
             <Stack gap="md">
-              {nivel !== "secao" && mapa}
+              {nivel !== "section" && mapa}
               <Secao
                 titulo="Evolução da apuração"
                 extra={
@@ -321,8 +322,8 @@ function ConteudoExplorar({ nivel, id }: { nivel: Nivel; id: string }) {
 export default function ExplorarPage() {
   const params = useParams();
   const g = useFiltro();
-  const nivel = isNivel(params.nivel) ? params.nivel : null;
-  const id = params.id ? decodeURIComponent(params.id) : nivel === "br" ? "br" : null;
+  const nivel = nivelDoSegmento(params.nivel);
+  const id = params.id ? decodeURIComponent(params.id) : nivel === "country" ? "br" : null;
 
   useEffect(() => {
     if (nivel && id && (g.nivel !== nivel || g.id !== id)) g.setRecorte(nivel, id);
@@ -333,14 +334,14 @@ export default function ExplorarPage() {
     return (
       <Navigate
         to={linkRecorte(
-          g.nivel === "local" || g.nivel === "secao" ? "br" : g.nivel,
-          g.nivel === "local" || g.nivel === "secao" ? "br" : g.id,
+          g.nivel === "polling_place" || g.nivel === "section" ? "country" : g.nivel,
+          g.nivel === "polling_place" || g.nivel === "section" ? "br" : g.id,
         )}
         replace
       />
     );
-  if (nivel === "local") return <Navigate to={`/locais/${encodeURIComponent(id)}`} replace />;
-  if (nivel === "secao") return <Navigate to={`/secoes/${encodeURIComponent(id)}`} replace />;
+  if (nivel === "polling_place") return <Navigate to={`/locais/${encodeURIComponent(id)}`} replace />;
+  if (nivel === "section") return <Navigate to={`/secoes/${encodeURIComponent(id)}`} replace />;
   return (
     <FiltroProvider value={{ nivel, id }}>
       <ConteudoExplorar key={`${nivel}:${id}`} nivel={nivel} id={id} />

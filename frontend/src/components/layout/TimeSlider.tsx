@@ -23,7 +23,7 @@ import { useLinhaDoTempo } from "../../api/hooks";
 import { useFiltro } from "../../store/filtro";
 import { useTempo, VELOCIDADES, type Velocidade } from "../../store/tempo";
 import { brt, fmtHora } from "../../lib/time";
-import { COR_EVENTO, ROTULO_EVENTO } from "../../realtime/aplicar";
+import { COR_EVENTO, ROTULO_EVENTO } from "../../lib/eventos";
 
 const COR_HEX: Record<string, string> = {
   orange: "#F97316",
@@ -43,8 +43,8 @@ export function TimeSlider() {
   const { t, tocando, velocidade, novidades, setT, aoVivo, setTocando, setVelocidade } = useTempo();
   const qc = useQueryClient();
   const celular = useMediaQuery("(max-width: 48em)");
-  const inicio = q.data?.inicio ? new Date(q.data.inicio).getTime() : null;
-  const fim = q.data?.fim ? new Date(q.data.fim).getTime() : null;
+  const inicio = q.data?.start ? new Date(q.data.start).getTime() : null;
+  const fim = q.data?.end ? new Date(q.data.end).getTime() : null;
   const valorAtual = t ? new Date(t).getTime() : (fim ?? 0);
   const [arrastando, setArrastando] = useState<number | null>(null);
 
@@ -80,8 +80,8 @@ export function TimeSlider() {
 
   const eventos = useMemo(() => {
     if (!q.data || !inicio || !fim || fim <= inicio) return [];
-    return q.data.eventos
-      .map((e) => ({ e, ms: new Date(e.ocorrido_em).getTime() }))
+    return q.data.events
+      .map((e) => ({ e, ms: new Date(e.occurred_at ?? "").getTime() }))
       .filter((x) => x.ms >= inicio && x.ms <= fim)
       .sort((a, b) => a.ms - b.ms);
   }, [q.data, inicio, fim]);
@@ -122,11 +122,11 @@ export function TimeSlider() {
   return (
     <Group h="100%" px={{ base: "xs", sm: "md" }} gap="sm" wrap="nowrap">
       <Group gap={4} wrap="nowrap">
-        <Tooltip label="Evento anterior">
+        <Tooltip label="EventDto anterior">
           <ActionIcon
             variant="subtle"
             onClick={() => saltar(-1)}
-            aria-label="Evento anterior"
+            aria-label="EventDto anterior"
             visibleFrom="sm"
           >
             <IconPlayerTrackPrev size={16} />
@@ -162,13 +162,13 @@ export function TimeSlider() {
           {eventos.map(({ e, ms }) => (
             <Tooltip
               key={e.id}
-              label={`${fmtHora(e.ocorrido_em, false)} · ${ROTULO_EVENTO[e.tipo] ?? e.tipo}: ${e.titulo}`}
+              label={`${fmtHora(e.occurred_at, false)} · ${ROTULO_EVENTO[e.type] ?? e.type}: ${e.title}`}
             >
               <Box
                 className="marcador-evento"
                 style={{
                   left: `${((ms - inicio) / (fim - inicio)) * 100}%`,
-                  background: COR_HEX[COR_EVENTO[e.tipo] ?? "blue"],
+                  background: COR_HEX[COR_EVENTO[e.type] ?? "blue"],
                   pointerEvents: "auto",
                 }}
                 onClick={() => setT(new Date(ms).toISOString())}

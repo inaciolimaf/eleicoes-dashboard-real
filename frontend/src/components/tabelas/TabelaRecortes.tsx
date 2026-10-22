@@ -33,17 +33,18 @@ import {
   IconSearch,
 } from "@tabler/icons-react";
 import { memo, useMemo, useState } from "react";
-import type { ItemFilho, Nivel } from "../../api/types";
+import type { ChildItemDto, Level } from "../../api/models";
 import { useFilhos } from "../../api/hooks";
 import { useFiltroEfetivo } from "../../lib/filtro-efetivo";
 import { useLive } from "../../realtime/useLive";
-import { topico } from "../../realtime/topicos";
+import { topic } from "../../realtime/topics";
 import { COR_STATUS, ROTULO_STATUS } from "../../lib/cores";
 import { fmtCompact, fmtInt, fmtPP, fmtPct, semAcento } from "../../lib/format";
 import { NIVEL_PLURAL, REGIOES, UFS, nivelFilho } from "../../lib/recortes";
 import { useCorCandidato } from "../../lib/useCor";
 import { Carregando, ErroView, SemDados } from "../common/Estados";
 import { useFlash } from "../common/Num";
+import { asLevel } from "../../lib/recortes";
 
 export type ColunaId =
   | "nome"
@@ -85,34 +86,34 @@ export const COLUNAS_PADRAO: ColunaId[] = [
   "eleitorado",
 ];
 
-function valorOrdenacao(it: ItemFilho, c: ColunaId): number | string {
+function valorOrdenacao(it: ChildItemDto, c: ColunaId): number | string {
   switch (c) {
     case "nome":
-      return semAcento(it.nome);
+      return semAcento(it.name);
     case "uf":
-      return it.uf;
+      return it.state_code ?? "";
     case "regiao":
-      return it.regiao ?? "";
+      return it.region ?? "";
     case "pct_secoes":
-      return it.pct_secoes;
+      return it.pct_sections;
     case "lider":
-      return it.lider?.nome_urna ?? "";
+      return it.leader?.ballot_name ?? "";
     case "segundo":
-      return it.segundo?.nome_urna ?? "";
+      return it.second?.ballot_name ?? "";
     case "margem_pp":
-      return it.margem_pp ?? -1;
+      return it.margin_pp ?? -1;
     case "votos_validos":
-      return it.votos_validos;
+      return it.valid_votes;
     case "eleitorado":
-      return it.eleitorado;
+      return it.electorate;
     case "comparecimento":
-      return it.eleitorado ? it.comparecimento / it.eleitorado : 0;
+      return it.electorate ? it.turnout / it.electorate : 0;
     case "abstencao":
-      return it.pct_abstencao;
+      return it.pct_abstention;
     case "capital":
-      return it.capital ? 1 : 0;
+      return it.is_capital ? 1 : 0;
     case "partido":
-      return it.partido_lider?.sigla ?? "";
+      return it.leader_party?.abbreviation ?? "";
   }
 }
 
@@ -154,7 +155,7 @@ const Celula = memo(function Celula({
   c,
   corCand,
 }: {
-  it: ItemFilho;
+  it: ChildItemDto;
   c: ColunaId;
   corCand: ReturnType<typeof useCorCandidato>;
 }) {
@@ -166,9 +167,9 @@ const Celula = memo(function Celula({
             <Box w={8} h={8} style={{ borderRadius: 8, background: COR_STATUS[it.status], flexShrink: 0 }} />
           </Tooltip>
           <Text size="sm" fw={600} lineClamp={1}>
-            {it.nome}
+            {it.name}
           </Text>
-          {it.capital && (
+          {it.is_capital && (
             <Badge size="xs" variant="light" color="gray">
               capital
             </Badge>
@@ -176,33 +177,33 @@ const Celula = memo(function Celula({
         </Group>
       );
     case "uf":
-      return <Text size="sm">{it.uf.toUpperCase()}</Text>;
+      return <Text size="sm">{(it.state_code ?? "").toUpperCase()}</Text>;
     case "regiao":
-      return <Text size="sm">{it.regiao ?? "—"}</Text>;
+      return <Text size="sm">{it.region ?? "—"}</Text>;
     case "pct_secoes":
       return (
         <Stack gap={2} miw={70}>
           <Text size="xs" className="num" ta="right">
-            {fmtPct(it.pct_secoes, 1)}
+            {fmtPct(it.pct_sections, 1)}
           </Text>
-          <Progress value={it.pct_secoes} size={4} color={it.pct_secoes >= 100 ? "green" : "eleicao"} />
+          <Progress value={it.pct_sections} size={4} color={it.pct_sections >= 100 ? "green" : "eleicao"} />
         </Stack>
       );
     case "lider":
     case "segundo": {
-      const l = c === "lider" ? it.lider : it.segundo;
+      const l = c === "lider" ? it.leader : it.second;
       if (!l)
         return (
           <Text size="sm" c="dimmed">
             —
           </Text>
         );
-      const cor = corCand(l.sqcand, l.cor);
+      const cor = corCand(l.tse_candidate_id, l.color);
       return (
         <Stack gap={2} miw={110}>
           <Group gap={6} wrap="nowrap" justify="space-between">
             <Text size="sm" fw={c === "lider" ? 700 : 500} lineClamp={1}>
-              {l.nome_urna}
+              {l.ballot_name}
             </Text>
             <Text size="xs" className="num">
               {fmtPct(l.pct, 1)}
@@ -220,40 +221,40 @@ const Celula = memo(function Celula({
     case "margem_pp":
       return (
         <Text size="sm" className="num" ta="right">
-          {fmtPP(it.margem_pp)}
+          {fmtPP(it.margin_pp)}
         </Text>
       );
     case "votos_validos":
       return (
         <Text size="sm" className="num" ta="right">
-          {fmtInt(it.votos_validos)}
+          {fmtInt(it.valid_votes)}
         </Text>
       );
     case "eleitorado":
       return (
         <Text size="sm" className="num" ta="right">
-          {fmtInt(it.eleitorado)}
+          {fmtInt(it.electorate)}
         </Text>
       );
     case "comparecimento":
       return (
         <Text size="sm" className="num" ta="right">
-          {it.eleitorado ? fmtPct((it.comparecimento / it.eleitorado) * 100, 1) : "—"}
+          {it.electorate ? fmtPct((it.turnout / it.electorate) * 100, 1) : "—"}
         </Text>
       );
     case "abstencao":
       return (
         <Text size="sm" className="num" ta="right">
-          {fmtPct(it.pct_abstencao, 1)}
+          {fmtPct(it.pct_abstention, 1)}
         </Text>
       );
     case "capital":
-      return <Text size="sm">{it.capital ? "Sim" : "Não"}</Text>;
+      return <Text size="sm">{it.is_capital ? "Sim" : "Não"}</Text>;
     case "partido":
-      return it.partido_lider ? (
+      return it.leader_party ? (
         <Group gap={6} wrap="nowrap">
-          <Box w={10} h={10} style={{ borderRadius: 3, background: it.partido_lider.cor }} />
-          <Text size="sm">{it.partido_lider.sigla}</Text>
+          <Box w={10} h={10} style={{ borderRadius: 3, background: it.leader_party.color }} />
+          <Text size="sm">{it.leader_party.abbreviation}</Text>
         </Group>
       ) : (
         <Text size="sm" c="dimmed">
@@ -269,12 +270,12 @@ function Linha({
   corCand,
   onClick,
 }: {
-  it: ItemFilho;
+  it: ChildItemDto;
   colunas: ColunaId[];
   corCand: ReturnType<typeof useCorCandidato>;
   onClick?: () => void;
 }) {
-  const flash = useFlash(`${it.pct_secoes}|${it.lider?.sqcand}|${it.votos_validos}`);
+  const flash = useFlash(`${it.pct_sections}|${it.leader?.tse_candidate_id}|${it.valid_votes}`);
   return (
     <Table.Tr
       onClick={onClick}
@@ -291,12 +292,12 @@ function Linha({
 }
 
 export interface TabelaRecortesProps {
-  nivel?: Nivel;
+  nivel?: Level;
   id?: string;
-  filhos?: Nivel | null;
+  filhos?: Level | null;
   colunas?: ColunaId[];
   topN?: number;
-  onSelecionar?: (nivel: Nivel, id: string, nome: string) => void;
+  onSelecionar?: (nivel: Level, id: string, nome: string) => void;
   mostrarFiltros?: boolean;
   alturaMax?: number | string;
   porPagina?: number;
@@ -317,7 +318,7 @@ export function TabelaRecortes({
   const nivel = nivelProp ?? fe.nivel;
   const id = idProp ?? fe.id;
   const q = useFilhos({ turno: fe.turno, cargo: fe.cargo, nivel, id, t: fe.t, filhos });
-  useLive([topico.filhos(fe.turno, fe.cargo, nivel, id, filhos)]);
+  useLive([topic.children(fe.turno, fe.cargo, nivel, id, filhos)]);
   const corCand = useCorCandidato();
 
   const [filtros, setFiltros] = useState<Filtros>(FILTROS_PADRAO);
@@ -328,8 +329,8 @@ export function TabelaRecortes({
   const [abertos, setAbertos] = useState<Record<string, boolean>>({});
   const [filtrosAbertos, { toggle: toggleFiltros }] = useDisclosure(false);
 
-  const nivelFilhos = q.data?.nivel_filhos ?? filhos ?? nivelFilho(nivel) ?? "municipio";
-  const temUf = nivelFilhos !== "uf" && nivel === "br";
+  const nivelFilhos = asLevel(q.data?.child_level ?? filhos ?? nivelFilho(nivel) ?? "municipality");
+  const temUf = nivelFilhos !== "state" && nivel === "country";
   const colunas = useMemo(() => {
     let c = colunasProp?.length ? colunasProp : COLUNAS_PADRAO;
     if (temUf && !c.includes("uf")) c = [c[0], "uf", ...c.slice(1)];
@@ -342,21 +343,21 @@ export function TabelaRecortes({
   };
 
   const filtrados = useMemo(() => {
-    const itens = q.data?.itens ?? [];
+    const itens = q.data?.items ?? [];
     const b = semAcento(buscaDeb.trim());
     const r = itens.filter((it) => {
-      if (b && !semAcento(it.nome).includes(b)) return false;
-      if (filtros.ufs.length && !filtros.ufs.includes(it.uf)) return false;
-      if (filtros.regioes.length && !filtros.regioes.includes(it.regiao ?? "")) return false;
-      if (it.pct_secoes < filtros.apurado[0] || it.pct_secoes > filtros.apurado[1]) return false;
-      if (filtros.vencedor && it.lider?.sqcand !== filtros.vencedor) return false;
+      if (b && !semAcento(it.name).includes(b)) return false;
+      if (filtros.ufs.length && !filtros.ufs.includes(it.state_code ?? "")) return false;
+      if (filtros.regioes.length && !filtros.regioes.includes(it.region ?? "")) return false;
+      if (it.pct_sections < filtros.apurado[0] || it.pct_sections > filtros.apurado[1]) return false;
+      if (filtros.vencedor && it.leader?.tse_candidate_id !== filtros.vencedor) return false;
       if (filtros.margem[0] > 0 || filtros.margem[1] < 100) {
-        const m = it.margem_pp ?? 0;
+        const m = it.margin_pp ?? 0;
         if (m < filtros.margem[0] || m > filtros.margem[1]) return false;
       }
-      if (filtros.capital === "capital" && !it.capital) return false;
-      if (filtros.capital === "interior" && it.capital) return false;
-      if (filtros.eleitoradoMin && it.eleitorado < filtros.eleitoradoMin) return false;
+      if (filtros.capital === "capital" && !it.is_capital) return false;
+      if (filtros.capital === "interior" && it.is_capital) return false;
+      if (filtros.eleitoradoMin && it.electorate < filtros.eleitoradoMin) return false;
       return true;
     });
     const dir = ordem.desc ? -1 : 1;
@@ -371,14 +372,14 @@ export function TabelaRecortes({
 
   const grupos = useMemo(() => {
     if (agrupar === "nenhum") return null;
-    const m = new Map<string, ItemFilho[]>();
+    const m = new Map<string, ChildItemDto[]>();
     for (const it of filtrados) {
       const k =
         agrupar === "regiao"
-          ? (it.regiao ?? "—")
+          ? (it.region ?? "—")
           : agrupar === "uf"
-            ? it.uf.toUpperCase()
-            : porte(it.eleitorado);
+            ? (it.state_code ?? "").toUpperCase()
+            : porte(it.electorate);
       const l = m.get(k);
       if (l) l.push(it);
       else m.set(k, [it]);
@@ -394,17 +395,17 @@ export function TabelaRecortes({
       .concat([...m.keys()].filter((k) => !ordemChaves.includes(k)))
       .map((k) => {
         const itens = m.get(k)!;
-        const eleit = itens.reduce((s, i) => s + i.eleitorado, 0);
-        const secW = itens.reduce((s, i) => s + i.pct_secoes * i.eleitorado, 0);
+        const eleit = itens.reduce((s, i) => s + i.electorate, 0);
+        const secW = itens.reduce((s, i) => s + i.pct_sections * i.electorate, 0);
         const vit = new Map<string, { nome: string; cor: string; n: number }>();
         for (const i of itens)
-          if (i.lider) {
-            const x = vit.get(i.lider.sqcand);
+          if (i.leader) {
+            const x = vit.get(i.leader.tse_candidate_id);
             if (x) x.n++;
             else
-              vit.set(i.lider.sqcand, {
-                nome: i.lider.nome_urna,
-                cor: corCand(i.lider.sqcand, i.lider.cor),
+              vit.set(i.leader.tse_candidate_id, {
+                nome: i.leader.ballot_name,
+                cor: corCand(i.leader.tse_candidate_id, i.leader.color),
                 n: 1,
               });
           }
@@ -413,7 +414,7 @@ export function TabelaRecortes({
           itens,
           eleitorado: eleit,
           pct: eleit ? secW / eleit : 0,
-          validos: itens.reduce((s, i) => s + i.votos_validos, 0),
+          validos: itens.reduce((s, i) => s + i.valid_votes, 0),
           vitorias: [...vit.values()].sort((a, b) => b.n - a.n).slice(0, 3),
         };
       });
@@ -430,13 +431,14 @@ export function TabelaRecortes({
 
   if (q.isLoading) return <Carregando linhas={6} />;
   if (q.error) return <ErroView erro={q.error} onRetry={() => q.refetch()} />;
-  if (!q.data || q.data.itens.length === 0)
+  if (!q.data || q.data.items.length === 0)
     return <SemDados titulo={`Sem ${NIVEL_PLURAL[nivelFilhos].toLowerCase()} com dados`} />;
 
   const paginas = Math.max(1, Math.ceil(filtrados.length / porPagina));
   const pag = Math.min(pagina, paginas);
   const visiveis = filtrados.slice((pag - 1) * porPagina, pag * porPagina);
-  const clicar = (it: ItemFilho) => (onSelecionar ? () => onSelecionar(it.nivel, it.id, it.nome) : undefined);
+  const clicar = (it: ChildItemDto) =>
+    onSelecionar ? () => onSelecionar(asLevel(it.level), it.id, it.name) : undefined;
 
   const cabecalho = (
     <Table.Thead style={{ position: "sticky", top: 0, zIndex: 1, background: "var(--mantine-color-body)" }}>
@@ -559,9 +561,9 @@ export function TabelaRecortes({
               <Select
                 size="xs"
                 label="Vencedor"
-                data={(q.data.candidatos ?? []).map((c) => ({
-                  value: c.sqcand,
-                  label: `${c.nome_urna} (${c.vitorias})`,
+                data={(q.data.candidates ?? []).map((c) => ({
+                  value: c.tse_candidate_id,
+                  label: `${c.ballot_name} (${c.wins})`,
                 }))}
                 value={filtros.vencedor}
                 onChange={(v) => set({ vencedor: v })}
@@ -627,7 +629,7 @@ export function TabelaRecortes({
       )}
 
       <Text size="xs" c="dimmed">
-        {fmtInt(filtrados.length)} de {fmtInt(q.data.itens.length)} {NIVEL_PLURAL[nivelFilhos].toLowerCase()}
+        {fmtInt(filtrados.length)} de {fmtInt(q.data.items.length)} {NIVEL_PLURAL[nivelFilhos].toLowerCase()}
       </Text>
 
       <ScrollArea.Autosize mah={alturaMax ?? 560} type="auto" className="scroll-fino">
@@ -680,7 +682,7 @@ function GrupoLinhas({
 }: {
   g: {
     chave: string;
-    itens: ItemFilho[];
+    itens: ChildItemDto[];
     eleitorado: number;
     pct: number;
     validos: number;
@@ -690,7 +692,7 @@ function GrupoLinhas({
   onToggle: () => void;
   colunas: ColunaId[];
   corCand: ReturnType<typeof useCorCandidato>;
-  clicar: (it: ItemFilho) => (() => void) | undefined;
+  clicar: (it: ChildItemDto) => (() => void) | undefined;
 }) {
   const [limite, setLimite] = useState(100);
   return (

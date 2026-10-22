@@ -9,11 +9,11 @@ import type { Layer, PickingInfo } from "@deck.gl/core";
 import type { IControl } from "maplibre-gl";
 import { Badge, Box, Group, Loader, Paper, Select, Stack, Text, useComputedColorScheme } from "@mantine/core";
 import { useElementSize } from "@mantine/hooks";
-import type { FilhosResp, ItemFilho, LocalMapa, Nivel } from "../../api/types";
+import type { ChildrenDto, ChildItemDto, MapPollingPlaceDto, Level } from "../../api/models";
 import { useFilhos, useLocaisMapa } from "../../api/hooks";
 import { useFiltroEfetivo } from "../../lib/filtro-efetivo";
 import { useLive } from "../../realtime/useLive";
-import { topico } from "../../realtime/topicos";
+import { topic } from "../../realtime/topics";
 import {
   BBOX_BRASIL,
   bboxPontos,
@@ -38,6 +38,7 @@ import { usePrefs } from "../../store/prefs";
 import { ErroView } from "../common/Estados";
 import { Legenda, type ItemLegenda } from "./Legenda";
 import type { TipoMapa } from "./tipos";
+import { asLevel } from "../../lib/recortes";
 
 const ESTILO_CLARO = "https://tiles.openfreemap.org/styles/positron";
 const ESTILO_ESCURO = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
@@ -68,14 +69,14 @@ function DeckOverlay(props: MapboxOverlayProps) {
 
 export interface MapaEleitoralProps {
   tipo: TipoMapa;
-  nivel: Nivel;
+  nivel: Level;
   id: string;
   /** com nivel=br: desenha todos os municípios do Brasil em vez das UFs */
   todosMunicipios?: boolean;
   candidatoA?: string | null;
   candidatoB?: string | null;
   onCandidatos?: (a: string | null, b: string | null) => void;
-  onSelecionar?: (nivel: Nivel, id: string, nome: string) => void;
+  onSelecionar?: (nivel: Level, id: string, nome: string) => void;
   legenda?: boolean;
   seletorCandidatos?: boolean;
   basemap?: boolean;
@@ -85,12 +86,12 @@ export interface MapaEleitoralProps {
 }
 
 type Hover =
-  | { x: number; y: number; tipo: "regiao"; nome: string; item: ItemFilho | null }
-  | { x: number; y: number; tipo: "local"; local: LocalMapa }
+  | { x: number; y: number; tipo: "regiao"; nome: string; item: ChildItemDto | null }
+  | { x: number; y: number; tipo: "local"; local: MapPollingPlaceDto }
   | { x: number; y: number; tipo: "hex"; pct: number; n: number };
 
-function semDados(it: ItemFilho | undefined | null): boolean {
-  return !it || (it.status === "nao_recebido" && !it.votos_validos) || (!it.pct_secoes && !it.votos_validos);
+function semDados(it: ChildItemDto | undefined | null): boolean {
+  return !it || (it.status === "not_received" && !it.valid_votes) || (!it.pct_sections && !it.valid_votes);
 }
 
 export default function MapaEleitoral(props: MapaEleitoralProps) {
@@ -113,10 +114,10 @@ export default function MapaEleitoral(props: MapaEleitoralProps) {
   const usarBasemap = props.basemap ?? basemapPref;
 
   const modo: "uf" | "mun" | "pontos" =
-    nivel === "br" ? (todosMunicipios ? "mun" : "uf") : nivel === "uf" ? "mun" : "pontos";
+    nivel === "country" ? (todosMunicipios ? "mun" : "uf") : nivel === "state" ? "mun" : "pontos";
   const uf = ufDoId(nivel, id);
   const munId = municipioDoId(nivel, id);
-  const filhosNivel: Nivel | null = nivel === "br" && modo === "mun" ? "municipio" : null;
+  const filhosNivel: Level | null = nivel === "country" && modo === "mun" ? "municipality" : null;
 
   // ---------------------------------------------------------------- dados
   const malhaUF = useMalhaUF();
@@ -127,10 +128,10 @@ export default function MapaEleitoral(props: MapaEleitoralProps) {
   const [candB, setCandB] = useState<string | null>(props.candidatoB ?? null);
   useEffect(() => setCandA(props.candidatoA ?? null), [props.candidatoA]);
   useEffect(() => setCandB(props.candidatoB ?? null), [props.candidatoB]);
-  const candsBase = base.data?.candidatos;
+  const candsBase = base.data?.candidates;
   const precisaValores = tipo === "desempenho" || tipo === "comparativo";
-  const efA = candA ?? candsBase?.[0]?.sqcand ?? null;
-  const efB = candB ?? candsBase?.find((c) => c.sqcand !== efA)?.sqcand ?? null;
+  const efA = candA ?? candsBase?.[0]?.tse_candidate_id ?? null;
+  const efB = candB ?? candsBase?.find((c) => c.tse_candidate_id !== efA)?.tse_candidate_id ?? null;
   const pedidos = tipo === "desempenho" ? [efA] : tipo === "comparativo" ? [efA, efB] : [];
   const comValores = useFilhos(
     { turno, cargo, nivel, id, t, filhos: filhosNivel, candidatos: pedidos.filter((x): x is string => !!x) },
@@ -143,32 +144,36 @@ export default function MapaEleitoral(props: MapaEleitoralProps) {
     precisaLocais,
   );
   // contorno do município (para o modo de pontos): pega o cd_ibge na lista de municípios da UF
-  const munsDaUf = useFilhos({ turno, cargo, nivel: "uf", id: uf ?? "", t: null }, modo === "pontos" && !!uf);
+  const munsDaUf = useFilhos(
+    { turno, cargo, nivel: "state", id: uf ?? "", t: null },
+    modo === "pontos" && !!uf,
+  );
 
   useLive([
-    modo !== "pontos" && topico.filhos(turno, cargo, nivel, id, filhosNivel),
-    modo === "pontos" && munId && topico.locais(turno, cargo, munId),
+    modo !== "pontos" && topic.children(turno, cargo, nivel, id, filhosNivel),
+    modo === "pontos" && munId && topic.pollingPlaces(turno, cargo, munId),
   ]);
 
-  const dados: FilhosResp | undefined = (precisaValores ? comValores.data : undefined) ?? base.data;
+  const dados: ChildrenDto | undefined = (precisaValores ? comValores.data : undefined) ?? base.data;
 
   // destaque da legenda
   const [destaque, setDestaque] = useState<string | null>(null);
   useEffect(() => setDestaque(null), [nivel, id, cargo, tipo]);
   // contagem de municípios vencidos (só quando um candidato é destacado no mapa de UFs)
   const munBr = useFilhos(
-    { turno, cargo, nivel: "br", id: "br", t, filhos: "municipio" },
+    { turno, cargo, nivel: "country", id: "br", t, filhos: "municipality" },
     modo === "uf" && !!destaque && tipo === "vencedores",
   );
 
   // ---------------------------------------------------------------- junção
   const chaveItem = useCallback(
-    (it: ItemFilho) => (modo === "uf" ? (it.uf || it.id).toLowerCase() : String(it.cd_ibge ?? "")),
+    (it: ChildItemDto) =>
+      modo === "uf" ? (it.state_code || it.id).toLowerCase() : String(it.ibge_code ?? ""),
     [modo],
   );
   const itensPorChave = useMemo(() => {
-    const m = new Map<string, ItemFilho>();
-    for (const it of dados?.itens ?? []) m.set(chaveItem(it), it);
+    const m = new Map<string, ChildItemDto>();
+    for (const it of dados?.items ?? []) m.set(chaveItem(it), it);
     return m;
   }, [dados, chaveItem]);
 
@@ -176,79 +181,76 @@ export default function MapaEleitoral(props: MapaEleitoralProps) {
     if (modo === "uf") return malhaUF.data?.features ?? [];
     if (modo === "mun") {
       if (!malhaMun.data) return [];
-      return nivel === "br" ? malhaMun.data.features : (malhaMun.data.porUf.get(uf ?? "") ?? []);
+      return nivel === "country" ? malhaMun.data.features : (malhaMun.data.porUf.get(uf ?? "") ?? []);
     }
     // pontos: só o contorno do município
-    const item = munsDaUf.data?.itens.find((i) => i.id === munId);
-    const feat = item?.cd_ibge ? malhaMun.data?.porId.get(String(item.cd_ibge)) : undefined;
+    const item = munsDaUf.data?.items.find((i) => i.id === munId);
+    const feat = item?.ibge_code ? malhaMun.data?.porId.get(String(item.ibge_code)) : undefined;
     return feat ? [feat] : [];
   }, [modo, nivel, uf, malhaUF.data, malhaMun.data, munsDaUf.data, munId]);
 
   // ---------------------------------------------------------------- escalas
   const escala = useMemo(() => {
-    const itens = dados?.itens ?? [];
+    const itens = dados?.items ?? [];
     if (tipo === "desempenho" && efA) {
-      const max = Math.max(1, ...itens.map((i) => i.valores?.[efA] ?? 0));
+      const max = Math.max(1, ...itens.map((i) => i.values?.[efA] ?? 0));
       return { min: 0, max: Math.ceil(max / 5) * 5, sufixo: "%" };
     }
     if (tipo === "comparativo" && efA && efB) {
-      const max = Math.max(
-        1,
-        ...itens.map((i) => Math.abs((i.valores?.[efA] ?? 0) - (i.valores?.[efB] ?? 0))),
-      );
+      const max = Math.max(1, ...itens.map((i) => Math.abs((i.values?.[efA] ?? 0) - (i.values?.[efB] ?? 0))));
       return { min: -Math.ceil(max), max: Math.ceil(max), sufixo: " p.p." };
     }
     if (tipo === "comparecimento") {
       const v = itens
-        .filter((i) => i.eleitorado > 0 && i.comparecimento > 0)
-        .map((i) => (i.comparecimento / i.eleitorado) * 100);
+        .filter((i) => i.electorate > 0 && i.turnout > 0)
+        .map((i) => (i.turnout / i.electorate) * 100);
       if (!v.length) return { min: 0, max: 100, sufixo: "%" };
       return { min: Math.floor(Math.min(...v)), max: Math.ceil(Math.max(...v)), sufixo: "%" };
     }
     return { min: 0, max: 100, sufixo: "%" };
   }, [dados, tipo, efA, efB]);
 
-  const corA = efA ? corCand(efA, candsBase?.find((c) => c.sqcand === efA)?.cor) : undefined;
-  const corB = efB ? corCand(efB, candsBase?.find((c) => c.sqcand === efB)?.cor) : undefined;
+  const corA = efA ? corCand(efA, candsBase?.find((c) => c.tse_candidate_id === efA)?.color) : undefined;
+  const corB = efB ? corCand(efB, candsBase?.find((c) => c.tse_candidate_id === efB)?.color) : undefined;
 
   const corRegiao = useCallback(
-    (it: ItemFilho | undefined): RGBA => {
+    (it: ChildItemDto | undefined): RGBA => {
       if (tipo === "locais") return [0, 0, 0, 0];
       if (semDados(it) || !it) return escuro ? [70, 80, 100, 70] : [170, 175, 185, 90];
       switch (tipo) {
         case "vencedores": {
-          if (!it.lider) return [128, 128, 128, 60];
-          if (destaque && it.lider.sqcand !== destaque)
+          if (!it.leader) return [128, 128, 128, 60];
+          if (destaque && it.leader.tse_candidate_id !== destaque)
             return escuro ? [60, 68, 88, 90] : [200, 204, 212, 140];
-          const [r, g, b] = hexToRgb(corCand(it.lider.sqcand, it.lider.cor));
-          return [r, g, b, Math.round(alphaMargem(it.margem_pp) * 255)];
+          const [r, g, b] = hexToRgb(corCand(it.leader.tse_candidate_id, it.leader.color));
+          return [r, g, b, Math.round(alphaMargem(it.margin_pp) * 255)];
         }
         case "desempenho": {
-          const v = efA ? it.valores?.[efA] : undefined;
+          const v = efA ? it.values?.[efA] : undefined;
           if (v === undefined) return [128, 128, 128, 60];
           const [r, g, b] = corSequencial(v / (escala.max || 100));
           return [r, g, b, 225];
         }
         case "comparativo": {
-          const a = efA ? it.valores?.[efA] : undefined;
-          const b2 = efB ? it.valores?.[efB] : undefined;
+          const a = efA ? it.values?.[efA] : undefined;
+          const b2 = efB ? it.values?.[efB] : undefined;
           if (a === undefined || b2 === undefined) return [128, 128, 128, 60];
           const [r, g, b] = corDivergente((a - b2) / (escala.max || 1), corA, corB);
           return [r, g, b, 230];
         }
         case "progresso": {
-          const [r, g, b] = corSequencial(it.pct_secoes / 100);
+          const [r, g, b] = corSequencial(it.pct_sections / 100);
           return [r, g, b, 225];
         }
         case "comparecimento": {
-          if (!it.eleitorado) return [128, 128, 128, 60];
-          const p = (it.comparecimento / it.eleitorado) * 100;
+          if (!it.electorate) return [128, 128, 128, 60];
+          const p = (it.turnout / it.electorate) * 100;
           const [r, g, b] = corSequencial((p - escala.min) / Math.max(1, escala.max - escala.min));
           return [r, g, b, 225];
         }
         case "partido": {
-          if (!it.partido_lider) return [128, 128, 128, 60];
-          const [r, g, b] = hexToRgb(it.partido_lider.cor);
+          if (!it.leader_party) return [128, 128, 128, 60];
+          const [r, g, b] = hexToRgb(it.leader_party.color);
           return [r, g, b, 215];
         }
       }
@@ -258,15 +260,15 @@ export default function MapaEleitoral(props: MapaEleitoralProps) {
   );
 
   const corLocal = useCallback(
-    (l: LocalMapa): RGBA => {
+    (l: MapPollingPlaceDto): RGBA => {
       if (tipo === "vencedores" || tipo === "partido" || tipo === "desempenho" || tipo === "comparativo") {
-        if (!l.lider) {
+        if (!l.leader) {
           const [r, g, b] = hexToRgb(COR_STATUS[l.status]);
           return [r, g, b, 200];
         }
-        if (destaque && l.lider.sqcand !== destaque) return [120, 128, 145, 110];
-        const [r, g, b] = hexToRgb(corCand(l.lider.sqcand, l.lider.cor));
-        return [r, g, b, Math.round(Math.max(0.55, alphaMargem(l.margem_pp)) * 255)];
+        if (destaque && l.leader.tse_candidate_id !== destaque) return [120, 128, 145, 110];
+        const [r, g, b] = hexToRgb(corCand(l.leader.tse_candidate_id, l.leader.color));
+        return [r, g, b, Math.round(Math.max(0.55, alphaMargem(l.margin_pp)) * 255)];
       }
       const [r, g, b] = hexToRgb(COR_STATUS[l.status]);
       return [r, g, b, 230];
@@ -295,15 +297,16 @@ export default function MapaEleitoral(props: MapaEleitoralProps) {
 
   // ---------------------------------------------------------------- enquadramento
   const alvo: BBox | null = useMemo(() => {
-    if (modo === "uf" || (modo === "mun" && nivel === "br")) return BBOX_BRASIL;
+    if (modo === "uf" || (modo === "mun" && nivel === "country")) return BBOX_BRASIL;
     if (modo === "mun") return unirBBox(features.map((f) => f.bbox));
-    const pts = (locais.data?.itens ?? []).filter((l) => {
-      if (nivel === "zona") return l.id.startsWith(id);
-      if (nivel === "local") return l.id === id;
+    const pts = (locais.data?.items ?? []).filter((l) => {
+      if (nivel === "zone") return l.id.startsWith(id);
+      if (nivel === "polling_place") return l.id === id;
       return true;
     });
-    if ((nivel === "local" || nivel === "zona") && pts.length) return bboxPontos(pts);
-    return features[0]?.bbox ?? bboxPontos(pts.length ? pts : (locais.data?.itens ?? []));
+    const coords = (l: MapPollingPlaceDto) => ({ lat: l.lat ?? NaN, lon: l.lon ?? NaN });
+    if ((nivel === "polling_place" || nivel === "zone") && pts.length) return bboxPontos(pts.map(coords));
+    return features[0]?.bbox ?? bboxPontos((pts.length ? pts : (locais.data?.items ?? [])).map(coords));
   }, [modo, nivel, id, features, locais.data]);
   const alvoKey = alvo ? alvo.map((n) => n.toFixed(3)).join(",") : "";
   const [mapaPronto, setMapaPronto] = useState(false);
@@ -325,7 +328,7 @@ export default function MapaEleitoral(props: MapaEleitoralProps) {
 
   // ---------------------------------------------------------------- camadas
   const [hover, setHover] = useState<Hover | null>(null);
-  const versao = dados ? dados.itens.length + ":" + (base.dataUpdatedAt + comValores.dataUpdatedAt) : "0";
+  const versao = dados ? dados.items.length + ":" + (base.dataUpdatedAt + comValores.dataUpdatedAt) : "0";
 
   const linha = useMemo<RGBA>(() => (escuro ? [11, 18, 32, 220] : [255, 255, 255, 230]), [escuro]);
   const layers = useMemo(() => {
@@ -354,7 +357,7 @@ export default function MapaEleitoral(props: MapaEleitoralProps) {
               : linha,
         getLineWidth: modo === "pontos" ? 2 : 1,
         lineWidthUnits: "pixels",
-        lineWidthMinPixels: modo === "mun" && nivel === "br" ? 0.2 : 0.6,
+        lineWidthMinPixels: modo === "mun" && nivel === "country" ? 0.2 : 0.6,
         updateTriggers: { getFillColor: [versao, corRegiao], getLineColor: [escuro, tipo] },
         transitions: { getFillColor: 500 },
       }),
@@ -377,22 +380,22 @@ export default function MapaEleitoral(props: MapaEleitoralProps) {
         } as never),
       );
     }
-    const pontos = locais.data?.itens ?? [];
+    const pontos = locais.data?.items ?? [];
     if (precisaLocais && pontos.length) {
       const usarHex = tipo === "locais" && modo !== "pontos" && zoom < 8.5;
       if (usarHex) {
         ls.push(
-          new HexagonLayer<LocalMapa>({
+          new HexagonLayer<MapPollingPlaceDto>({
             id: "hex",
             data: pontos,
-            getPosition: (d) => [d.lon, d.lat],
-            radius: modo === "uf" || nivel === "br" ? 22000 : 6000,
+            getPosition: (d) => [d.lon ?? 0, d.lat ?? 0],
+            radius: modo === "uf" || nivel === "country" ? 22000 : 6000,
             coverage: 0.9,
             extruded: false,
             pickable: true,
             opacity: 0.85,
             colorAggregation: "MEAN",
-            getColorWeight: (d) => (d.status === "apurado" ? 1 : 0),
+            getColorWeight: (d) => (d.status === "tallied" ? 1 : 0),
             colorDomain: [0, 1],
             colorRange: [
               [100, 116, 139],
@@ -408,22 +411,22 @@ export default function MapaEleitoral(props: MapaEleitoralProps) {
       } else {
         const zonaSel = zonaDoId(nivel, id);
         ls.push(
-          new ScatterplotLayer<LocalMapa>({
+          new ScatterplotLayer<MapPollingPlaceDto>({
             id: "locais",
             data: pontos,
-            getPosition: (d) => [d.lon, d.lat],
+            getPosition: (d) => [d.lon ?? 0, d.lat ?? 0],
             getRadius: (d) => {
-              const base = Math.min(11, 3 + Math.sqrt(Math.max(1, d.secoes_total)) * 1.3);
-              if (nivel === "local") return d.id === id ? base + 5 : base * 0.7;
-              if (nivel === "zona" && zonaSel) return d.id.startsWith(zonaSel) ? base : base * 0.6;
+              const base = Math.min(11, 3 + Math.sqrt(Math.max(1, d.sections_total)) * 1.3);
+              if (nivel === "polling_place") return d.id === id ? base + 5 : base * 0.7;
+              if (nivel === "zone" && zonaSel) return d.id.startsWith(zonaSel) ? base : base * 0.6;
               return base;
             },
             radiusUnits: "pixels",
             getFillColor: (d) => {
               const c = corLocal(d);
               if (
-                (nivel === "zona" && zonaSel && !d.id.startsWith(zonaSel)) ||
-                (nivel === "local" && d.id !== id)
+                (nivel === "zone" && zonaSel && !d.id.startsWith(zonaSel)) ||
+                (nivel === "polling_place" && d.id !== id)
               )
                 return [c[0], c[1], c[2], 70];
               return c;
@@ -470,14 +473,14 @@ export default function MapaEleitoral(props: MapaEleitoralProps) {
       }
       const layerId = info.layer?.id;
       if (layerId === "locais")
-        setHover({ x: info.x, y: info.y, tipo: "local", local: info.object as LocalMapa });
+        setHover({ x: info.x, y: info.y, tipo: "local", local: info.object as MapPollingPlaceDto });
       else if (layerId === "hex") {
         const o = info.object as { colorValue?: number; count?: number };
         setHover({ x: info.x, y: info.y, tipo: "hex", pct: (o.colorValue ?? 0) * 100, n: o.count ?? 0 });
       } else if (layerId === "regioes") {
         const ft = info.object as FeatureGeo;
         const it = itensPorChave.get(ft.chave) ?? null;
-        const nome = it?.nome ?? ft.properties.nome ?? UF_POR_SIGLA[ft.chave]?.nome ?? ft.properties.uf;
+        const nome = it?.name ?? ft.properties.nome ?? UF_POR_SIGLA[ft.chave]?.nome ?? ft.properties.uf;
         setHover({ x: info.x, y: info.y, tipo: "regiao", nome, item: it });
       }
     },
@@ -489,8 +492,8 @@ export default function MapaEleitoral(props: MapaEleitoralProps) {
       if (!info.object || !onSelecionar) return;
       const layerId = info.layer?.id;
       if (layerId === "locais") {
-        const l = info.object as LocalMapa;
-        onSelecionar("local", l.id, l.nome);
+        const l = info.object as MapPollingPlaceDto;
+        onSelecionar("polling_place", l.id, l.name);
       } else if (layerId === "hex") {
         const o = info.object as { position?: [number, number] };
         if (o.position && mapRef.current)
@@ -498,9 +501,9 @@ export default function MapaEleitoral(props: MapaEleitoralProps) {
       } else if (layerId === "regioes") {
         const ft = info.object as FeatureGeo;
         const it = itensPorChave.get(ft.chave);
-        if (it) onSelecionar(it.nivel, it.id, it.nome);
+        if (it) onSelecionar(asLevel(it.level), it.id, it.name);
         else if (modo === "uf")
-          onSelecionar("uf", ft.chave, UF_POR_SIGLA[ft.chave]?.nome ?? ft.chave.toUpperCase());
+          onSelecionar("state", ft.chave, UF_POR_SIGLA[ft.chave]?.nome ?? ft.chave.toUpperCase());
       }
     },
     [onSelecionar, itensPorChave, modo],
@@ -510,48 +513,53 @@ export default function MapaEleitoral(props: MapaEleitoralProps) {
   const itensLegenda: ItemLegenda[] = useMemo(() => {
     if (modo === "pontos") {
       const m = new Map<string, ItemLegenda>();
-      for (const l of locais.data?.itens ?? []) {
-        if (!l.lider) continue;
-        const x = m.get(l.lider.sqcand);
+      for (const l of locais.data?.items ?? []) {
+        if (!l.leader) continue;
+        const x = m.get(l.leader.tse_candidate_id);
         if (x) x.vitorias++;
         else
-          m.set(l.lider.sqcand, {
-            sqcand: l.lider.sqcand,
-            rotulo: l.lider.nome_urna,
-            cor: corCand(l.lider.sqcand, l.lider.cor),
+          m.set(l.leader.tse_candidate_id, {
+            sqcand: l.leader.tse_candidate_id,
+            rotulo: l.leader.ballot_name,
+            cor: corCand(l.leader.tse_candidate_id, l.leader.color),
             vitorias: 1,
           });
       }
       return [...m.values()].sort((a, b) => b.vitorias - a.vitorias);
     }
-    return (dados?.candidatos ?? [])
+    return (dados?.candidates ?? [])
       .map((c) => ({
-        sqcand: c.sqcand,
-        rotulo: `${c.nome_urna} (${c.numero})`,
-        cor: corCand(c.sqcand, c.cor, c.numero),
-        vitorias: c.vitorias,
+        sqcand: c.tse_candidate_id,
+        rotulo: `${c.ballot_name} (${c.ballot_number})`,
+        cor: corCand(c.tse_candidate_id, c.color, c.ballot_number),
+        vitorias: c.wins,
       }))
       .sort((a, b) => b.vitorias - a.vitorias);
   }, [modo, locais.data, dados, corCand]);
 
   const vitoriasMun = useMemo(() => {
     if (!munBr.data) return null;
-    return new Map(munBr.data.candidatos.map((c) => [c.sqcand, c.vitorias]));
+    return new Map(munBr.data.candidates.map((c) => [c.tse_candidate_id, c.wins]));
   }, [munBr.data]);
 
   const contagemStatus = useMemo(() => {
     const c: Record<string, number> = {};
-    for (const l of locais.data?.itens ?? []) c[l.status] = (c[l.status] ?? 0) + 1;
+    for (const l of locais.data?.items ?? []) c[l.status] = (c[l.status] ?? 0) + 1;
     return c;
   }, [locais.data]);
 
   const partidos = useMemo(() => {
     const m = new Map<string, { sigla: string; cor: string; n: number }>();
-    for (const it of dados?.itens ?? []) {
-      if (!it.partido_lider) continue;
-      const x = m.get(it.partido_lider.sigla);
+    for (const it of dados?.items ?? []) {
+      if (!it.leader_party) continue;
+      const x = m.get(it.leader_party.abbreviation);
       if (x) x.n++;
-      else m.set(it.partido_lider.sigla, { ...it.partido_lider, n: 1 });
+      else
+        m.set(it.leader_party.abbreviation, {
+          sigla: it.leader_party.abbreviation,
+          cor: it.leader_party.color,
+          n: 1,
+        });
     }
     return [...m.values()].sort((a, b) => b.n - a.n);
   }, [dados]);
@@ -568,8 +576,8 @@ export default function MapaEleitoral(props: MapaEleitoralProps) {
     malhaUF.error ??
     malhaMun.error;
   const opcoesCand = (candsBase ?? []).map((c) => ({
-    value: c.sqcand,
-    label: `${c.nome_urna} (${c.numero}) · ${c.partido_sigla}`,
+    value: c.tse_candidate_id,
+    label: `${c.ballot_name} (${c.ballot_number}) · ${c.party_abbreviation}`,
   }));
 
   return (
@@ -665,13 +673,13 @@ export default function MapaEleitoral(props: MapaEleitoralProps) {
           Nos locais, a cor indica o vencedor de cada local
         </Badge>
       )}
-      {locais.data?.truncado && (
+      {locais.data?.truncated && (
         <Badge
           style={{ position: "absolute", top: 8, left: "50%", transform: "translateX(-50%)", zIndex: 6 }}
           color="yellow"
           variant="light"
         >
-          Mostrando {fmtInt(locais.data.itens.length)} de {fmtInt(locais.data.total)} locais
+          Mostrando {fmtInt(locais.data.items.length)} de {fmtInt(locais.data.total)} locais
         </Badge>
       )}
 
@@ -683,8 +691,8 @@ export default function MapaEleitoral(props: MapaEleitoralProps) {
           onDestaque={setDestaque}
           unidade={unidade}
           escala={escala}
-          rotuloA={candsBase?.find((c) => c.sqcand === efA)?.nome_urna}
-          rotuloB={candsBase?.find((c) => c.sqcand === efB)?.nome_urna}
+          rotuloA={candsBase?.find((c) => c.tse_candidate_id === efA)?.ballot_name}
+          rotuloB={candsBase?.find((c) => c.tse_candidate_id === efB)?.ballot_name}
           corA={corA}
           corB={corB}
           contagemStatus={contagemStatus}
@@ -712,7 +720,7 @@ export default function MapaEleitoral(props: MapaEleitoralProps) {
           </Paper>
         </Box>
       )}
-      {!carregando && !erro && modo === "pontos" && locais.data && locais.data.itens.length === 0 && (
+      {!carregando && !erro && modo === "pontos" && locais.data && locais.data.items.length === 0 && (
         <Badge
           style={{ position: "absolute", top: 8, left: "50%", transform: "translateX(-50%)", zIndex: 6 }}
           variant="light"
@@ -782,34 +790,34 @@ function TooltipMapa({
     corpo = (
       <Stack gap={3}>
         <Text size="sm" fw={700} lineClamp={2}>
-          {l.nome}
+          {l.name}
         </Text>
-        {l.bairro && (
+        {l.neighborhood && (
           <Text size="xs" c="dimmed">
-            {l.bairro}
-            {l.aproximado ? " · posição aproximada" : ""}
+            {l.neighborhood}
+            {l.approximate ? " · posição aproximada" : ""}
           </Text>
         )}
         <Group gap={6}>
           <Box w={8} h={8} style={{ borderRadius: 9, background: COR_STATUS[l.status] }} />
           <Text size="xs">
-            {ROTULO_STATUS[l.status]} · {l.secoes_apuradas}/{l.secoes_total} seções
+            {ROTULO_STATUS[l.status]} · {l.sections_tallied}/{l.sections_total} seções
           </Text>
         </Group>
-        {l.lider && (
+        {l.leader && (
           <Group gap={6} wrap="nowrap">
             <Box
               w={10}
               h={10}
-              style={{ borderRadius: 3, background: corCand(l.lider.sqcand, l.lider.cor) }}
+              style={{ borderRadius: 3, background: corCand(l.leader.tse_candidate_id, l.leader.color) }}
             />
             <Text size="xs">
-              <b>{l.lider.nome_urna}</b> {fmtPct(l.lider.pct)} · margem {fmtPP(l.margem_pp)}
+              <b>{l.leader.ballot_name}</b> {fmtPct(l.leader.pct)} · margem {fmtPP(l.margin_pp)}
             </Text>
           </Group>
         )}
         <Text size="xs" c="dimmed">
-          Votos válidos: <span className="num">{fmtInt(l.votos_validos)}</span>
+          Votos válidos: <span className="num">{fmtInt(l.valid_votes)}</span>
         </Text>
       </Stack>
     );
@@ -819,10 +827,10 @@ function TooltipMapa({
       <Stack gap={3}>
         <Text size="sm" fw={700}>
           {h.nome}
-          {it?.uf && it.nivel === "municipio" ? (
+          {it?.state_code && it.level === "municipality" ? (
             <Text span c="dimmed" size="xs">
               {" "}
-              · {it.uf.toUpperCase()}
+              · {it.state_code.toUpperCase()}
             </Text>
           ) : null}
         </Text>
@@ -832,56 +840,62 @@ function TooltipMapa({
           </Text>
         ) : (
           <>
-            {it.lider && (
+            {it.leader && (
               <Group gap={6} wrap="nowrap">
                 <Box
                   w={10}
                   h={10}
-                  style={{ borderRadius: 3, background: corCand(it.lider.sqcand, it.lider.cor) }}
+                  style={{
+                    borderRadius: 3,
+                    background: corCand(it.leader.tse_candidate_id, it.leader.color),
+                  }}
                 />
                 <Text size="xs">
-                  Líder: <b>{it.lider.nome_urna}</b> {fmtPct(it.lider.pct)}
+                  Líder: <b>{it.leader.ballot_name}</b> {fmtPct(it.leader.pct)}
                 </Text>
               </Group>
             )}
-            {it.segundo && (
+            {it.second && (
               <Group gap={6} wrap="nowrap">
                 <Box
                   w={10}
                   h={10}
-                  style={{ borderRadius: 3, background: corCand(it.segundo.sqcand, it.segundo.cor) }}
+                  style={{
+                    borderRadius: 3,
+                    background: corCand(it.second.tse_candidate_id, it.second.color),
+                  }}
                 />
                 <Text size="xs">
-                  2º: {it.segundo.nome_urna} {fmtPct(it.segundo.pct)}
+                  2º: {it.second.ballot_name} {fmtPct(it.second.pct)}
                 </Text>
               </Group>
             )}
             <Text size="xs">
-              Margem: <b className="num">{fmtPP(it.margem_pp)}</b>
+              Margem: <b className="num">{fmtPP(it.margin_pp)}</b>
             </Text>
-            {tipo === "desempenho" && efA && it.valores?.[efA] !== undefined && (
+            {tipo === "desempenho" && efA && it.values?.[efA] !== undefined && (
               <Text size="xs">
-                Candidato: <b className="num">{fmtPct(it.valores[efA])}</b>
+                Candidato: <b className="num">{fmtPct(it.values[efA])}</b>
               </Text>
             )}
-            {tipo === "comparativo" && efA && efB && it.valores && (
+            {tipo === "comparativo" && efA && efB && it.values && (
               <Text size="xs">
-                A − B: <b className="num">{fmtPP((it.valores[efA] ?? 0) - (it.valores[efB] ?? 0))}</b>
+                A − B: <b className="num">{fmtPP((it.values[efA] ?? 0) - (it.values[efB] ?? 0))}</b>
               </Text>
             )}
-            {tipo === "comparecimento" && it.eleitorado > 0 && (
+            {tipo === "comparecimento" && it.electorate > 0 && (
               <Text size="xs">
-                Comparecimento: <b className="num">{fmtPct((it.comparecimento / it.eleitorado) * 100)}</b>
+                Comparecimento: <b className="num">{fmtPct((it.turnout / it.electorate) * 100)}</b>
               </Text>
             )}
-            {tipo === "partido" && it.partido_lider && (
+            {tipo === "partido" && it.leader_party && (
               <Text size="xs">
-                Partido mais votado: <b>{it.partido_lider.sigla}</b>
+                Partido mais votado: <b>{it.leader_party.abbreviation}</b>
               </Text>
             )}
             <Text size="xs" c="dimmed">
-              Apurado: <span className="num">{fmtPct(it.pct_secoes)}</span> · Válidos:{" "}
-              <span className="num">{fmtInt(it.votos_validos)}</span>
+              Apurado: <span className="num">{fmtPct(it.pct_sections)}</span> · Válidos:{" "}
+              <span className="num">{fmtInt(it.valid_votes)}</span>
             </Text>
           </>
         )}

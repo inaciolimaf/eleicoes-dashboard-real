@@ -18,25 +18,25 @@ export default function LocalPage() {
   const q = useLocal(id, f.turno);
   const { eFavorito, alternar } = useFavoritos();
   useEffect(() => {
-    if (id) useFiltro.getState().setRecorte("local", id, q.data?.nome);
-  }, [id, q.data?.nome]);
-  const fav = eFavorito("local", id);
+    if (id) useFiltro.getState().setRecorte("polling_place", id, q.data?.name);
+  }, [id, q.data?.name]);
+  const fav = eFavorito("polling_place", id);
   return (
-    <FiltroProvider value={{ nivel: "local", id }}>
+    <FiltroProvider value={{ nivel: "polling_place", id }}>
       <Stack gap="md">
         <Group justify="space-between">
           <Stack gap={0}>
             <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
               Local de votação
             </Text>
-            <Title order={2}>{q.data?.nome ?? "Local de votação"}</Title>
+            <Title order={2}>{q.data?.name ?? "Local de votação"}</Title>
           </Stack>
           <Tooltip label={fav ? "Remover dos favoritos" : "Favoritar (meu colégio)"}>
             <ActionIcon
               variant="subtle"
               color="yellow"
               size="lg"
-              onClick={() => alternar({ tipo: "local", ref: id, rotulo: q.data?.nome ?? id })}
+              onClick={() => alternar({ type: "polling_place", ref: id, label: q.data?.name ?? id })}
               aria-label="Favoritar local"
             >
               {fav ? <IconStarFilled size={20} /> : <IconStar size={20} />}

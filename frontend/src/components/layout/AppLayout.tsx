@@ -5,7 +5,7 @@ import { Outlet } from "react-router-dom";
 import { useFiltro } from "../../store/filtro";
 import { useNavDesktop, useUi } from "../../store/ui";
 import { useLive } from "../../realtime/useLive";
-import { topico } from "../../realtime/topicos";
+import { topic } from "../../realtime/topics";
 import { Header } from "./Header";
 import { Navbar } from "./Navbar";
 import { FilterBar } from "./FilterBar";
@@ -62,7 +62,7 @@ export function AppLayout() {
   const desktop = useNavDesktop((s) => s.aberta);
   const turno = useFiltro((s) => s.turno);
   // tópicos globais: eventos (toasts) e status
-  useLive([topico.eventos(turno), topico.status()]);
+  useLive([topic.events(turno), topic.status()]);
   return (
     <AppShell
       header={{ height: 60 }}

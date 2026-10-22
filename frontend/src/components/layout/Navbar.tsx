@@ -26,7 +26,7 @@ import { SeletorCargo, SeletorEleicao } from "./Header";
 export function Navbar() {
   const loc = useLocation();
   const { paineis } = usePaineis();
-  const usuario = useAuth((s) => s.usuario);
+  const user = useAuth((s) => s.user);
   const f = useFiltro();
   const fechar = useUi((s) => s.setNavbar);
   const [novo, setNovo] = useState(false);
@@ -102,8 +102,8 @@ export function Navbar() {
           <Divider my={6} />
           {item(
             linkRecorte(
-              f.nivel === "local" || f.nivel === "secao" ? "br" : f.nivel,
-              f.nivel === "local" || f.nivel === "secao" ? "br" : f.id,
+              f.nivel === "polling_place" || f.nivel === "section" ? "country" : f.nivel,
+              f.nivel === "polling_place" || f.nivel === "section" ? "br" : f.id,
             ),
             "Explorar",
             IconCompass,
@@ -121,7 +121,7 @@ export function Navbar() {
           {item("/alertas", "Alertas", IconBell)}
           <Divider my={6} />
           {item("/conta", "Preferências", IconSettings)}
-          {usuario?.is_admin && item("/admin", "Admin", IconShieldLock)}
+          {user?.is_admin && item("/admin", "Admin", IconShieldLock)}
         </Stack>
       </ScrollArea>
       <NovoPainelModal aberto={novo} onClose={() => setNovo(false)} />

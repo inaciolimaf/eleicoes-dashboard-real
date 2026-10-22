@@ -19,7 +19,7 @@ import { IconSearch, IconStar, IconStarFilled } from "@tabler/icons-react";
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useCandidato, useFilhos } from "../api/hooks";
-import type { Nivel } from "../api/types";
+import type { Level } from "../api/models";
 import { CardCandidato } from "../components/resultados/CardCandidato";
 import { MapaEleitoral } from "../components/mapas";
 import { Carregando, ErroView, SemDados } from "../components/common/Estados";
@@ -29,6 +29,7 @@ import { linkRecorte, NIVEL_PLURAL } from "../lib/recortes";
 import { useCorCandidato } from "../lib/useCor";
 import { useFavoritos } from "../store/favoritos";
 import { useFiltro } from "../store/filtro";
+import { asLevel } from "../lib/recortes";
 
 function TabelaDesempenho({
   sq,
@@ -37,9 +38,9 @@ function TabelaDesempenho({
   filhos,
 }: {
   sq: string;
-  nivel: Nivel;
+  nivel: Level;
   id: string;
-  filhos: Nivel | null;
+  filhos: Level | null;
 }) {
   const f = useFiltroEfetivo();
   const q = useFilhos({ turno: f.turno, cargo: f.cargo, nivel, id, t: f.t, filhos, candidatos: [sq] });
@@ -49,23 +50,23 @@ function TabelaDesempenho({
   const corCand = useCorCandidato();
   const lista = useMemo(() => {
     const b = semAcento(busca);
-    return [...(q.data?.itens ?? [])]
-      .filter((i) => !b || semAcento(i.nome).includes(b))
-      .sort((a, b2) => (b2.valores?.[sq] ?? -1) - (a.valores?.[sq] ?? -1));
+    return [...(q.data?.items ?? [])]
+      .filter((i) => !b || semAcento(i.name).includes(b))
+      .sort((a, b2) => (b2.values?.[sq] ?? -1) - (a.values?.[sq] ?? -1));
   }, [q.data, busca, sq]);
   if (q.isLoading) return <Carregando linhas={5} />;
   if (q.error) return <ErroView erro={q.error} onRetry={() => q.refetch()} />;
   if (!lista.length && !busca) return <SemDados />;
-  const vitorias = q.data?.candidatos.find((c) => c.sqcand === sq)?.vitorias ?? 0;
+  const vitorias = q.data?.candidates.find((c) => c.tse_candidate_id === sq)?.wins ?? 0;
   const POR = 15;
   const total = Math.max(1, Math.ceil(lista.length / POR));
   const pagina = Math.min(pag, total);
-  const nivelF = q.data?.nivel_filhos ?? "uf";
+  const nivelF = asLevel(q.data?.child_level ?? "state");
   return (
     <Stack gap="xs">
       <Group justify="space-between">
         <Text size="sm">
-          Venceu em <b className="num">{fmtInt(vitorias)}</b> de {fmtInt(q.data?.itens.length ?? 0)}{" "}
+          Venceu em <b className="num">{fmtInt(vitorias)}</b> de {fmtInt(q.data?.items.length ?? 0)}{" "}
           {NIVEL_PLURAL[nivelF].toLowerCase()}
         </Text>
         <TextInput
@@ -84,7 +85,7 @@ function TabelaDesempenho({
         <Table highlightOnHover verticalSpacing={4} fz="sm" miw={480}>
           <Table.Thead>
             <Table.Tr>
-              <Table.Th>{nivelF === "uf" ? "UF" : "Município"}</Table.Th>
+              <Table.Th>{nivelF === "state" ? "UF" : "Município"}</Table.Th>
               <Table.Th ta="right">% do candidato</Table.Th>
               <Table.Th>Líder</Table.Th>
               <Table.Th ta="right">% apurado</Table.Th>
@@ -92,23 +93,23 @@ function TabelaDesempenho({
           </Table.Thead>
           <Table.Tbody>
             {lista.slice((pagina - 1) * POR, pagina * POR).map((i) => {
-              const v = i.valores?.[sq];
-              const lidera = i.lider?.sqcand === sq;
+              const v = i.values?.[sq];
+              const lidera = i.leader?.tse_candidate_id === sq;
               return (
                 <Table.Tr
                   key={i.id}
                   style={{ cursor: "pointer" }}
                   onClick={() => {
-                    useFiltro.getState().setRecorte(i.nivel, i.id, i.nome);
-                    navigate(linkRecorte(i.nivel, i.id));
+                    useFiltro.getState().setRecorte(asLevel(i.level), i.id, i.name);
+                    navigate(linkRecorte(asLevel(i.level), i.id));
                   }}
                 >
                   <Table.Td fw={600}>
-                    {i.nome}
-                    {i.nivel === "municipio" ? (
+                    {i.name}
+                    {i.level === "municipality" ? (
                       <Text span c="dimmed" size="xs">
                         {" "}
-                        · {i.uf.toUpperCase()}
+                        · {(i.state_code ?? "").toUpperCase()}
                       </Text>
                     ) : null}
                   </Table.Td>
@@ -121,15 +122,18 @@ function TabelaDesempenho({
                     </Stack>
                   </Table.Td>
                   <Table.Td>
-                    {i.lider ? (
+                    {i.leader ? (
                       <Group gap={6} wrap="nowrap">
                         <Box
                           w={8}
                           h={8}
-                          style={{ borderRadius: 8, background: corCand(i.lider.sqcand, i.lider.cor) }}
+                          style={{
+                            borderRadius: 8,
+                            background: corCand(i.leader.tse_candidate_id, i.leader.color),
+                          }}
                         />
                         <Text size="sm" fw={lidera ? 700 : 400}>
-                          {i.lider.nome_urna}
+                          {i.leader.ballot_name}
                         </Text>
                       </Group>
                     ) : (
@@ -137,7 +141,7 @@ function TabelaDesempenho({
                     )}
                   </Table.Td>
                   <Table.Td ta="right" className="num">
-                    {fmtPct(i.pct_secoes, 1)}
+                    {fmtPct(i.pct_sections, 1)}
                   </Table.Td>
                 </Table.Tr>
               );
@@ -151,31 +155,31 @@ function TabelaDesempenho({
 }
 
 export default function CandidatoPage() {
-  const sq = decodeURIComponent(useParams().sqcand ?? "");
+  const sq = decodeURIComponent(useParams().tse_candidate_id ?? "");
   const f = useFiltroEfetivo();
   const q = useCandidato(sq, f.turno, f.t);
   const { eFavorito, alternar } = useFavoritos();
   const [visao, setVisao] = useState<"uf" | "municipio">("uf");
   const navigate = useNavigate();
   const c = q.data;
-  const cargo = c ? Number(c.cargo.cd) : f.cargo;
-  const uf = c?.uf ?? null;
+  const cargo = c ? c.office_code : f.cargo;
+  const uf = c?.state_code ?? null;
   // presidente: mapa por UF e por município; demais: municípios da UF do candidato
-  const nivel: Nivel = uf ? "uf" : "br";
+  const nivel: Level = uf ? "state" : "country";
   const id = uf ?? "br";
   const todosMun = !uf && visao === "municipio";
-  const fav = eFavorito("candidato", sq);
+  const fav = eFavorito("candidate", sq);
   return (
     <FiltroProvider value={{ cargo }}>
       <Stack gap="md">
         <Group justify="space-between">
-          <Title order={2}>{c?.nome_urna ?? "Candidato"}</Title>
+          <Title order={2}>{c?.ballot_name ?? "Candidato"}</Title>
           <Tooltip label={fav ? "Remover dos favoritos" : "Favoritar candidato"}>
             <ActionIcon
               variant="subtle"
               color="yellow"
               size="lg"
-              onClick={() => alternar({ tipo: "candidato", ref: sq, rotulo: c?.nome_urna ?? sq })}
+              onClick={() => alternar({ type: "candidate", ref: sq, label: c?.ballot_name ?? sq })}
               aria-label="Favoritar candidato"
             >
               {fav ? <IconStarFilled size={20} /> : <IconStar size={20} />}
@@ -223,7 +227,7 @@ export default function CandidatoPage() {
                 <Text fw={700} mb="sm">
                   {todosMun || uf ? "Municípios" : "UFs"} — onde foi melhor
                 </Text>
-                <TabelaDesempenho sq={sq} nivel={nivel} id={id} filhos={todosMun ? "municipio" : null} />
+                <TabelaDesempenho sq={sq} nivel={nivel} id={id} filhos={todosMun ? "municipality" : null} />
               </Card>
             </Grid.Col>
           </Grid>

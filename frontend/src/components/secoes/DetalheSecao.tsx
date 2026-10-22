@@ -30,6 +30,7 @@ import { fmtInt, fmtPct } from "../../lib/format";
 import { useCorCandidato } from "../../lib/useCor";
 import { Carregando, ErroView, SemDados } from "../common/Estados";
 import { BadgeStatus } from "../locais/DetalheLocal";
+import type { TallyStatus } from "../../api/models";
 
 function Info({ rotulo, children }: { rotulo: string; children: React.ReactNode }) {
   return (
@@ -59,11 +60,11 @@ export function DetalheSecao({
   const s = q.data;
   if (!s) return <SemDados />;
   const assinatura =
-    s.assinatura_ok === true ? (
+    s.signature_valid === true ? (
       <Badge color="teal" variant="light" leftSection={<IconShieldCheck size={12} />}>
         Assinatura válida
       </Badge>
-    ) : s.assinatura_ok === false ? (
+    ) : s.signature_valid === false ? (
       <Badge color="red" variant="light" leftSection={<IconShieldX size={12} />}>
         Assinatura inválida
       </Badge>
@@ -72,52 +73,50 @@ export function DetalheSecao({
         Não verificada
       </Badge>
     );
-  const cargoInicial = s.cargos.find((c) => Number(c.cd) === f.cargo)?.cd ?? s.cargos[0]?.cd;
+  const cargoInicial =
+    s.offices.find((c) => Number(c.office_code) === f.cargo)?.office_code ?? s.offices[0]?.office_code;
   return (
     <Stack gap="sm">
       <Group justify="space-between" align="flex-start">
         <Stack gap={2}>
           <Text fw={800} size="lg">
-            Seção <span className="num">{s.numero}</span>
+            Seção <span className="num">{s.number}</span>
           </Text>
           <Text size="sm">
-            <Anchor component={Link} to={`/locais/${s.local.id}`}>
-              {s.local.nome}
+            <Anchor component={Link} to={`/locais/${s.polling_place.id}`}>
+              {s.polling_place.name}
             </Anchor>{" "}
             ·{" "}
-            <Anchor component={Link} to={`/explorar/zona/${s.zona.id}`}>
-              Zona {s.zona.numero}
+            <Anchor component={Link} to={`/explorar/zona/${s.zone.id}`}>
+              Zona {s.zone.number}
             </Anchor>{" "}
             ·{" "}
-            <Anchor component={Link} to={`/explorar/municipio/${s.municipio.id}`}>
-              {s.municipio.nome}/{s.uf.toUpperCase()}
+            <Anchor component={Link} to={`/explorar/municipio/${s.municipality.id}`}>
+              {s.municipality.name}/{s.state_code.toUpperCase()}
             </Anchor>
           </Text>
         </Stack>
         <Group gap={6}>
-          <BadgeStatus s={s.status} />
+          <BadgeStatus s={s.status as TallyStatus} />
           {assinatura}
         </Group>
       </Group>
       <SimpleGrid cols={{ base: 2, sm: compacto ? 2 : 4 }} spacing="sm">
         <Info rotulo="Eleitores aptos">
-          <span className="num">{fmtInt(s.eleitores_aptos)}</span>
+          <span className="num">{fmtInt(s.eligible_voters)}</span>
         </Info>
         <Info rotulo="Comparecimento">
-          <span className="num">{fmtInt(s.comparecimento)}</span>{" "}
+          <span className="num">{fmtInt(s.turnout)}</span>{" "}
           <Text span c="dimmed" size="xs">
-            (
-            {s.comparecimento != null && s.eleitores_aptos
-              ? fmtPct((s.comparecimento / s.eleitores_aptos) * 100, 1)
-              : "—"}
+            ({s.turnout != null && s.eligible_voters ? fmtPct((s.turnout / s.eligible_voters) * 100, 1) : "—"}
             )
           </Text>
         </Info>
         <Info rotulo="BU emitido (urna)">
-          <span className="num">{fmtDataHora(s.emitido_em)}</span>
+          <span className="num">{fmtDataHora(s.issued_at)}</span>
         </Info>
         <Info rotulo="Totalizado">
-          <span className="num">{fmtHora(s.totalizado_em)}</span>
+          <span className="num">{fmtHora(s.tallied_at)}</span>
         </Info>
       </SimpleGrid>
       {!compacto && (
@@ -139,12 +138,12 @@ export function DetalheSecao({
               )}
             </CopyButton>
           )}
-          {s.url_bu && (
+          {s.bu_url && (
             <Button
               size="compact-xs"
               variant="light"
               component="a"
-              href={s.url_bu}
+              href={s.bu_url}
               target="_blank"
               rel="noopener"
               leftSection={<IconDownload size={12} />}
@@ -154,36 +153,36 @@ export function DetalheSecao({
           )}
         </Group>
       )}
-      {s.cargos.length === 0 ? (
+      {s.offices.length === 0 ? (
         <SemDados titulo="Boletim de urna ainda não coletado" />
       ) : (
         <Tabs defaultValue={String(cargoInicial)} variant="outline">
           <ScrollArea type="never">
             <Tabs.List style={{ flexWrap: "nowrap" }}>
-              {s.cargos.map((c) => (
-                <Tabs.Tab key={String(c.cd)} value={String(c.cd)}>
-                  {c.nome}
+              {s.offices.map((c) => (
+                <Tabs.Tab key={String(c.office_code)} value={String(c.office_code)}>
+                  {c.name}
                 </Tabs.Tab>
               ))}
             </Tabs.List>
           </ScrollArea>
-          {s.cargos.map((c) => {
-            const votos = [...c.votos].sort((a, b) => b.votos - a.votos);
-            const max = votos[0]?.votos ?? 1;
+          {s.offices.map((c) => {
+            const votos = [...c.votes].sort((a, b) => b.votes - a.votes);
+            const max = votos[0]?.votes ?? 1;
             return (
-              <Tabs.Panel key={String(c.cd)} value={String(c.cd)} pt="xs">
+              <Tabs.Panel key={String(c.office_code)} value={String(c.office_code)} pt="xs">
                 <Group gap="lg" mb="xs">
                   <Text size="sm">
-                    Válidos <b className="num">{fmtInt(c.votos_validos)}</b>
+                    Válidos <b className="num">{fmtInt(c.valid_votes)}</b>
                   </Text>
                   <Text size="sm">
-                    Brancos <b className="num">{fmtInt(c.brancos)}</b>
+                    Brancos <b className="num">{fmtInt(c.blank_votes)}</b>
                   </Text>
                   <Text size="sm">
-                    Nulos <b className="num">{fmtInt(c.nulos)}</b>
+                    Nulos <b className="num">{fmtInt(c.null_votes)}</b>
                   </Text>
                   <Text size="sm">
-                    Comparecimento <b className="num">{fmtInt(c.comparecimento)}</b>
+                    Comparecimento <b className="num">{fmtInt(c.turnout)}</b>
                   </Text>
                 </Group>
                 <Table verticalSpacing={4} fz="sm" highlightOnHover>
@@ -197,37 +196,37 @@ export function DetalheSecao({
                   </Table.Thead>
                   <Table.Tbody>
                     {votos.map((v, i) => {
-                      const cor = corCand(v.sqcand, v.cor, v.numero ?? i);
+                      const cor = corCand(v.tse_candidate_id, v.color, v.number ?? i);
                       return (
-                        <Table.Tr key={`${v.tipo}-${v.numero}-${i}`}>
+                        <Table.Tr key={`${v.kind}-${v.number}-${i}`}>
                           <Table.Td className="num" fw={700}>
-                            {v.numero ?? "—"}
+                            {v.number ?? "—"}
                           </Table.Td>
                           <Table.Td>
                             <Stack gap={2}>
                               <Text size="sm" fw={600}>
-                                {v.nome_urna ??
-                                  (v.tipo === "legenda" ? `Legenda ${v.partido_sigla ?? ""}` : v.tipo)}
-                                {v.partido_sigla && v.nome_urna ? (
+                                {v.ballot_name ??
+                                  (v.kind === "legenda" ? `Legenda ${v.party_abbreviation ?? ""}` : v.kind)}
+                                {v.party_abbreviation && v.ballot_name ? (
                                   <Text span size="xs" c="dimmed">
                                     {" "}
-                                    · {v.partido_sigla}
+                                    · {v.party_abbreviation}
                                   </Text>
                                 ) : null}
                               </Text>
                               <Box className="barra-trilho" style={{ height: 4 }}>
                                 <Box
                                   className="barra-preenchida"
-                                  style={{ width: `${(v.votos / max) * 100}%`, background: cor }}
+                                  style={{ width: `${(v.votes / max) * 100}%`, background: cor }}
                                 />
                               </Box>
                             </Stack>
                           </Table.Td>
                           <Table.Td ta="right" className="num">
-                            {fmtInt(v.votos)}
+                            {fmtInt(v.votes)}
                           </Table.Td>
                           <Table.Td ta="right" className="num">
-                            {fmtPct(c.votos_validos ? (v.votos / c.votos_validos) * 100 : null, 1)}
+                            {fmtPct(c.valid_votes ? (v.votes / c.valid_votes) * 100 : null, 1)}
                           </Table.Td>
                         </Table.Tr>
                       );

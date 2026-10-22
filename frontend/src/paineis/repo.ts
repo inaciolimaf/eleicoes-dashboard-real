@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo } from "react";
 import { api } from "../api/client";
 import { qk } from "../api/hooks";
-import type { PainelApi } from "../api/types";
+import type { DashboardCreate, DashboardDto, DashboardUpdate } from "../api/models";
 import { useAuth } from "../store/auth";
 import { SCHEMA_VERSION, migrar, type ConfigPainel } from "./schema";
 import { templatePadrao } from "./templates";
@@ -31,18 +31,26 @@ export const usePaineisLocais = create<LocalState>()(
       paineis: [],
       setPaineis: (fn) => set((s) => ({ paineis: fn(s.paineis) })),
     }),
-    { name: "eleicoes.paineis", version: SCHEMA_VERSION },
+    {
+      name: "eleicoes.paineis",
+      version: SCHEMA_VERSION,
+      // painéis salvos no navegador com o vocabulário antigo de níveis: a leitura normaliza
+      merge: (salvo, atual) => {
+        const lidos = (salvo as Partial<LocalState>).paineis ?? [];
+        return { ...atual, paineis: lidos.map((p) => ({ ...p, config: migrar(p.config) ?? p.config })) };
+      },
+    },
   ),
 );
 
-function deApi(p: PainelApi): Painel {
+function deApi(p: DashboardDto): Painel {
   return {
     id: String(p.id),
-    nome: p.nome,
-    ordem: p.ordem ?? 0,
-    padrao: !!p.padrao,
+    nome: p.name,
+    ordem: p.position ?? 0,
+    padrao: !!p.is_default,
     config: migrar(p.config) ?? templatePadrao(),
-    atualizado_em: p.atualizado_em,
+    atualizado_em: p.updated_at ?? "",
     remoto: true,
   };
 }
@@ -66,7 +74,7 @@ export function usePaineis() {
 
   const remoto = useQuery({
     queryKey: qk.paineis(),
-    queryFn: ({ signal }) => api<PainelApi[]>("/paineis", { signal }),
+    queryFn: ({ signal }) => api<DashboardDto[]>("/dashboards", { signal }),
     enabled: logado,
     staleTime: 30_000,
     select: (l) => l.map(deApi),
@@ -82,33 +90,38 @@ export function usePaineis() {
 
   const mCriar = useMutation({
     mutationFn: (b: { nome: string; config: ConfigPainel; padrao?: boolean }) =>
-      api<PainelApi>("/paineis", {
+      api<DashboardDto>("/dashboards", {
         method: "POST",
-        body: { ...b, config: { ...b.config, schemaVersion: SCHEMA_VERSION } },
+        body: {
+          name: b.nome,
+          config: { ...b.config, schemaVersion: SCHEMA_VERSION },
+          is_default: b.padrao ?? false,
+          schema_version: SCHEMA_VERSION,
+        } satisfies DashboardCreate,
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.paineis() }),
   });
   const mSalvar = useMutation({
     mutationFn: ({ p, m }: { p: Painel; m: MudancaPainel }) =>
-      api<PainelApi>(`/paineis/${p.id}`, {
+      api<DashboardDto>(`/dashboards/${p.id}`, {
         method: "PUT",
         body: {
-          nome: m.nome ?? p.nome,
+          name: m.nome ?? p.nome,
           config: m.config ?? p.config,
-          padrao: m.padrao ?? p.padrao,
-          ordem: m.ordem ?? p.ordem,
+          is_default: m.padrao ?? p.padrao,
+          position: m.ordem ?? p.ordem,
           schema_version: SCHEMA_VERSION,
-        },
+        } satisfies DashboardUpdate,
       }),
     onSuccess: (r) => {
       const novo = deApi(r);
-      qc.setQueryData<PainelApi[]>(qk.paineis(), (old) =>
+      qc.setQueryData<DashboardDto[]>(qk.paineis(), (old) =>
         old?.map((x) => (String(x.id) === novo.id ? r : x)),
       );
     },
   });
   const mApagar = useMutation({
-    mutationFn: (id: string) => api<void>(`/paineis/${id}`, { method: "DELETE" }),
+    mutationFn: (id: string) => api<void>(`/dashboards/${id}`, { method: "DELETE" }),
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.paineis() }),
   });
 

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import type { EChartsOption } from "echarts";
-import type { Agremiacao } from "../../api/types";
+import type { AllianceDto } from "../../api/models";
 import { EChart } from "./EChart";
 import { fmtInt } from "../../lib/format";
 
@@ -34,27 +34,29 @@ export function Hemiciclo({
   agremiacoes,
   height = 260,
 }: {
-  agremiacoes: Agremiacao[];
+  agremiacoes: AllianceDto[];
   height?: number | string;
 }) {
   const option = useMemo<EChartsOption>(() => {
-    const comVagas = agremiacoes.filter((a) => a.vagas > 0).sort((a, b) => b.vagas - a.vagas);
-    const total = comVagas.reduce((s, a) => s + a.vagas, 0);
+    const comVagas = agremiacoes
+      .filter((a) => (a.seats ?? 0) > 0)
+      .sort((a, b) => (b.seats ?? 0) - (a.seats ?? 0));
+    const total = comVagas.reduce((s, a) => s + (a.seats ?? 0), 0);
     const pts = posicoes(total);
     let i = 0;
     const series = comVagas.map((a) => {
-      const data = pts.slice(i, i + a.vagas).map((p) => [p.x, p.y]);
-      i += a.vagas;
+      const data = pts.slice(i, i + (a.seats ?? 0)).map((p) => [p.x, p.y]);
+      i += a.seats ?? 0;
       return {
         type: "scatter" as const,
-        name: a.nome,
+        name: a.name,
         data,
         symbolSize: Math.max(5, Math.min(18, 260 / Math.sqrt(Math.max(total, 1) * 3))),
-        itemStyle: { color: a.cor },
+        itemStyle: { color: a.color },
         emphasis: { scale: 1.4 },
         tooltip: {
           formatter: () =>
-            `<b>${a.nome}</b><br/>${a.partidos.join(" · ")}<br/>${a.vagas} vaga(s) · ${fmtInt(a.votos)} votos`,
+            `<b>${a.name}</b><br/>${a.parties.join(" · ")}<br/>${a.seats} vaga(s) · ${fmtInt(a.votes)} votos`,
         },
       };
     });

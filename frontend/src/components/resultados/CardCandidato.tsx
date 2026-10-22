@@ -9,6 +9,7 @@ import { Num } from "../common/Num";
 import { AvatarCandidato } from "./AvatarCandidato";
 import { SeloSituacao } from "./SeloSituacao";
 import { rgba } from "../../lib/cores";
+import type { CandidateStatus } from "../../api/models";
 
 export function CardCandidato({
   sqcand,
@@ -28,8 +29,8 @@ export function CardCandidato({
   if (q.error) return <ErroView erro={q.error} onRetry={() => q.refetch()} />;
   const c = q.data;
   if (!c) return <SemDados />;
-  const cor = corCand(c.sqcand, c.cor, c.numero);
-  const onde = c.uf ? `em ${c.uf.toUpperCase()}` : "no Brasil";
+  const cor = corCand(c.tse_candidate_id, c.color, c.ballot_number);
+  const onde = c.state_code ? `em ${c.state_code.toUpperCase()}` : "no Brasil";
   return (
     <Paper
       p={grande ? "lg" : "sm"}
@@ -40,7 +41,7 @@ export function CardCandidato({
       }}
     >
       <Group gap="md" wrap="nowrap" align="flex-start">
-        <AvatarCandidato fotoUrl={c.foto_url} nome={c.nome_urna} cor={cor} size={grande ? 96 : 64} />
+        <AvatarCandidato fotoUrl={c.photo_url} nome={c.ballot_name} cor={cor} size={grande ? 96 : 64} />
         <Stack gap={4} style={{ flex: 1, minWidth: 0 }}>
           <Group gap={6} wrap="wrap">
             <Badge
@@ -50,7 +51,7 @@ export function CardCandidato({
               className="num"
               styles={{ root: { color: "#fff" } }}
             >
-              {c.numero}
+              {c.ballot_number}
             </Badge>
             {link ? (
               <Text
@@ -58,44 +59,44 @@ export function CardCandidato({
                 size={grande ? "xl" : "md"}
                 lineClamp={1}
                 component={Link}
-                to={`/candidatos/${c.sqcand}`}
+                to={`/candidatos/${c.tse_candidate_id}`}
                 c="inherit"
               >
-                {c.nome_urna}
+                {c.ballot_name}
               </Text>
             ) : (
               <Text fw={800} size={grande ? "xl" : "md"} lineClamp={1}>
-                {c.nome_urna}
+                {c.ballot_name}
               </Text>
             )}
           </Group>
           <Text size="xs" c="dimmed" lineClamp={1}>
-            {c.nome}
+            {c.name}
           </Text>
           <Text size="sm">
-            {c.partido_sigla}
-            {c.agremiacao && c.agremiacao !== c.partido_sigla ? ` · ${c.agremiacao}` : ""} ·{" "}
-            {"nome" in c.cargo ? c.cargo.nome : ""}
-            {c.uf ? ` · ${UF_POR_SIGLA[c.uf]?.nome ?? c.uf.toUpperCase()}` : ""}
+            {c.party_abbreviation}
+            {c.alliance && c.alliance !== c.party_abbreviation ? ` · ${c.alliance}` : ""} ·{" "}
+            {c.office_code ? "" : ""}
+            {c.state_code ? ` · ${UF_POR_SIGLA[c.state_code]?.nome ?? c.state_code.toUpperCase()}` : ""}
           </Text>
-          {c.vices?.length > 0 && (
+          {c.vice_and_substitutes?.length > 0 && (
             <Text size="xs" c="dimmed">
-              {c.vices
+              {c.vice_and_substitutes
                 .map(
                   (v) =>
-                    `${v.tipo === "vice" ? "Vice" : v.tipo.charAt(0).toUpperCase() + v.tipo.slice(1)}: ${v.nome}`,
+                    `${v.kind === "vice" ? "Vice" : (v.kind ?? "").charAt(0).toUpperCase() + (v.kind ?? "").slice(1)}: ${v.name}`,
                 )
                 .join(" · ")}
             </Text>
           )}
-          {c.resultado ? (
+          {c.result ? (
             <Group gap="lg" mt={4} align="flex-end">
               <Stack gap={0}>
                 <Text size="xs" c="dimmed" tt="uppercase" fw={600}>
                   % válidos
                 </Text>
                 <Num
-                  valor={c.resultado.pct_validos}
+                  valor={c.result.valid_pct}
                   tipo="pct"
                   style={{ fontSize: grande ? "2rem" : "1.4rem", fontWeight: 800 }}
                 />
@@ -105,7 +106,7 @@ export function CardCandidato({
                   Votos
                 </Text>
                 <Num
-                  valor={c.resultado.votos}
+                  valor={c.result.votes}
                   style={{ fontSize: grande ? "1.3rem" : "1rem", fontWeight: 600 }}
                 />
               </Stack>
@@ -114,10 +115,10 @@ export function CardCandidato({
                   Posição
                 </Text>
                 <Text fw={700} className="num">
-                  {c.resultado.posicao}º
+                  {c.result.position}º
                 </Text>
               </Stack>
-              <SeloSituacao situacao={c.resultado.situacao} ondeGeral={onde} />
+              <SeloSituacao situacao={c.result.status as CandidateStatus} ondeGeral={onde} />
             </Group>
           ) : (
             <Text size="sm" c="dimmed">

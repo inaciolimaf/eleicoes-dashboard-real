@@ -3,12 +3,12 @@ import { IconArrowDownRight, IconArrowUpRight, IconMinus } from "@tabler/icons-r
 import { useMemo } from "react";
 import type { EChartsOption } from "echarts";
 import { useFilhos, useResultados } from "../api/hooks";
-import type { ResultadosComDados } from "../api/types";
+import type { ResultsWithDataDto } from "../api/models";
 import { useFiltroEfetivo, FiltroProvider } from "../lib/filtro-efetivo";
 import { dayjs } from "../lib/time";
 import { fmtInt, fmtPP, fmtPct } from "../lib/format";
 import { useCorCandidato } from "../lib/useCor";
-import { topico } from "../realtime/topicos";
+import { topic } from "../realtime/topics";
 import { useLive } from "../realtime/useLive";
 import { BlocoTotais } from "../components/resultados/BlocoTotais";
 import { Placar } from "../components/resultados/Placar";
@@ -42,7 +42,7 @@ const ScrollCorpo = ({ altura, children }: { altura: number; children: React.Rea
 export function WPlacar({ cfg, altura, selecionar }: WidgetProps) {
   return (
     <ScrollCorpo altura={altura}>
-      <ComResultados onUf={(uf, nome) => selecionar("uf", uf, nome)}>
+      <ComResultados onUf={(uf, nome) => selecionar("state", uf, nome)}>
         {(res) => (
           <Placar
             res={res}
@@ -62,7 +62,7 @@ export function WPlacar({ cfg, altura, selecionar }: WidgetProps) {
 export function WTotais({ cfg, altura, selecionar }: WidgetProps) {
   return (
     <ScrollCorpo altura={altura}>
-      <ComResultados onUf={(uf, nome) => selecionar("uf", uf, nome)}>
+      <ComResultados onUf={(uf, nome) => selecionar("state", uf, nome)}>
         {(res) => <BlocoTotais res={res} compacto={cfgBool(cfg, "compacto", false) || altura < 200} />}
       </ComResultados>
     </ScrollCorpo>
@@ -72,33 +72,34 @@ export function WTotais({ cfg, altura, selecionar }: WidgetProps) {
 // 3 ─ KPI
 const METRICAS_KPI: Record<
   string,
-  { rotulo: string; tipo: "int" | "pct"; get: (r: ResultadosComDados, sq: string | null) => number | null }
+  { rotulo: string; tipo: "int" | "pct"; get: (r: ResultsWithDataDto, sq: string | null) => number | null }
 > = {
-  votos_validos: { rotulo: "Votos válidos", tipo: "int", get: (r) => r.totais.votos_validos },
-  pct_secoes: { rotulo: "Seções apuradas", tipo: "pct", get: (r) => r.totais.pct_secoes },
-  comparecimento: { rotulo: "Comparecimento", tipo: "int", get: (r) => r.totais.comparecimento },
-  pct_comparecimento: { rotulo: "% comparecimento", tipo: "pct", get: (r) => r.totais.pct_comparecimento },
-  pct_abstencao: { rotulo: "% abstenção", tipo: "pct", get: (r) => r.totais.pct_abstencao },
-  brancos: { rotulo: "Votos brancos", tipo: "int", get: (r) => r.totais.brancos },
-  nulos: { rotulo: "Votos nulos", tipo: "int", get: (r) => r.totais.nulos },
-  margem_pp: { rotulo: "Margem 1º × 2º (p.p.)", tipo: "pct", get: (r) => r.lider?.margem_pp ?? null },
+  votos_validos: { rotulo: "Votos válidos", tipo: "int", get: (r) => r.totals.valid_votes },
+  pct_secoes: { rotulo: "Seções apuradas", tipo: "pct", get: (r) => r.totals.pct_sections },
+  comparecimento: { rotulo: "Comparecimento", tipo: "int", get: (r) => r.totals.turnout },
+  pct_comparecimento: { rotulo: "% comparecimento", tipo: "pct", get: (r) => r.totals.pct_turnout },
+  pct_abstencao: { rotulo: "% abstenção", tipo: "pct", get: (r) => r.totals.pct_abstention },
+  brancos: { rotulo: "Votos brancos", tipo: "int", get: (r) => r.totals.blank_votes },
+  nulos: { rotulo: "Votos nulos", tipo: "int", get: (r) => r.totals.null_votes },
+  margem_pp: { rotulo: "Margem 1º × 2º (p.p.)", tipo: "pct", get: (r) => r.leader?.margin_pp ?? null },
   candidato_pct: {
     rotulo: "% do candidato",
     tipo: "pct",
     get: (r, sq) =>
-      r.candidatos.find((c) => c.sqcand === sq)?.pct_validos ?? r.candidatos[0]?.pct_validos ?? null,
+      r.candidates.find((c) => c.tse_candidate_id === sq)?.valid_pct ?? r.candidates[0]?.valid_pct ?? null,
   },
   candidato_votos: {
     rotulo: "Votos do candidato",
     tipo: "int",
-    get: (r, sq) => r.candidatos.find((c) => c.sqcand === sq)?.votos ?? r.candidatos[0]?.votos ?? null,
+    get: (r, sq) =>
+      r.candidates.find((c) => c.tse_candidate_id === sq)?.votes ?? r.candidates[0]?.votes ?? null,
   },
 };
 export const OPCOES_KPI = Object.entries(METRICAS_KPI).map(([value, m]) => ({ value, label: m.rotulo }));
 
 export function WKpi({ cfg }: WidgetProps) {
   const f = useFiltroEfetivo();
-  const metrica = METRICAS_KPI[cfgStr(cfg, "metrica", "votos_validos")] ?? METRICAS_KPI.votos_validos;
+  const metrica = METRICAS_KPI[cfgStr(cfg, "metrica", "votos_validos")] ?? METRICAS_KPI.valid_votes;
   const sq = cfgStrOuNull(cfg, "sqcand");
   const minutos = cfgNum(cfg, "compararMin", 15);
   const ref = useMemo(
@@ -117,19 +118,24 @@ export function WKpi({ cfg }: WidgetProps) {
     <ComResultados linhasSkeleton={1}>
       {(res) => {
         const v = metrica.get(res, sq);
-        const a = anterior.data && !anterior.data.sem_dados ? metrica.get(anterior.data, sq) : null;
+        const a = anterior.data && !anterior.data.no_data ? metrica.get(anterior.data, sq) : null;
         const delta = v !== null && a !== null ? v - a : null;
         const cand = metrica.rotulo.includes("candidato")
-          ? (res.candidatos.find((c) => c.sqcand === sq) ?? res.candidatos[0])
+          ? (res.candidates.find((c) => c.tse_candidate_id === sq) ?? res.candidates[0])
           : null;
         return (
           <Stack gap={4} justify="center" h="100%" px="xs">
             <Group gap={6}>
               {cand && (
-                <AvatarCandidato fotoUrl={cand.foto_url} nome={cand.nome_urna} cor={cand.cor} size={26} />
+                <AvatarCandidato
+                  fotoUrl={cand.photo_url}
+                  nome={cand.ballot_name}
+                  cor={cand.color}
+                  size={26}
+                />
               )}
               <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
-                {cand ? `${cand.nome_urna} · ` : ""}
+                {cand ? `${cand.ballot_name} · ` : ""}
                 {metrica.rotulo}
               </Text>
             </Group>
@@ -219,7 +225,7 @@ export function WTabela({ cfg, altura, selecionar }: WidgetProps) {
       <TabelaRecortes
         nivel={f.nivel}
         id={f.id}
-        filhos={nf === "municipio" && f.nivel === "br" ? "municipio" : null}
+        filhos={nf === "municipio" && f.nivel === "country" ? "municipality" : null}
         colunas={colunas.length ? colunas : undefined}
         topN={cfgNum(cfg, "topN", 0) || undefined}
         mostrarFiltros={cfgBool(cfg, "mostrarFiltros", true)}
@@ -246,36 +252,36 @@ function ColunaComparativa({ nivel, id }: { nivel: string; id: string }) {
             <Stack gap={6}>
               <Group justify="space-between" wrap="nowrap">
                 <Text fw={700} size="sm" lineClamp={1}>
-                  {res.recorte.nome}
+                  {res.geo_area.name}
                 </Text>
                 <Badge size="xs" variant="light">
-                  {fmtPct(res.totais.pct_secoes, 1)}
+                  {fmtPct(res.totals.pct_sections, 1)}
                 </Badge>
               </Group>
-              {[...res.candidatos]
-                .sort((a, b) => b.votos - a.votos)
+              {[...res.candidates]
+                .sort((a, b) => b.votes - a.votes)
                 .slice(0, 4)
                 .map((c) => {
-                  const cor = corCand(c.sqcand, c.cor, c.numero);
+                  const cor = corCand(c.tse_candidate_id, c.color, c.ballot_number);
                   return (
-                    <Stack key={c.sqcand} gap={2}>
+                    <Stack key={c.tse_candidate_id} gap={2}>
                       <Group justify="space-between" wrap="nowrap" gap={4}>
                         <Text size="xs" fw={600} lineClamp={1}>
-                          {c.nome_urna}
+                          {c.ballot_name}
                         </Text>
-                        <Num valor={c.pct_validos} tipo="pct" style={{ fontSize: 12, fontWeight: 700 }} />
+                        <Num valor={c.valid_pct} tipo="pct" style={{ fontSize: 12, fontWeight: 700 }} />
                       </Group>
                       <Box className="barra-trilho" style={{ height: 6 }}>
                         <Box
                           className="barra-preenchida"
-                          style={{ width: `${c.pct_validos}%`, background: cor }}
+                          style={{ width: `${c.valid_pct}%`, background: cor }}
                         />
                       </Box>
                     </Stack>
                   );
                 })}
               <Text size="xs" c="dimmed">
-                Válidos: <span className="num">{fmtInt(res.totais.votos_validos)}</span>
+                Válidos: <span className="num">{fmtInt(res.totals.valid_votes)}</span>
               </Text>
             </Stack>
           )}
@@ -288,25 +294,27 @@ function ColunaComparativa({ nivel, id }: { nivel: string; id: string }) {
 function ComparativoCandidatos({ candidatos, altura }: { candidatos: string[]; altura: number }) {
   const f = useFiltroEfetivo();
   const base = useFilhos({ turno: f.turno, cargo: f.cargo, nivel: f.nivel, id: f.id, t: f.t });
-  const sel = candidatos.length ? candidatos : (base.data?.candidatos ?? []).slice(0, 2).map((c) => c.sqcand);
+  const sel = candidatos.length
+    ? candidatos
+    : (base.data?.candidates ?? []).slice(0, 2).map((c) => c.tse_candidate_id);
   const q = useFilhos(
     { turno: f.turno, cargo: f.cargo, nivel: f.nivel, id: f.id, t: f.t, candidatos: sel },
     sel.length > 0,
   );
-  useLive([topico.filhos(f.turno, f.cargo, f.nivel, f.id)]);
+  useLive([topic.children(f.turno, f.cargo, f.nivel, f.id)]);
   const corCand = useCorCandidato();
   const c = useCoresGrafico();
   const dados = q.data;
   const chaveSel = sel.join(",");
   const option = useMemo<EChartsOption | null>(() => {
     if (!dados) return null;
-    const itens = [...dados.itens]
-      .sort((a, b) => b.eleitorado - a.eleitorado)
+    const itens = [...dados.items]
+      .sort((a, b) => b.electorate - a.electorate)
       .slice(0, 14)
       .reverse();
     const cands = chaveSel
       .split(",")
-      .map((s) => dados.candidatos.find((x) => x.sqcand === s))
+      .map((s) => dados.candidates.find((x) => x.tse_candidate_id === s))
       .filter((x): x is NonNullable<typeof x> => !!x);
     return {
       grid: { left: 4, right: 18, top: 28, bottom: 4, containLabel: true },
@@ -319,15 +327,18 @@ function ComparativoCandidatos({ candidatos, altura }: { candidatos: string[]; a
       },
       yAxis: {
         type: "category",
-        data: itens.map((i) => i.nome),
+        data: itens.map((i) => i.name),
         axisLabel: { color: c.texto, fontSize: 11, width: 110, overflow: "truncate" },
       },
       series: cands.map((cd) => ({
         type: "bar",
-        name: cd.nome_urna,
-        itemStyle: { color: corCand(cd.sqcand, cd.cor, cd.numero), borderRadius: [0, 4, 4, 0] },
+        name: cd.ballot_name,
+        itemStyle: {
+          color: corCand(cd.tse_candidate_id, cd.color, cd.ballot_number),
+          borderRadius: [0, 4, 4, 0],
+        },
         barMaxWidth: 12,
-        data: itens.map((i) => i.valores?.[cd.sqcand] ?? 0),
+        data: itens.map((i) => i.values?.[cd.tse_candidate_id] ?? 0),
       })),
     } as EChartsOption;
   }, [dados, chaveSel, corCand, c]);
@@ -348,9 +359,9 @@ export function WComparativo({ cfg, altura }: WidgetProps) {
   const lista = recortes.length
     ? recortes
     : [
-        { nivel: "uf", id: "sp" },
-        { nivel: "uf", id: "mg" },
-        { nivel: "uf", id: "rj" },
+        { nivel: "state", id: "sp" },
+        { nivel: "state", id: "mg" },
+        { nivel: "state", id: "rj" },
       ];
   return (
     <ScrollCorpo altura={altura}>
@@ -366,24 +377,24 @@ export function WComparativo({ cfg, altura }: WidgetProps) {
 // 8 ─ Hemiciclo
 export function WHemiciclo({ altura, selecionar }: WidgetProps) {
   return (
-    <ComResultados onUf={(uf, nome) => selecionar("uf", uf, nome)}>
+    <ComResultados onUf={(uf, nome) => selecionar("state", uf, nome)}>
       {(res) =>
-        res.cargo.sistema !== "proporcional" || !res.agremiacoes.length ? (
+        res.office.voting_system !== "proporcional" || !res.alliances.length ? (
           <SemDados titulo="Hemiciclo indisponível">
             O hemiciclo de vagas é exibido para cargos proporcionais (deputados), depois que o TSE publica a
             distribuição de vagas.
           </SemDados>
         ) : (
           <Stack gap={4}>
-            <Hemiciclo agremiacoes={res.agremiacoes} height={Math.max(160, altura - 50)} />
+            <Hemiciclo agremiacoes={res.alliances} height={Math.max(160, altura - 50)} />
             <Group gap={6} justify="center">
-              {[...res.agremiacoes]
-                .filter((a) => a.vagas > 0)
-                .sort((a, b) => b.vagas - a.vagas)
+              {[...res.alliances]
+                .filter((a) => (a.seats ?? 0) > 0)
+                .sort((a, b) => (b.seats ?? 0) - (a.seats ?? 0))
                 .slice(0, 10)
                 .map((a) => (
-                  <Badge key={a.nome} variant="dot" color={a.cor} size="sm">
-                    {a.nome} {a.vagas}
+                  <Badge key={a.name} variant="dot" color={a.color} size="sm">
+                    {a.name} {a.seats}
                   </Badge>
                 ))}
             </Group>
@@ -397,7 +408,7 @@ export function WHemiciclo({ altura, selecionar }: WidgetProps) {
 // 9 ─ Rosca
 export function WRosca({ cfg, altura, selecionar }: WidgetProps) {
   return (
-    <ComResultados onUf={(uf, nome) => selecionar("uf", uf, nome)}>
+    <ComResultados onUf={(uf, nome) => selecionar("state", uf, nome)}>
       {(res) => (
         <Rosca
           res={res}
@@ -416,7 +427,7 @@ export function WHeatmap({ cfg, altura, selecionar }: WidgetProps) {
     <ScrollCorpo altura={altura}>
       <HeatmapProgresso
         metrica={cfgStr(cfg, "metrica", "pct_secoes") as "pct_secoes" | "pct_comparecimento"}
-        onSelecionarUf={(uf, nome) => selecionar("uf", uf, nome)}
+        onSelecionarUf={(uf, nome) => selecionar("state", uf, nome)}
       />
     </ScrollCorpo>
   );
@@ -451,7 +462,7 @@ export function WCandidato({ cfg, altura }: WidgetProps) {
 // 13 ─ Local de votação
 export function WLocal({ cfg, altura }: WidgetProps) {
   const f = useFiltroEfetivo();
-  const id = cfgStrOuNull(cfg, "localId") ?? (f.nivel === "local" ? f.id : null);
+  const id = cfgStrOuNull(cfg, "localId") ?? (f.nivel === "polling_place" ? f.id : null);
   return (
     <ScrollCorpo altura={altura}>
       <DetalheLocal localId={id} alturaLista={Math.max(160, altura - 120)} />
@@ -462,7 +473,7 @@ export function WLocal({ cfg, altura }: WidgetProps) {
 // 14 ─ Seção
 export function WSecao({ cfg, altura }: WidgetProps) {
   const f = useFiltroEfetivo();
-  const id = cfgStrOuNull(cfg, "secaoId") ?? (f.nivel === "secao" ? f.id : null);
+  const id = cfgStrOuNull(cfg, "secaoId") ?? (f.nivel === "section" ? f.id : null);
   return (
     <ScrollCorpo altura={altura}>
       <DetalheSecao secaoId={id} compacto />

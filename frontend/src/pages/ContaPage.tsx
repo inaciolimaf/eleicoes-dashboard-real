@@ -51,28 +51,28 @@ function CoresCandidatos() {
         <Table verticalSpacing={4}>
           <Table.Tbody>
             {(q.data ?? []).slice(0, 80).map((c) => (
-              <Table.Tr key={c.sqcand}>
+              <Table.Tr key={c.tse_candidate_id}>
                 <Table.Td w={50}>
                   <AvatarCandidato
-                    fotoUrl={c.foto_url}
-                    nome={c.nome_urna}
-                    cor={cores[c.sqcand] ?? c.cor}
+                    fotoUrl={c.photo_url}
+                    nome={c.ballot_name}
+                    cor={cores[c.tse_candidate_id] ?? c.color}
                     size={32}
                   />
                 </Table.Td>
                 <Table.Td>
                   <Text size="sm" fw={600}>
-                    {c.nome_urna} ({c.numero})
+                    {c.ballot_name} ({c.ballot_number})
                   </Text>
                   <Text size="xs" c="dimmed">
-                    {c.partido_sigla}
+                    {c.party_abbreviation}
                   </Text>
                 </Table.Td>
                 <Table.Td w={170}>
                   <ColorInput
                     size="xs"
-                    value={cores[c.sqcand] ?? c.cor}
-                    onChange={(v) => setCor(c.sqcand, v || null)}
+                    value={cores[c.tse_candidate_id] ?? c.color}
+                    onChange={(v) => setCor(c.tse_candidate_id, v || null)}
                     swatches={PALETA}
                     swatchesPerRow={6}
                   />
@@ -88,17 +88,17 @@ function CoresCandidatos() {
 
 export default function ContaPage() {
   const p = usePrefs();
-  const usuario = useAuth((s) => s.usuario);
+  const user = useAuth((s) => s.user);
   const setAuth = useUi((s) => s.setAuthAberto);
   return (
     <Stack gap="md" maw={900} mx="auto">
       <Stack gap={0}>
         <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
-          {usuario ? `${usuario.nome} · ${usuario.email}` : "Sem login (preferências salvas neste navegador)"}
+          {user ? `${user.name} · ${user.email}` : "Sem login (preferências salvas neste navegador)"}
         </Text>
         <Title order={2}>Preferências</Title>
       </Stack>
-      {!usuario && (
+      {!user && (
         <Button w="fit-content" variant="light" onClick={() => setAuth(true)}>
           Entrar para sincronizar preferências
         </Button>

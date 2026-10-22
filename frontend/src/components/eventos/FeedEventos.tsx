@@ -1,3 +1,4 @@
+import type { EventType } from "../../api/models";
 import { ActionIcon, Anchor, Badge, Group, ScrollArea, Stack, Text, ThemeIcon, Tooltip } from "@mantine/core";
 import {
   IconArrowsExchange,
@@ -12,15 +13,15 @@ import {
 } from "@tabler/icons-react";
 import { AnimatePresence, motion } from "motion/react";
 import { Link } from "react-router-dom";
-import type { Evento, Nivel } from "../../api/types";
+import type { EventDto, Level } from "../../api/models";
 import { useEventos } from "../../api/hooks";
 import { useFiltroEfetivo } from "../../lib/filtro-efetivo";
 import { fmtDataCurta, fmtHora } from "../../lib/time";
 import { linkRecorte } from "../../lib/recortes";
 import { NOME_CARGO } from "../../lib/cargos";
-import { COR_EVENTO, ROTULO_EVENTO } from "../../realtime/aplicar";
+import { COR_EVENTO, ROTULO_EVENTO } from "../../lib/eventos";
 import { useLive } from "../../realtime/useLive";
-import { topico } from "../../realtime/topicos";
+import { topic } from "../../realtime/topics";
 import { useTempo } from "../../store/tempo";
 import { usePrefs } from "../../store/prefs";
 import { Carregando, ErroView, SemDados } from "../common/Estados";
@@ -37,9 +38,9 @@ export const ICONE_EVENTO: Record<string, Icon> = {
 
 export const TIPOS_EVENTO = Object.keys(ROTULO_EVENTO).map((k) => ({ value: k, label: ROTULO_EVENTO[k] }));
 
-export function ItemEvento({ e, compacto }: { e: Evento; compacto?: boolean }) {
-  const Icone = ICONE_EVENTO[e.tipo] ?? IconFlag;
-  const cor = COR_EVENTO[e.tipo] ?? "blue";
+export function ItemEvento({ e, compacto }: { e: EventDto; compacto?: boolean }) {
+  const Icone = ICONE_EVENTO[e.type] ?? IconFlag;
+  const cor = COR_EVENTO[e.type] ?? "blue";
   const setT = useTempo((s) => s.setT);
   return (
     <Group gap="sm" wrap="nowrap" align="flex-start" py={6}>
@@ -49,38 +50,38 @@ export function ItemEvento({ e, compacto }: { e: Evento; compacto?: boolean }) {
       <Stack gap={1} style={{ flex: 1, minWidth: 0 }}>
         <Group gap={6} wrap="nowrap" justify="space-between">
           <Text size="sm" fw={700} lineClamp={1}>
-            {e.nivel && e.recorte_id ? (
-              <Anchor component={Link} to={linkRecorte(e.nivel as Nivel, e.recorte_id)} inherit c="inherit">
-                {e.titulo}
+            {e.level && e.geo_area_id ? (
+              <Anchor component={Link} to={linkRecorte(e.level as Level, e.geo_area_id)} inherit c="inherit">
+                {e.title}
               </Anchor>
             ) : (
-              e.titulo
+              e.title
             )}
           </Text>
           <Text size="xs" c="dimmed" className="num" style={{ whiteSpace: "nowrap" }}>
-            {fmtHora(e.ocorrido_em, false)}
+            {fmtHora(e.occurred_at, false)}
           </Text>
         </Group>
-        {e.descricao && (
+        {e.description && (
           <Text size="xs" c="dimmed" lineClamp={compacto ? 1 : 3}>
-            {e.descricao}
+            {e.description}
           </Text>
         )}
         {!compacto && (
           <Group gap={6}>
             <Badge size="xs" variant="light" color={cor}>
-              {ROTULO_EVENTO[e.tipo] ?? e.tipo}
+              {ROTULO_EVENTO[e.type] ?? e.type}
             </Badge>
-            {e.cargo ? (
+            {e.office_code ? (
               <Badge size="xs" variant="outline" color="gray">
-                {NOME_CARGO[Number(e.cargo)] ?? `Cargo ${e.cargo}`}
+                {NOME_CARGO[Number(e.office_code)] ?? `Cargo ${e.office_code}`}
               </Badge>
             ) : null}
-            <Tooltip label={`Ver o painel como estava em ${fmtDataCurta(e.ocorrido_em)}`}>
+            <Tooltip label={`Ver o painel como estava em ${fmtDataCurta(e.occurred_at)}`}>
               <ActionIcon
                 size="xs"
                 variant="subtle"
-                onClick={() => setT(e.ocorrido_em)}
+                onClick={() => setT(e.occurred_at)}
                 aria-label="Ir para este momento"
               >
                 <IconClockPlay size={14} />
@@ -97,7 +98,7 @@ export interface FeedEventosProps {
   tipos?: string[];
   limite?: number;
   cargo?: number | null;
-  nivel?: Nivel | null;
+  nivel?: Level | null;
   id?: string | null;
   compacto?: boolean;
   alturaMax?: number | string;
@@ -108,10 +109,10 @@ export function FeedEventos({ tipos, limite = 50, cargo, nivel, id, compacto, al
   const animacoes = usePrefs((s) => s.animacoes);
   const q = useEventos(
     f.turno,
-    { tipos, limite, cargo: cargo ?? null, nivel: nivel ?? null, id: id ?? null },
+    { tipos: tipos as EventType[], limite, cargo: cargo ?? null, nivel: nivel ?? null, id: id ?? null },
     f.t,
   );
-  useLive([topico.eventos(f.turno)]);
+  useLive([topic.events(f.turno)]);
   if (q.isLoading) return <Carregando linhas={5} />;
   if (q.error) return <ErroView erro={q.error} onRetry={() => q.refetch()} />;
   if (!q.data?.length)

@@ -1,4 +1,4 @@
-import type { Situacao, StatusApuracao } from "../api/types";
+import type { CandidateStatus } from "../api/models";
 
 /** Paleta categórica neutra de 12 cores (sem associação ideológica), boa separação em dark/light. */
 export const PALETA = [
@@ -60,16 +60,16 @@ export const corPorNumero = (n: number) => {
   return COR_PARTIDO[p] ?? corPorIndice(p);
 };
 
-export const COR_STATUS: Record<StatusApuracao, string> = {
-  nao_recebido: "#64748B",
-  parcial: "#F5A524",
-  apurado: "#22C55E",
+export const COR_STATUS: Record<string, string> = {
+  not_received: "#64748B",
+  partial: "#F5A524",
+  tallied: "#22C55E",
 };
 
-export const ROTULO_STATUS: Record<StatusApuracao, string> = {
-  nao_recebido: "Não recebido",
-  parcial: "Parcial",
-  apurado: "100% apurado",
+export const ROTULO_STATUS: Record<string, string> = {
+  not_received: "Não recebido",
+  partial: "Parcial",
+  tallied: "100% apurado",
 };
 
 export interface EstiloSituacao {
@@ -79,38 +79,38 @@ export interface EstiloSituacao {
   descricao: string;
 }
 
-export const SITUACAO: Record<Situacao, EstiloSituacao> = {
-  ELEITO: {
+export const SITUACAO: Record<CandidateStatus, EstiloSituacao> = {
+  ELECTED: {
     rotulo: "Eleito",
     cor: "green",
     variante: "filled",
     descricao: "Situação publicada pelo TSE: eleito.",
   },
-  SEGUNDO_TURNO: {
+  RUNOFF: {
     rotulo: "2º turno",
     cor: "yellow",
     variante: "filled",
     descricao: "Situação publicada pelo TSE: vai ao 2º turno.",
   },
-  MATEMATICAMENTE_ELEITO: {
+  MATHEMATICALLY_ELECTED: {
     rotulo: "Matematicamente eleito",
     cor: "green",
     variante: "outline",
     descricao: "Definição matemática antes de 100% das seções apuradas (indicada pelo TSE).",
   },
-  LIDERANDO: {
+  LEADING: {
     rotulo: "Liderando",
     cor: "blue",
     variante: "filled",
     descricao: "Calculado pelo painel: lidera a apuração em andamento. Não é declaração de eleito.",
   },
-  SUPLENTE: {
+  SUBSTITUTE: {
     rotulo: "Suplente",
     cor: "gray",
     variante: "filled",
     descricao: "Situação publicada pelo TSE: suplente.",
   },
-  NAO_ELEITO: {
+  NOT_ELECTED: {
     rotulo: "Não eleito",
     cor: "gray",
     variante: "light",
@@ -122,7 +122,7 @@ export const SITUACAO: Record<Situacao, EstiloSituacao> = {
     variante: "outline",
     descricao: 'Destinação dos votos diferente de "Válido" (sub judice ou anulado).',
   },
-  EM_APURACAO: {
+  COUNTING: {
     rotulo: "Em apuração",
     cor: "gray",
     variante: "outline",

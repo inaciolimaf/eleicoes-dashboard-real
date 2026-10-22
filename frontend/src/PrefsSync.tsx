@@ -1,8 +1,9 @@
+import type { Densidade, Tema } from "./store/prefs";
 import { useMantineColorScheme } from "@mantine/core";
 import { useEffect, useRef } from "react";
 import { api } from "./api/client";
 import { usePreferenciasApi } from "./api/hooks";
-import type { PreferenciasApi } from "./api/types";
+import type { PreferencesDto } from "./api/models";
 import { useAuth } from "./store/auth";
 import { usePrefs } from "./store/prefs";
 
@@ -32,12 +33,12 @@ export function PrefsSync() {
     if (!remoto.data || carregado.current) return;
     carregado.current = true;
     const r = remoto.data;
-    const n = (r.notificacoes ?? {}) as { toasts?: string[]; push?: boolean };
+    const n = (r.notifications ?? {}) as { toasts?: string[]; push?: boolean };
     usePrefs.getState().carregar({
-      ...(r.tema ? { tema: r.tema } : {}),
-      ...(r.densidade ? { densidade: r.densidade } : {}),
-      ...(typeof r.animacoes === "boolean" ? { animacoes: r.animacoes } : {}),
-      ...(r.cores_candidatos ? { coresCandidatos: r.cores_candidatos } : {}),
+      ...(r.theme ? { tema: r.theme as Tema } : {}),
+      ...(r.density ? { densidade: r.density as Densidade } : {}),
+      ...(typeof r.animations === "boolean" ? { animacoes: r.animations } : {}),
+      ...(r.candidate_colors ? { coresCandidatos: r.candidate_colors } : {}),
       ...(Array.isArray(n.toasts) ? { toasts: n.toasts } : {}),
       ...(typeof n.push === "boolean" ? { push: n.push } : {}),
     });
@@ -51,14 +52,14 @@ export function PrefsSync() {
       if (!carregado.current && remoto.isLoading) return;
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => {
-        const body: PreferenciasApi = {
-          tema: s.tema,
-          densidade: s.densidade,
-          animacoes: s.animacoes,
-          cores_candidatos: s.coresCandidatos,
-          notificacoes: { toasts: s.toasts, push: s.push },
+        const body: PreferencesDto = {
+          theme: s.tema,
+          density: s.densidade,
+          animations: s.animacoes,
+          candidate_colors: s.coresCandidatos,
+          notifications: { toasts: s.toasts, push: s.push },
         };
-        api("/preferencias", { method: "PUT", body }).catch(() => undefined);
+        api("/preferences", { method: "PUT", body }).catch(() => undefined);
       }, 1200);
     });
     return () => {
