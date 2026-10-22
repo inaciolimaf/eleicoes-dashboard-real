@@ -70,7 +70,7 @@ async def test_jws_with_wrong_key_falls_back_to_the_json():
     token = jws.assinar(b'{"v": 1}', Ed25519PrivateKey.generate(), "kid-desconhecido")
     jws_route = respx.get(f"{base}.jws").mock(return_value=httpx.Response(200, content=token.encode()))
     respx.get(f"{base}.json").mock(return_value=httpx.Response(200, content=b'{"v": 2}'))
-    collector = Collector(Settings(tse_verificar_jws=True), None, None, Fetcher(max_rps=1000))  # type: ignore[arg-type]
+    collector = Collector(Settings(tse_verify_jws=True), None, None, Fetcher(max_rps=1000))  # type: ignore[arg-type]
     assert await collector.fetch_file(f"{base}.json", archive=False) == (200, b'{"v": 2}', False)
     assert collector.fetcher.metrics.jws_failures == 1
     # after the failure, the .jws is not even tried again
@@ -113,7 +113,7 @@ async def test_section_retries_the_ballot_report_if_it_failed():
     from app.collector.collector import Collector
     from app.core.config import Settings
 
-    collector = Collector(Settings(tse_verificar_jws=False), None, None, Fetcher(max_rps=1000))  # type: ignore[arg-type]
+    collector = Collector(Settings(tse_verify_jws=False), None, None, Fetcher(max_rps=1000))  # type: ignore[arg-type]
     collector.urls = MagicMock()
     collector.urls.auxiliar_secao.return_value = "http://tse.teste/aux.json"
     collector.urls.arquivo_urna.return_value = "http://tse.teste/h/o.bu"

@@ -1,15 +1,12 @@
 """Geography: states, municipalities, zones, polling places, sections and geo areas."""
 
 from app.modules.geography.deps import GeoAreaDep
-from app.modules.geography.geo_area import (
-    CHILD_LEVEL,
-    GeoArea,
-    GeoAreaInvalid,
-    local_id,
-    municipio_id,
-    parse,
-    secao_id,
-    zona_id,
+from app.modules.geography.geo_area.area import CHILD_LEVEL, GeoArea, GeoAreaInvalid, parse
+from app.modules.geography.geo_area.ids import (
+    municipality_id_of,
+    polling_place_id_of,
+    section_id_of,
+    zone_id_of,
 )
 from app.modules.geography.models import ElectoralZone, Municipality, PollingPlace, PollingSection, State
 
@@ -23,9 +20,13 @@ __all__ = [
     "PollingPlace",
     "PollingSection",
     "State",
-    "local_id",
-    "municipio_id",
+    "municipality_id_of",
     "parse",
-    "secao_id",
-    "zona_id",
+    "polling_place_id_of",
+    "section_id_of",
+    "zone_id_of",
 ]
+
+# TEMPORARY: removed by the main agent after integration. The results and collector slices still
+# import these Portuguese names.
+from app.modules.geography.geo_area.ids import local_id, municipio_id, secao_id, zona_id  # noqa: F401

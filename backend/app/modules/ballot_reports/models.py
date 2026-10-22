@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import (
     BigInteger,
@@ -18,7 +19,7 @@ from app.core.db import Base
 
 
 class BallotBoxReport(Base):
-    """Boletim de urna (uma seção totalizada), decodificado do arquivo .bu publicado pelo TSE."""
+    """Ballot box report (BU): one tallied section, decoded from the .bu file the TSE publishes."""
 
     __tablename__ = "ballot_box_reports"
     __table_args__ = (
@@ -43,12 +44,13 @@ class BallotBoxReport(Base):
     turnout: Mapped[int] = mapped_column(Integer, default=0)
     signature_valid: Mapped[bool | None] = mapped_column(Boolean)
     url: Mapped[str | None] = mapped_column(String(400))
-    # {"1": {"comp": 250, "b": 5, "n": 10, "nom": {"13": 130}, "leg": {"13": 4}}}
-    votes: Mapped[dict] = mapped_column(JSONB, default=dict)
+    #: Per office (key "1" is the President): turnout "comp", blank "b", null "n", nominal votes "nom" and
+    #: party votes "leg", keyed by ballot number. The keys are the stored format; they are read as they are.
+    votes: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
 
 
 class PollingPlaceResult(Base):
-    """Agregado ao vivo de um local de votação ("colégio"), soma das seções com BU coletado."""
+    """Live aggregate of a polling place: the sum of the sections whose BU was collected."""
 
     __tablename__ = "polling_place_results"
     __table_args__ = (
@@ -70,5 +72,6 @@ class PollingPlaceResult(Base):
     leader_candidate_id: Mapped[str | None] = mapped_column(String(20))
     leader_pct: Mapped[float] = mapped_column(Float, default=0)
     margin_pp: Mapped[float] = mapped_column(Float, default=0)
-    votes: Mapped[dict] = mapped_column(JSONB, default=dict)  # {"nom": {"13": 130}, "leg": {...}}
+    #: Nominal ("nom") and party ("leg") votes by ballot number, same format as `BallotBoxReport.votes`.
+    votes: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
     updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

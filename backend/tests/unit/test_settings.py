@@ -1,0 +1,47 @@
+"""Settings: each field reads the server's variable, and production refuses a bad JWT secret."""
+
+import pytest
+from pydantic import ValidationError
+
+from app.core.config import EXAMPLE_SECRETS, Settings, SettingsError
+
+
+def test_fields_read_the_server_variables(monkeypatch):
+    monkeypatch.setenv("TSE_AMBIENTE", "simulado")
+    monkeypatch.setenv("FILA_MAX", "7")
+    monkeypatch.setenv("MODO_SECOES", "todas")
+    monkeypatch.setenv("JWT_SECRET", "x" * 32)
+    s = Settings(_env_file=None)
+    assert s.tse_environment == "simulado"
+    assert s.queue_max == 7
+    assert s.section_mode == "todas"
+
+
+def test_old_attribute_names_still_read_the_new_fields(monkeypatch):
+    monkeypatch.setenv("JWT_SECRET", "x" * 32)
+    s = Settings(_env_file=None)
+    assert s.fila_max == s.queue_max
+    assert s.tse_ambiente == s.tse_environment
+
+
+@pytest.mark.parametrize(
+    "secret",
+    [None, "x" * 31, next(iter(EXAMPLE_SECRETS))],
+    ids=["missing", "short", "example"],
+)
+def test_production_refuses_missing_short_or_example_secret(monkeypatch, secret):
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    if secret is None:
+        monkeypatch.delenv("JWT_SECRET", raising=False)
+        with pytest.raises(ValidationError):
+            Settings(_env_file=None)
+        return
+    monkeypatch.setenv("JWT_SECRET", secret)
+    with pytest.raises(SettingsError):
+        Settings(_env_file=None)
+
+
+def test_production_accepts_a_long_secret(monkeypatch):
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    monkeypatch.setenv("JWT_SECRET", "y" * 40)
+    assert Settings(_env_file=None).environment == "production"

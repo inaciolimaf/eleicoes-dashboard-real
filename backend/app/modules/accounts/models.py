@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Uuid
 from sqlalchemy.dialects.postgresql import JSONB
@@ -22,7 +23,7 @@ class Preference(Base):
     __tablename__ = "preferences"
 
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
-    data: Mapped[dict] = mapped_column(JSONB, default=dict)
+    data: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
 
 
 class Dashboard(Timestamps, Base):
@@ -34,7 +35,7 @@ class Dashboard(Timestamps, Base):
     position: Mapped[int] = mapped_column(Integer, default=0)
     is_default: Mapped[bool] = mapped_column(Boolean, default=False)
     schema_version: Mapped[int] = mapped_column(Integer, default=1)
-    config: Mapped[dict] = mapped_column(JSONB, default=dict)
+    config: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
 
 
 class Share(Base):

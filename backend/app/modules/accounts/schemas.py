@@ -1,4 +1,4 @@
-"""DTOs da API de contas: entradas (XCreate, XUpdate) e respostas (XDto)."""
+"""Account API DTOs: inputs (XCreate, XUpdate) and responses (XDto). Field names are the wire contract."""
 
 from typing import Any, Literal
 
@@ -38,7 +38,7 @@ class DashboardCreate(BaseModel):
 
     @field_validator("config")
     @classmethod
-    def validar_config(cls, v: dict[str, Any]) -> dict[str, Any]:
+    def validate_config(cls, v: dict[str, Any]) -> dict[str, Any]:
         if not isinstance(v.get("widgets"), list) or not isinstance(v.get("filtroGlobal"), dict):
             raise ValueError("config deve ter 'widgets' (lista) e 'filtroGlobal' (objeto)")
         return v
