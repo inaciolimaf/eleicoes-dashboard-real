@@ -16,7 +16,7 @@ import {
   results,
   series,
 } from "./helpers/data-results";
-import type { StatusDto, TimelineDto, UserDto } from "../src/api/models";
+import type { StatusDto, UserDto } from "../src/api/models";
 
 // the charts draw into a canvas, which jsdom does not have: the option they build is what the tests check
 vi.mock("echarts-for-react/lib/core", async () => {
@@ -30,7 +30,7 @@ vi.mock("echarts-for-react/lib/core", async () => {
   };
 });
 
-/** Answers the shell asks for on every screen: the status, the elections, the timeline, the user and favorites. */
+/** Status, offices and user of this file's screens; the other shell answers come from `SHELL_ANSWERS`. */
 function shellAnswers(offices = elections()[0].offices) {
   return {
     "GET /status": dto<StatusDto>({
@@ -44,15 +44,12 @@ function shellAnswers(offices = elections()[0].offices) {
       collector: dto<StatusDto["collector"]>({ paused: false }),
     }),
     "GET /elections": elections(offices),
-    "GET /timeline": dto<TimelineDto>({ start: null, end: null, now: null, events: [] }),
     "GET /auth/me": dto<UserDto>({
       id: "u1",
       email: "eleitor@example.com",
       name: "Eleitor",
       is_admin: false,
     }),
-    "GET /favorites": [],
-    "GET /events": [],
   };
 }
 

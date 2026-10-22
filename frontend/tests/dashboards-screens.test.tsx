@@ -36,23 +36,11 @@ function logIn() {
   });
 }
 
-const NativeRequest = globalThis.Request;
-
 beforeEach(() => {
   localStorage.clear();
   useLocalDashboards.setState({ dashboards: [] });
   useAuth.setState({ token: null, user: null });
   vi.mocked(downloadJson).mockClear();
-  // jsdom's AbortSignal is not the one undici checks: router navigations would throw while building
-  // their Request. Navigation is not aborted in these tests, so the signal is dropped.
-  vi.stubGlobal(
-    "Request",
-    class extends NativeRequest {
-      constructor(input: RequestInfo | URL, init?: RequestInit) {
-        super(input, init?.signal ? { ...init, signal: undefined } : init);
-      }
-    },
-  );
 });
 
 describe("home screen", () => {

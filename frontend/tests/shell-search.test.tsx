@@ -2,7 +2,7 @@ import { act, fireEvent, screen } from "@testing-library/react";
 import { spotlight } from "@mantine/spotlight";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeApi, renderScreen } from "./helpers/screen";
-import { resetStores, shellAnswers } from "./helpers/data-shell";
+import { resetStores } from "./helpers/data-shell";
 
 const PLACEHOLDER = "Buscar município, escola, candidato…";
 
@@ -19,7 +19,7 @@ async function openSpotlight() {
 
 describe("shell search", () => {
   it("waits 220 ms after the last keystroke before asking the API", async () => {
-    const api = fakeApi(shellAnswers({ "GET /search": { items: [] } }));
+    const api = fakeApi({ "GET /search": { items: [] } });
     await renderScreen("/conta");
     const input = await openSpotlight();
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval"] });
@@ -33,7 +33,7 @@ describe("shell search", () => {
   });
 
   it("does not search for a single letter", async () => {
-    const api = fakeApi(shellAnswers({ "GET /search": { items: [] } }));
+    const api = fakeApi({ "GET /search": { items: [] } });
     await renderScreen("/conta");
     const input = await openSpotlight();
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval"] });
@@ -44,7 +44,7 @@ describe("shell search", () => {
   });
 
   it("says nothing was found when the API returns no hit", async () => {
-    fakeApi(shellAnswers({ "GET /search": { items: [] } }));
+    fakeApi({ "GET /search": { items: [] } });
     await renderScreen("/conta");
     const input = await openSpotlight();
     fireEvent.change(input, { target: { value: "zzz" } });
@@ -53,7 +53,7 @@ describe("shell search", () => {
 
   it("lists the hits the API found", async () => {
     fakeApi(
-      shellAnswers({
+      {
         "GET /search": {
           items: [
             {
@@ -66,7 +66,7 @@ describe("shell search", () => {
             { type: "state", id: "sp", title: "São Paulo (estado)", subtitle: null, level: "state" },
           ],
         },
-      }),
+      },
     );
     await renderScreen("/conta");
     const input = await openSpotlight();
@@ -85,7 +85,7 @@ describe("shell search hits", () => {
       office_code: 1,
       state_code: null,
     };
-    const api = fakeApi(shellAnswers({ "GET /search": { items: [hit] } }));
+    const api = fakeApi({ "GET /search": { items: [hit] } });
     const { user } = await renderScreen("/conta");
     const input = await openSpotlight();
     await user.type(input, "fulano");

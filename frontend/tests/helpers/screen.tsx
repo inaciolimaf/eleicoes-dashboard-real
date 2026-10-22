@@ -6,6 +6,7 @@ import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { vi } from "vitest";
 import { routes, routerFuture } from "../../src/App";
 import { AppProviders } from "../../src/AppProviders";
+import { CANDIDATES, EMPTY_TIMELINE, ELECTIONS, liveStatus } from "./data-shell";
 
 export interface ApiCall {
   method: string;
@@ -14,10 +15,42 @@ export interface ApiCall {
   body: unknown;
 }
 
-type Answer = unknown | ((call: ApiCall) => unknown);
+/** An answer that fails: `fakeApi` replies with this status and `body` (see `problem`). */
+export interface FailedAnswer {
+  status: number;
+  body: unknown;
+}
+
+type Answer = unknown | ((call: ApiCall) => unknown) | FailedAnswer;
+
+/** A problem body (RFC 7807) for a failed answer. */
+export function problem(status: number, detail: string) {
+  return { type: "test/failure", title: "Erro", status, detail };
+}
+
+function isFailedAnswer(answer: unknown): answer is FailedAnswer {
+  return (
+    typeof answer === "object" &&
+    answer !== null &&
+    Object.keys(answer).length === 2 &&
+    "status" in answer &&
+    "body" in answer &&
+    typeof answer.status === "number"
+  );
+}
 
 /** Answers that every screen gets unless the test overrides them (the shell asks for these). */
-const SHELL_ANSWERS: Record<string, Answer> = {};
+const SHELL_ANSWERS: Record<string, Answer> = {
+  "GET /status": liveStatus(),
+  "GET /elections": ELECTIONS,
+  "GET /timeline": EMPTY_TIMELINE,
+  "GET /dashboards": [],
+  "GET /candidates": CANDIDATES,
+  "GET /favorites": [],
+  "GET /preferences": {},
+  "GET /alerts": [],
+  "GET /events": [],
+};
 
 /**
  * Swaps `fetch` for a fake API: keys are `"METHOD /path"` without `/api/v1`
@@ -38,13 +71,19 @@ export function fakeApi(answers: Record<string, Answer>) {
       calls.push(call);
       const key = `${method} ${path}`;
       if (!(key in all)) {
-        const problem = { type: "test/undeclared", title: "Rota não declarada", status: 404, detail: key };
-        return new Response(JSON.stringify(problem), {
+        const missing = { type: "test/undeclared", title: "Rota não declarada", status: 404, detail: key };
+        return new Response(JSON.stringify(missing), {
           status: 404,
           headers: { "content-type": "application/problem+json" },
         });
       }
       const answer = all[key];
+      if (isFailedAnswer(answer)) {
+        return new Response(JSON.stringify(answer.body), {
+          status: answer.status,
+          headers: { "content-type": "application/problem+json" },
+        });
+      }
       const data = typeof answer === "function" ? (answer as (c: ApiCall) => unknown)(call) : answer;
       return new Response(JSON.stringify(data), {
         status: 200,

@@ -1,7 +1,7 @@
 import { screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 import { fakeApi, renderScreen } from "./helpers/screen";
-import { minutesAgo, resetStores, shellAnswers } from "./helpers/data-shell";
+import { minutesAgo, resetStores } from "./helpers/data-shell";
 import { useTime } from "../src/lib/time-store";
 import { useLocalFavorites } from "../src/modules/accounts/store";
 
@@ -20,7 +20,7 @@ function saveLegacyFavorites(): void {
 
 describe("shell filter bar", () => {
   it("shows the national scope and the office of the filter", async () => {
-    fakeApi(shellAnswers());
+    fakeApi({});
     await renderScreen("/conta");
     expect(await screen.findByRole("button", { name: "Brasil" })).toBeInTheDocument();
     expect(screen.getByText(/Presidente · 1º turno/)).toBeInTheDocument();
@@ -29,14 +29,14 @@ describe("shell filter bar", () => {
   it("lists the favorites saved by an older browser, linking to the candidate", async () => {
     saveLegacyFavorites();
     await useLocalFavorites.persist.rehydrate();
-    fakeApi(shellAnswers());
+    fakeApi({});
     await renderScreen("/conta");
     const chip = await screen.findByRole("link", { name: /Ana Lima/ });
     expect(chip).toHaveAttribute("href", "/candidatos/280001");
   });
 
   it("stars the current scope and saves the favorite in the browser", async () => {
-    fakeApi(shellAnswers());
+    fakeApi({});
     const { user } = await renderScreen("/conta");
     await user.click(await screen.findByRole("button", { name: "Favoritar recorte" }));
     const saved = JSON.parse(localStorage.getItem("eleicoes.favoritos") ?? "{}") as {
@@ -54,7 +54,7 @@ describe("shell filter bar", () => {
       }),
     );
     await useLocalFavorites.persist.rehydrate();
-    fakeApi(shellAnswers());
+    fakeApi({});
     const { user } = await renderScreen("/conta");
     await user.click(await screen.findByRole("button", { name: "Favoritar recorte" }));
     const saved = JSON.parse(localStorage.getItem("eleicoes.favoritos") ?? "{}") as {
@@ -64,7 +64,7 @@ describe("shell filter bar", () => {
   });
 
   it("shows the replay time and returns to live from its chip", async () => {
-    fakeApi(shellAnswers());
+    fakeApi({});
     const { user } = await renderScreen("/conta");
     useTime.setState({ t: minutesAgo(10) });
     await user.click(await screen.findByRole("button", { name: "Voltar ao vivo" }));

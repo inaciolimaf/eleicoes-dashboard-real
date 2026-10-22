@@ -1,7 +1,7 @@
 import { screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 import { fakeApi, renderScreen } from "./helpers/screen";
-import { ADMIN_USER, DASHBOARDS, VOTER_USER, resetStores, shellAnswers } from "./helpers/data-shell";
+import { ADMIN_USER, DASHBOARDS, VOTER_USER, resetStores } from "./helpers/data-shell";
 import { useAuth } from "../src/lib/auth-store";
 
 beforeEach(resetStores);
@@ -9,7 +9,7 @@ beforeEach(resetStores);
 describe("shell navbar", () => {
   it("lists the dashboards and points the default one at the home screen", async () => {
     useAuth.setState({ token: "token", user: VOTER_USER });
-    fakeApi(shellAnswers({ "GET /dashboards": DASHBOARDS }));
+    fakeApi({ "GET /dashboards": DASHBOARDS });
     await renderScreen("/conta");
     const main = await screen.findByRole("link", { name: "Painel Principal" });
     expect(main).toHaveAttribute("href", "/paineis/dash-main");
@@ -20,13 +20,13 @@ describe("shell navbar", () => {
   });
 
   it("offers the election night template when the user has no dashboard", async () => {
-    fakeApi(shellAnswers());
+    fakeApi({});
     await renderScreen("/conta");
     expect(await screen.findByRole("link", { name: /Noite da eleição/ })).toHaveAttribute("href", "/");
   });
 
   it("shows the admin entry only to administrators", async () => {
-    fakeApi(shellAnswers());
+    fakeApi({});
     await renderScreen("/conta");
     expect(await screen.findByRole("link", { name: "Preferências" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Admin" })).not.toBeInTheDocument();
@@ -34,20 +34,20 @@ describe("shell navbar", () => {
 
   it("shows the admin entry to an administrator", async () => {
     useAuth.setState({ token: "token", user: ADMIN_USER });
-    fakeApi(shellAnswers());
+    fakeApi({});
     await renderScreen("/conta");
     expect(await screen.findByRole("link", { name: "Admin" })).toHaveAttribute("href", "/admin");
   });
 
   it("opens the new dashboard modal from the Criar button", async () => {
-    fakeApi(shellAnswers());
+    fakeApi({});
     const { user } = await renderScreen("/conta");
     await user.click(await screen.findByRole("button", { name: "Criar" }));
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
   });
 
   it("marks the current screen as active", async () => {
-    fakeApi(shellAnswers());
+    fakeApi({});
     await renderScreen("/conta");
     expect(await screen.findByRole("link", { name: "Preferências" })).toHaveAttribute("data-active");
     expect(screen.getByRole("link", { name: "Mapas" })).not.toHaveAttribute("data-active");

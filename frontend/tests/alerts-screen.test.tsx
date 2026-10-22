@@ -1,14 +1,12 @@
 import { screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fakeApi, renderScreen } from "./helpers/screen";
+import { fakeApi, problem, renderScreen } from "./helpers/screen";
 import {
   ALERT_RULE,
   CANDIDATES,
   VOTER_USER,
-  failWith,
   resetStores,
-  shellAnswers,
-} from "./helpers/data-shell";
+  } from "./helpers/data-shell";
 import { useAuth } from "../src/lib/auth-store";
 import { usePrefs } from "../src/lib/prefs-store";
 
@@ -33,14 +31,14 @@ function stubNotification(permission: NotificationPermission, answer: Notificati
 
 describe("alerts screen, visitor", () => {
   it("asks the visitor to sign in before creating a rule", async () => {
-    fakeApi(shellAnswers());
+    fakeApi({});
     await renderScreen("/alertas");
     expect(await screen.findByText("Entre para criar alertas")).toBeInTheDocument();
     expect(screen.queryByText("Novo alerta")).not.toBeInTheDocument();
   });
 
   it("opens the sign-in modal from the prompt", async () => {
-    fakeApi(shellAnswers());
+    fakeApi({});
     const { user } = await renderScreen("/alertas");
     await user.click((await screen.findAllByRole("button", { name: "Entrar" }))[0] as HTMLElement);
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
@@ -53,20 +51,20 @@ describe("alerts screen, account", () => {
   });
 
   it("lists the account's rules in words", async () => {
-    fakeApi(shellAnswers({ "GET /alerts": [ALERT_RULE] }));
+    fakeApi({ "GET /alerts": [ALERT_RULE] });
     await renderScreen("/alertas");
     expect(await screen.findByText(/Candidato 280001 passar de 50%/)).toBeInTheDocument();
     expect(screen.getAllByText("Quando um candidato passar de X%").length).toBeGreaterThan(0);
   });
 
   it("explains when there are no rules yet", async () => {
-    fakeApi(shellAnswers());
+    fakeApi({});
     await renderScreen("/alertas");
     expect(await screen.findByText("Nenhum alerta")).toBeInTheDocument();
   });
 
   it("switches a rule off and saves it", async () => {
-    const api = fakeApi(shellAnswers({ "GET /alerts": [ALERT_RULE], "PUT /alerts/alert-1": ALERT_RULE }));
+    const api = fakeApi({ "GET /alerts": [ALERT_RULE], "PUT /alerts/alert-1": ALERT_RULE });
     const { user } = await renderScreen("/alertas");
     await user.click(await screen.findByRole("switch", { name: "Ativo" }));
     await waitFor(() => expect(api.calls("PUT /alerts/alert-1")).toHaveLength(1));
@@ -78,14 +76,14 @@ describe("alerts screen, account", () => {
   });
 
   it("deletes a rule", async () => {
-    const api = fakeApi(shellAnswers({ "GET /alerts": [ALERT_RULE], "DELETE /alerts/alert-1": null }));
+    const api = fakeApi({ "GET /alerts": [ALERT_RULE], "DELETE /alerts/alert-1": null });
     const { user } = await renderScreen("/alertas");
     await user.click(await screen.findByRole("button", { name: "Apagar alerta" }));
     await waitFor(() => expect(api.calls("DELETE /alerts/alert-1")).toHaveLength(1));
   });
 
   it("creates a candidate rule from the filled form", async () => {
-    const api = fakeApi(shellAnswers({ "GET /candidates": CANDIDATES, "POST /alerts": ALERT_RULE }));
+    const api = fakeApi({ "GET /candidates": CANDIDATES, "POST /alerts": ALERT_RULE });
     const { user } = await renderScreen("/alertas");
     await user.click(await screen.findByRole("textbox", { name: "Candidato" }));
     await user.click(await screen.findByRole("option", { name: /Ana Lima/ }));
@@ -108,7 +106,7 @@ describe("alerts screen, account", () => {
   });
 
   it("does not send a rule with an empty field", async () => {
-    const api = fakeApi(shellAnswers({ "POST /alerts": ALERT_RULE }));
+    const api = fakeApi({ "POST /alerts": ALERT_RULE });
     const { user } = await renderScreen("/alertas");
     await user.click(await screen.findByRole("textbox", { name: "Regra" }));
     await user.click(await screen.findByRole("option", { name: "Quando um local de votação for apurado" }));
@@ -118,8 +116,9 @@ describe("alerts screen, account", () => {
   });
 
   it("shows the API's reason when the rule cannot be saved", async () => {
-    fakeApi(shellAnswers({ "GET /candidates": CANDIDATES }));
-    failWith("POST /alerts", 422, "limite fora da faixa");
+    fakeApi({ "GET /candidates": CANDIDATES,
+      ["POST /alerts"]: { status: 422, body: problem(422, "limite fora da faixa") },
+    });
     const { user } = await renderScreen("/alertas");
     await user.click(await screen.findByRole("textbox", { name: "Candidato" }));
     await user.click(await screen.findByRole("option", { name: /Ana Lima/ }));
@@ -131,7 +130,7 @@ describe("alerts screen, account", () => {
 describe("push notifications card", () => {
   it("asks the browser for permission and turns push on when granted", async () => {
     const request = stubNotification("default", "granted");
-    fakeApi(shellAnswers());
+    fakeApi({});
     const { user } = await renderScreen("/alertas");
     await user.click(await screen.findByRole("button", { name: "Permitir notificações" }));
     await waitFor(() => expect(request).toHaveBeenCalled());
@@ -140,14 +139,14 @@ describe("push notifications card", () => {
 
   it("says push is blocked when the browser refused it", async () => {
     stubNotification("denied");
-    fakeApi(shellAnswers());
+    fakeApi({});
     await renderScreen("/alertas");
     expect(await screen.findByRole("button", { name: "Bloqueado no navegador" })).toBeDisabled();
   });
 
   it("offers a switch once permission is granted", async () => {
     stubNotification("granted");
-    fakeApi(shellAnswers());
+    fakeApi({});
     const { user } = await renderScreen("/alertas");
     await user.click(await screen.findByRole("switch", { name: "Ativo" }));
     expect(usePrefs.getState().push).toBe(true);

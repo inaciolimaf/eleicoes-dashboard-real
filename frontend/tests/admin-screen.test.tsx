@@ -1,16 +1,14 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
-import { fakeApi, renderScreen } from "./helpers/screen";
+import { fakeApi, problem, renderScreen } from "./helpers/screen";
 import {
   ADMIN_HEALTH,
   ADMIN_USER,
   FAKE_TSE_STATE,
   VOTER_USER,
-  failWith,
   liveStatus,
   resetStores,
-  shellAnswers,
-} from "./helpers/data-shell";
+  } from "./helpers/data-shell";
 import type { StatusDto } from "../src/api/models";
 import { useAuth } from "../src/lib/auth-store";
 
@@ -30,13 +28,13 @@ beforeEach(() => {
 describe("admin screen", () => {
   it("refuses the page to a voter", async () => {
     useAuth.setState({ token: "token-abc", user: VOTER_USER });
-    fakeApi(shellAnswers());
+    fakeApi({});
     await renderScreen("/admin");
     expect(await screen.findByText("Acesso restrito")).toBeInTheDocument();
   });
 
   it("shows the collector and the health metrics to an administrator", async () => {
-    fakeApi(shellAnswers({ ...ADMIN_ANSWERS }));
+    fakeApi({ ...ADMIN_ANSWERS });
     await renderScreen("/admin");
     expect(await screen.findByText("Coletor do TSE")).toBeInTheDocument();
     expect(await screen.findByText("Queue size")).toBeInTheDocument();
@@ -45,7 +43,7 @@ describe("admin screen", () => {
   });
 
   it("pauses the collector and confirms it", async () => {
-    const api = fakeApi(shellAnswers({ ...ADMIN_ANSWERS }));
+    const api = fakeApi({ ...ADMIN_ANSWERS });
     const { user } = await renderScreen("/admin");
     await user.click(await screen.findByRole("button", { name: "Pausar" }));
     expect(await screen.findByText("Coletor pausado")).toBeInTheDocument();
@@ -54,12 +52,12 @@ describe("admin screen", () => {
 
   it("resumes a paused collector", async () => {
     const api = fakeApi(
-      shellAnswers({
+      {
         ...ADMIN_ANSWERS,
         "GET /status": liveStatus({
           collector: { paused: true, requests_per_second: 0 } as StatusDto["collector"],
         }),
-      }),
+      },
     );
     const { user } = await renderScreen("/admin");
     await user.click(await screen.findByRole("button", { name: "Retomar" }));
@@ -67,15 +65,16 @@ describe("admin screen", () => {
   });
 
   it("shows the API's reason when a command fails", async () => {
-    fakeApi(shellAnswers({ ...ADMIN_ANSWERS }));
-    failWith("POST /admin/collector/pause", 409, "o coletor já está pausado");
+    fakeApi({ ...ADMIN_ANSWERS,
+      ["POST /admin/collector/pause"]: { status: 409, body: problem(409, "o coletor já está pausado") },
+    });
     const { user } = await renderScreen("/admin");
     await user.click(await screen.findByRole("button", { name: "Pausar" }));
     expect(await screen.findByText("o coletor já está pausado")).toBeInTheDocument();
   });
 
   it("applies a speed to the fake clock", async () => {
-    const api = fakeApi(shellAnswers({ ...ADMIN_ANSWERS }));
+    const api = fakeApi({ ...ADMIN_ANSWERS });
     const { user } = await renderScreen("/admin");
     await user.click(await screen.findByRole("button", { name: "Aplicar velocidade" }));
     await waitFor(() => expect(api.calls("POST /admin/fake-tse")).toHaveLength(1));
@@ -83,7 +82,7 @@ describe("admin screen", () => {
   });
 
   it("pauses the fake clock", async () => {
-    const api = fakeApi(shellAnswers({ ...ADMIN_ANSWERS }));
+    const api = fakeApi({ ...ADMIN_ANSWERS });
     const { user } = await renderScreen("/admin");
     await user.click(await screen.findByRole("button", { name: "Pausar relógio" }));
     await waitFor(() => expect(api.calls("POST /admin/fake-tse")).toHaveLength(1));
@@ -91,7 +90,7 @@ describe("admin screen", () => {
   });
 
   it("restarts the simulation only after confirmation", async () => {
-    const api = fakeApi(shellAnswers({ ...ADMIN_ANSWERS }));
+    const api = fakeApi({ ...ADMIN_ANSWERS });
     const { user } = await renderScreen("/admin");
     await user.click(await screen.findByRole("button", { name: "Reiniciar" }));
     const dialog = await screen.findByRole("dialog");
@@ -102,14 +101,14 @@ describe("admin screen", () => {
   });
 
   it("toggles the raw JSON of the health payload", async () => {
-    fakeApi(shellAnswers({ ...ADMIN_ANSWERS }));
+    fakeApi({ ...ADMIN_ANSWERS });
     const { user } = await renderScreen("/admin");
     await user.click(await screen.findByRole("button", { name: "Ver JSON bruto" }));
     expect(screen.getByRole("button", { name: "Ocultar JSON" })).toBeInTheDocument();
   });
 
   it("says the fake clock is unavailable outside the fake environment", async () => {
-    fakeApi(shellAnswers({ "GET /admin/health": ADMIN_HEALTH }));
+    fakeApi({ "GET /admin/health": ADMIN_HEALTH });
     await renderScreen("/admin");
     expect(await screen.findByText(/Indisponível/)).toBeInTheDocument();
   });

@@ -1,8 +1,8 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import type { UserEvent } from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
-import { fakeApi, renderScreen } from "./helpers/screen";
-import { ADMIN_USER, VOTER_USER, failWith, resetStores, shellAnswers } from "./helpers/data-shell";
+import { fakeApi, problem, renderScreen } from "./helpers/screen";
+import { ADMIN_USER, VOTER_USER, resetStores } from "./helpers/data-shell";
 import { useAuth } from "../src/lib/auth-store";
 
 const LOGIN_PATH = "POST /auth/login";
@@ -24,8 +24,9 @@ async function fillLogin(dialog: HTMLElement, user: UserEvent, email: string, pa
 
 describe("sign-in modal", () => {
   it("shows the API's message when the password is wrong", async () => {
-    fakeApi(shellAnswers({ [LOGIN_PATH]: SESSION }));
-    failWith(LOGIN_PATH, 401, "e-mail ou senha inválidos");
+    fakeApi({
+      [LOGIN_PATH]: { status: 401, body: problem(401, "e-mail ou senha inválidos") },
+    });
     const { user } = await renderScreen("/conta");
     const dialog = await openAuthDialog(user);
     await fillLogin(dialog, user, "eleitor@example.com", "senha-errada");
@@ -34,8 +35,9 @@ describe("sign-in modal", () => {
   });
 
   it("asks the user to wait when the API answers 429", async () => {
-    fakeApi(shellAnswers({ [LOGIN_PATH]: SESSION }));
-    failWith(LOGIN_PATH, 429, "Muitas tentativas de login. Tente de novo em um minuto.");
+    fakeApi({
+      [LOGIN_PATH]: { status: 429, body: problem(429, "Muitas tentativas de login. Tente de novo em um minuto.") },
+    });
     const { user } = await renderScreen("/conta");
     const dialog = await openAuthDialog(user);
     await fillLogin(dialog, user, "eleitor@example.com", "senha-certa");
@@ -45,7 +47,7 @@ describe("sign-in modal", () => {
   });
 
   it("checks the e-mail before sending anything", async () => {
-    const api = fakeApi(shellAnswers({ [LOGIN_PATH]: SESSION }));
+    const api = fakeApi({ [LOGIN_PATH]: SESSION });
     const { user } = await renderScreen("/conta");
     const dialog = await openAuthDialog(user);
     // the browser's own e-mail check accepts "ana@dominio", the screen's rule needs a dot after the @
@@ -55,7 +57,7 @@ describe("sign-in modal", () => {
   });
 
   it("keeps the session and closes when the login succeeds", async () => {
-    const api = fakeApi(shellAnswers({ [LOGIN_PATH]: SESSION }));
+    const api = fakeApi({ [LOGIN_PATH]: SESSION });
     const { user } = await renderScreen("/conta");
     const dialog = await openAuthDialog(user);
     await fillLogin(dialog, user, "eleitor@example.com", "senha-certa");
@@ -65,7 +67,7 @@ describe("sign-in modal", () => {
   });
 
   it("creates an account from the second tab", async () => {
-    const api = fakeApi(shellAnswers({ "POST /auth/register": SESSION }));
+    const api = fakeApi({ "POST /auth/register": SESSION });
     const { user } = await renderScreen("/conta");
     const dialog = await openAuthDialog(user);
     await user.click(within(dialog).getByRole("tab", { name: "Criar conta" }));
@@ -82,7 +84,7 @@ describe("sign-in modal", () => {
   });
 
   it("asks for the name when creating an account", async () => {
-    fakeApi(shellAnswers({ "POST /auth/register": SESSION }));
+    fakeApi({ "POST /auth/register": SESSION });
     const { user } = await renderScreen("/conta");
     const dialog = await openAuthDialog(user);
     await user.click(within(dialog).getByRole("tab", { name: "Criar conta" }));
@@ -93,7 +95,7 @@ describe("sign-in modal", () => {
   });
 
   it("opens from the header's Entrar button", async () => {
-    fakeApi(shellAnswers());
+    fakeApi({});
     const { user } = await renderScreen("/conta");
     await user.click((await screen.findAllByRole("button", { name: "Entrar" }))[0]);
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
@@ -103,7 +105,7 @@ describe("sign-in modal", () => {
 describe("user menu", () => {
   it("lists the account and the admin entry for an administrator", async () => {
     useAuth.setState({ token: "token-abc", user: ADMIN_USER });
-    fakeApi(shellAnswers());
+    fakeApi({});
     const { user } = await renderScreen("/conta");
     await user.click(await screen.findByRole("button", { name: "Menu do usuário" }));
     expect(await screen.findByText("Conta e preferências")).toBeInTheDocument();
@@ -114,7 +116,7 @@ describe("user menu", () => {
 
   it("does not offer the admin entry to a voter", async () => {
     useAuth.setState({ token: "token-abc", user: VOTER_USER });
-    fakeApi(shellAnswers());
+    fakeApi({});
     const { user } = await renderScreen("/conta");
     await user.click(await screen.findByRole("button", { name: "Menu do usuário" }));
     expect(await screen.findByText("Sair")).toBeInTheDocument();

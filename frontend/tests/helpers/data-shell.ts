@@ -1,4 +1,3 @@
-import { vi } from "vitest";
 import type {
   AdminHealthDto,
   AlertDto,
@@ -127,45 +126,6 @@ export const FAKE_TSE_STATE = {
   speed: 60,
   simulated_now: minutesAgo(30),
 } as unknown as FakeTseStateDto;
-
-/**
- * The answers every screen under the shell gets: the status, the elections, the timeline and the
- * lists the navbar and the pickers read. A test adds or overrides its own routes through `extra`.
- */
-export function shellAnswers(extra: Record<string, unknown> = {}): Record<string, unknown> {
-  return {
-    "GET /status": liveStatus(),
-    "GET /elections": ELECTIONS,
-    "GET /timeline": EMPTY_TIMELINE,
-    "GET /dashboards": [],
-    "GET /candidates": CANDIDATES,
-    "GET /favorites": [],
-    "GET /preferences": {},
-    "GET /alerts": [],
-    ...extra,
-  };
-}
-
-/**
- * Makes one route answer with an error status (`fakeApi` always answers 200). Must be called after
- * `fakeApi`, which it wraps.
- */
-export function failWith(key: string, status: number, detail: string): void {
-  const previous = globalThis.fetch;
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url = new URL(String(input), "http://localhost");
-      const method = (init?.method ?? "GET").toUpperCase();
-      if (`${method} ${url.pathname.replace(/^\/api\/v1/, "")}` !== key) return previous(input, init);
-      const problem = { type: "test/failure", title: "Erro", status, detail };
-      return new Response(JSON.stringify(problem), {
-        status,
-        headers: { "content-type": "application/problem+json" },
-      });
-    }),
-  );
-}
 
 /** Puts every store the shell reads back in its initial state, and clears the browser storage. */
 export function resetStores(): void {
