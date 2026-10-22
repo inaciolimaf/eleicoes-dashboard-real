@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import (
     BigInteger,
@@ -63,9 +64,9 @@ class ResultColumns:
     leader_party: Mapped[str | None] = mapped_column(String(160))
 
     # [{"sq": "...", "v": 123, "p": 45.6, "e": true, "st": "Eleito", "d": "Válido"}]
-    candidates: Mapped[list] = mapped_column(JSONB, default=list)
+    candidates: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, default=list)
     # [{"nome": "...", "partidos": [...], "v": 123, "vag": 3}]
-    alliances: Mapped[list] = mapped_column(JSONB, default=list)
+    alliances: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, default=list)
 
 
 class ResultSnapshot(ResultColumns, Base):
