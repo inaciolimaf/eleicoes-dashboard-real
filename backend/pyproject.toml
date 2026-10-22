@@ -115,7 +115,7 @@ filterwarnings = [
   "error::DeprecationWarning:tests.*",
 ]
 markers = [
-  "integration: precisa do PostgreSQL de teste (TEST_DATABASE_URL ou testcontainers)",
+  "integration: precisa do PostgreSQL e do Redis de teste (TEST_DATABASE_URL, TEST_REDIS_URL); sem eles, pula",
   "golden: precisa de um arquivo dourado gravado pelo comando de captura",
 ]
 

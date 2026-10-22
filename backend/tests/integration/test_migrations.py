@@ -1,13 +1,15 @@
 """Alembic migrations: they go up, go down and match the models."""
 
 import asyncio
-import os
 
+import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from alembic import command
-from tests.conftest import alembic_config
+from tests.integration.support import alembic_config, database_url_or_skip
+
+pytestmark = [pytest.mark.integration, pytest.mark.usefixtures("migrated_db")]
 
 USUARIO = "00000000-0000-0000-0000-000000000001"
 ALERT = "00000000-0000-0000-0000-000000000002"
@@ -21,7 +23,7 @@ def test_migrations_go_up_down_and_match_models():
 
 
 async def _sql(sql: str, params: dict | None = None) -> list[tuple]:
-    eng = create_async_engine(os.environ["TEST_DATABASE_URL"])
+    eng = create_async_engine(database_url_or_skip())
     try:
         async with eng.begin() as conn:
             res = await conn.execute(text(sql), params or {})

@@ -1,6 +1,7 @@
 """Authentication, dashboards (painéis), sharing, favorites, alerts, preferences and admin."""
 
 import httpx
+import pytest
 import pytest_asyncio
 from sqlalchemy import func, select
 
@@ -8,6 +9,8 @@ from app.core import db as db_mod
 from app.core.main import app
 from app.modules.accounts import User
 from app.modules.accounts.auth import login_limit
+
+pytestmark = pytest.mark.integration
 
 CONFIG = {
     "filtroGlobal": {"turno": 1, "cargo": 1, "nivel": "br", "id": "br", "tempo": "agora"},

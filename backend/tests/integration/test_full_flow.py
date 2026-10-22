@@ -1,6 +1,7 @@
 """Full flow: TSE mock (in process) -> collector -> queue -> worker -> database -> API."""
 
 import httpx
+import pytest
 import pytest_asyncio
 from sqlalchemy import func, select
 
@@ -19,9 +20,11 @@ from app.modules.results import CurrentResult, ResultSnapshot
 from app.modules.results import queries as results_queries
 from app.worker.jobs import Processor, result
 from app.worker.jobs.publishing import Outbox
-from tests.conftest import clean_database
+from tests.integration.support import clean_database
 from tse_fake.publication import Publication
 from tse_fake.scenario import Scenario
+
+pytestmark = pytest.mark.integration
 
 TEST_STATE = "ac"
 
