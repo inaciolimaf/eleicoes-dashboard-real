@@ -32,7 +32,7 @@ One paragraph: what it is for whoever uses it and the spec it came from.
 ## Data                tables and the migration that created them; Redis keys; files on disk
 ## Routes              table Method and path | What it does | Errors (problem+json type)
 ## How it works        main flows, in order, with function names
-## Rules and guarantees each invariant and the test that guarantees it (`backend/tests/x.py::name`)
+## Rules and guarantees each invariant and the test that guarantees it (`backend/tests/<file>.py::<name>`)
 ## Settings            the domain's environment variables
 ## Points of attention pitfalls, non-obvious decisions, divergences from the spec
 ```

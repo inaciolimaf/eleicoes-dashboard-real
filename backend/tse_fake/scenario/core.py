@@ -20,8 +20,6 @@ from tse_fake.scenario.votes import build_votes
 
 class Scenario:
     def __init__(self, seed: int = 2026, scale: float = 1.0) -> None:
-        # The keyword names `semente` and `escala` are kept because tests/integration/test_fluxo_completo.py
-        # calls them; rename them together with that test.
         self.seed = seed
         self.scale = scale
         self.rng = np.random.default_rng(seed)

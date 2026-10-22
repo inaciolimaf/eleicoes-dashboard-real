@@ -25,6 +25,3 @@ def key_for_environment(environment: str) -> JwsKey:
             public_x = public_key_fake()
         return JwsKey(kid=settings.tse_fake_kid, x=public_x)
     return KEYS[environment]
-
-
-# Name used before the English rename; the collector still imports it.

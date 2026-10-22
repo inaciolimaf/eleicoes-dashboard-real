@@ -76,6 +76,3 @@ def sign(payload: bytes, private_key: Ed25519PrivateKey, kid: str) -> str:
 def public_key_x(private_key: Ed25519PrivateKey) -> str:
     raw = private_key.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
     return b64url_encode(raw)
-
-
-# Names used before the English rename; other slices still import them.

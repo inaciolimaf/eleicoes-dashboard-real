@@ -255,6 +255,3 @@ def encode(spec: BallotBoxSpec) -> bytes:
     }
     encoded: bytes = conv.encode("EntidadeEnvelopeGenerico", envelope)
     return encoded
-
-
-# Names used before the English rename; other slices still import them.

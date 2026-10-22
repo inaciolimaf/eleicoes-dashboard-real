@@ -147,6 +147,3 @@ class UrlBuilder:
             ),
         )
         return f"{directory}/{hash_}/{name}"
-
-
-# Name used before the English rename; the collector and the public service still import it.

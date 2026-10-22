@@ -34,5 +34,3 @@ __all__ = [
     "parse_sections",
     "parse_tracking",
 ]
-
-# Names used before the English rename; the collector, the worker and the ingestion still import them.

@@ -129,6 +129,3 @@ def parse_catalog(data: dict[str, Any]) -> Catalog:
     root_cycle = str(data.get("c") or "")
     events = [_parse_event(entry, root_cycle) for entry in data.get("pl", []) or []]
     return Catalog(generation_id=str(data.get("idg") or ""), templates=templates, events=events)
-
-
-# Name used before the English rename; the collector and the ingestion still import it.
