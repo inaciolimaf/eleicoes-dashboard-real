@@ -17,7 +17,8 @@ from app.modules.events import Event
 from app.modules.geography import Municipality, PollingPlace, PollingSection, parse
 from app.modules.results import CurrentResult, ResultSnapshot
 from app.modules.results import queries as resultados
-from app.worker.jobs import Processor
+from app.worker.jobs import Processor, result
+from app.worker.jobs.publishing import Outbox
 from tests.conftest import limpar_banco
 from tse_fake.cenario import Cenario
 from tse_fake.divulgacao import Divulgacao
@@ -406,7 +407,7 @@ async def test_alertas_disparam_no_worker(ambiente, redis_cliente):
     from app.modules.alerts import Alert
     from app.modules.alerts import evaluation as alertas
 
-    _coletor, proc = ambiente
+    _coletor, _proc = ambiente
     async with get_sessionmaker()() as s:
         u = User(email="alerta@x.com", name="A", password_hash="x")
         s.add(u)
@@ -443,7 +444,7 @@ async def test_alertas_disparam_no_worker(ambiente, redis_cliente):
         "candidates": [{"sq": sq, "p": 40.0}],
     }
     async with unit_of_work(get_sessionmaker()) as s:
-        await proc._alertas_resultado(s, linha, [])
+        await result._alerts_result(s, Outbox(), linha, [])
     async with get_sessionmaker()() as s:
         disparados = (await s.execute(select(Alert).where(Alert.triggered_at.is_not(None)))).scalars().all()
         assert [a.type for a in disparados] == ["candidate_pct"]

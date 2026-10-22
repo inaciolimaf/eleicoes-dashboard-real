@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import BigInteger, DateTime, Index, SmallInteger, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB
@@ -21,4 +22,4 @@ class Event(Base):
     geo_area_id: Mapped[str | None] = mapped_column(String(24))
     title: Mapped[str] = mapped_column(String(200))
     description: Mapped[str] = mapped_column(Text, default="")
-    payload: Mapped[dict] = mapped_column(JSONB, default=dict)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
