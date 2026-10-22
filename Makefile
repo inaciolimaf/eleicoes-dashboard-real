@@ -1,5 +1,5 @@
 # Eleições Dashboard — comandos principais. `make` sem alvo lista os comandos.
-.PHONY: help env up up-oficial dev down reset logs ps test lint format types docs boundaries \
+.PHONY: help env up up-oficial dev down reset logs ps test test-unit lint format types docs boundaries \
         migrate revision web-test web-format web-types web-build web-coverage e2e mobile \
         fake-status fake-velocidade fake-reiniciar fake-ir
 
@@ -50,12 +50,12 @@ test: ## testes do backend em containers (pytest + cobertura >= 85%)
 	$(COMPOSE) -f docker-compose.test.yml run --rm --build api-test; \
 		status=$$?; $(COMPOSE) -f docker-compose.test.yml down -v; exit $$status
 
-lint: ## ruff + tamanho de função/arquivo + fronteiras de importação
-	$(COMPOSE) run --rm --no-deps api ruff check app tse_fake tests tools
-	$(COMPOSE) run --rm --no-deps api ruff format --check .
-	$(COMPOSE) run --rm --no-deps api python -m tools.function_size
-	$(COMPOSE) run --rm --no-deps api lint-imports
-	cd frontend && npm run lint && npm run typecheck
+lint: ## ruff + format check + function/file size + import boundaries (same as CI)
+	cd backend && uv run ruff check . && uv run ruff format --check . && \
+		uv run python -m tools.function_size && uv run lint-imports
+
+test-unit: ## backend unit tests only (no database)
+	cd backend && uv run pytest -q -m "not integration"
 
 format: ## corrige o formato do Python (ruff format)
 	cd backend && uv run ruff format .
