@@ -1,17 +1,17 @@
-"""Parsers dos arquivos do TSE, números/datas, catálogo e URLs."""
+"""Parsers of the TSE files, numbers and dates, catalog and URLs."""
 
 from datetime import UTC, datetime
 
-from app.infra.tse import numbers as numeros
-from app.infra.tse.catalog import parse_catalogo
+from app.infra.tse import numbers
+from app.infra.tse.catalog import parse_catalog
 from app.infra.tse.parsers import (
-    parse_acompanhamento,
-    parse_auxiliar,
-    parse_municipios,
-    parse_resultado,
-    parse_secoes,
+    parse_auxiliary,
+    parse_municipalities,
+    parse_result,
+    parse_sections,
+    parse_tracking,
 )
-from app.infra.tse.urls import MontadorUrls
+from app.infra.tse.urls import UrlBuilder
 
 CATALOGO = {
     "dg": "14/09/2026",
@@ -149,24 +149,24 @@ EA20 = {
 
 
 def test_numeros_strings_do_tse():
-    assert numeros.inteiro("1234") == 1234
-    assert numeros.inteiro("") == 0
-    assert numeros.inteiro(None, 7) == 7
-    assert numeros.decimal("63,157894737") == 63.157894737
-    assert numeros.inteiro_ou_none("") is None
-    assert numeros.sim_nao("s") and not numeros.sim_nao("n")
+    assert numbers.integer("1234") == 1234
+    assert numbers.integer("") == 0
+    assert numbers.integer(None, 7) == 7
+    assert numbers.decimal("63,157894737") == 63.157894737
+    assert numbers.integer_or_none("") is None
+    assert numbers.yes_no("s") and not numbers.yes_no("n")
 
 
 def test_datas_brasilia_para_utc():
-    dt = numeros.data_hora("04/10/2026", "17:00:00")
+    dt = numbers.date_time("04/10/2026", "17:00:00")
     assert dt == datetime(2026, 10, 4, 20, 0, tzinfo=UTC)
-    assert numeros.data_hora_je("20261004T171523") == datetime(2026, 10, 4, 20, 15, 23, tzinfo=UTC)
-    assert numeros.data_hora("", "") is None
-    assert numeros.formatar_data(dt) == ("04/10/2026", "17:00:00")
+    assert numbers.date_time_je("20261004T171523") == datetime(2026, 10, 4, 20, 15, 23, tzinfo=UTC)
+    assert numbers.date_time("", "") is None
+    assert numbers.format_date(dt) == ("04/10/2026", "17:00:00")
 
 
 def test_catalogo_resolve_pelo_cargo_e_nao_pela_uf():
-    cat = parse_catalogo(CATALOGO)
+    cat = parse_catalog(CATALOGO)
     assert cat.pleito_atual().cd == 17801
     _pleito, eleicao = cat.resolver(3)
     assert eleicao.cd == 21272 and eleicao.cd_t2 == 21273
@@ -177,8 +177,8 @@ def test_catalogo_resolve_pelo_cargo_e_nao_pela_uf():
 
 
 def test_urls_dos_arquivos():
-    u = MontadorUrls(
-        "https://resultados.tse.jus.br/oficial", parse_catalogo(CATALOGO).templates, "ele2026", 3220
+    u = UrlBuilder(
+        "https://resultados.tse.jus.br/oficial", parse_catalog(CATALOGO).templates, "ele2026", 3220
     )
     assert (
         u.resultado(21270, 1)
@@ -196,8 +196,8 @@ def test_urls_dos_arquivos():
     assert "//" not in u.resultado(1, 1).split("://")[1]
 
 
-def test_parse_resultado_unificado():
-    r = parse_resultado(EA20, 1)
+def test_parse_result_unificado():
+    r = parse_result(EA20, 1)
     assert r.cd_cargo == 1 and r.idg == "173967397"
     assert r.totais.votos_validos == 950 and r.totais.brancos == 20 and r.totais.nulos == 30
     assert r.totais.pct_secoes == 50.0
@@ -209,8 +209,8 @@ def test_parse_resultado_unificado():
     assert not r.final and not r.matematicamente_definido
 
 
-def test_parse_resultado_tolerante_a_campos_ausentes():
-    r = parse_resultado(
+def test_parse_result_tolerante_a_campos_ausentes():
+    r = parse_result(
         {
             "ele": "1",
             "carg": [
@@ -225,8 +225,8 @@ def test_parse_resultado_tolerante_a_campos_ausentes():
     assert r.candidatos[0].numero == 22 and round(r.candidatos[0].pct_validos) == 75
 
 
-def test_parse_acompanhamento_auxiliar_secoes_municipios():
-    ab = parse_acompanhamento(
+def test_parse_tracking_auxiliar_secoes_municipios():
+    ab = parse_tracking(
         {
             "ele": "9100",
             "idg": "5",
@@ -252,7 +252,7 @@ def test_parse_acompanhamento_auxiliar_secoes_municipios():
     )
     assert ab.itens[1].tipo == "mu" and ab.itens[1].secoes_totalizadas == 5
 
-    aux = parse_auxiliar(
+    aux = parse_auxiliary(
         {
             "st": "Totalizada",
             "hashes": [
@@ -268,9 +268,9 @@ def test_parse_acompanhamento_auxiliar_secoes_municipios():
         }
     )
     assert aux.urna_totalizada().hash == "bb" and aux.urna_totalizada().nome_bu() == "o.bu"
-    assert parse_auxiliar({"st": "Não totalizada", "hashes": []}).urna_totalizada() is None
+    assert parse_auxiliary({"st": "Não totalizada", "hashes": []}).urna_totalizada() is None
 
-    secs = parse_secoes(
+    secs = parse_sections(
         {
             "abr": [
                 {
@@ -295,7 +295,7 @@ def test_parse_acompanhamento_auxiliar_secoes_municipios():
         ("ap", 6050, 2, 825, 824),
     ]
 
-    mus = parse_municipios(
+    mus = parse_municipalities(
         {
             "abr": [
                 {
@@ -339,7 +339,7 @@ def test_ler_csv_locais_zip_oficial_usa_o_csv_do_brasil():
 def test_idg_ausente_usa_a_hora_de_geracao():
     """Sem `idg`, cada geração precisa de um id próprio; senão só a primeira seria gravada."""
     base = {k: v for k, v in EA20.items() if k != "idg"}
-    r1 = parse_resultado({**base, "dg": "04/10/2026", "hg": "18:00:00"}, 1)
-    r2 = parse_resultado({**base, "dg": "04/10/2026", "hg": "18:00:05"}, 1)
+    r1 = parse_result({**base, "dg": "04/10/2026", "hg": "18:00:00"}, 1)
+    r2 = parse_result({**base, "dg": "04/10/2026", "hg": "18:00:05"}, 1)
     assert r1.idg and r2.idg and r1.idg != r2.idg
-    assert parse_resultado(EA20, 1).idg == str(EA20["idg"])
+    assert parse_result(EA20, 1).idg == str(EA20["idg"])
