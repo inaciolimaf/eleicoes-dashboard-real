@@ -3,3 +3,6 @@ dist
 .vite
 *.local
 coverage
+captures
+playwright-report
+test-results

@@ -3,6 +3,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
 const apiTarget = process.env.VITE_API_PROXY || "http://localhost:8000";
+const apiE2e = process.env.API_URL || "http://localhost:8000";
 
 export default defineConfig({
   plugins: [react()],
@@ -14,6 +15,15 @@ export default defineConfig({
         changeOrigin: true,
         ws: true,
       },
+    },
+  },
+  // `vite preview` serves the production build for Playwright (e2e/); the API is the real one.
+  preview: {
+    port: 4173,
+    strictPort: true,
+    proxy: {
+      "/api": { target: apiE2e, changeOrigin: true, ws: true },
+      "/health": { target: apiE2e, changeOrigin: true },
     },
   },
   build: {
