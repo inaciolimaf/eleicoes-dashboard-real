@@ -17,29 +17,29 @@ import { useBasemapStyle, useFitToTarget } from "./useMapViewport";
 
 export interface ElectoralMapCanvasProps {
   /** kind of map (stored in the URL and in widgets) */
-  tipo: MapType;
-  nivel: Level;
+  kind: MapType;
+  level: Level;
   id: string;
-  /** with nivel=country: draws every municipality of Brazil instead of the states */
-  todosMunicipios?: boolean;
-  candidatoA?: string | null;
-  candidatoB?: string | null;
+  /** with level=country: draws every municipality of Brazil instead of the states */
+  allMunicipalities?: boolean;
+  candidateA?: string | null;
+  candidateB?: string | null;
   onCandidatesChange?: (a: string | null, b: string | null) => void;
   /** called when the user clicks a region or a polling place */
-  onSelecionar?: SelectHandler;
+  onSelect?: SelectHandler;
   /** legend shown (default true) */
-  legenda?: boolean;
-  seletorCandidatos?: boolean;
+  legend?: boolean;
+  candidateSelector?: boolean;
   basemap?: boolean;
   /** height of the map box (default 100%) */
-  altura?: number | string;
+  height?: number | string;
   /** overrides the office of the effective filter */
   cargo?: number;
 }
 
 /** Everything the map view needs, computed once per render: queries, layers, legend and interaction. */
 export function useElectoralMap(props: ElectoralMapCanvasProps) {
-  const { tipo: type, nivel: level, id, todosMunicipios, onSelecionar, seletorCandidatos = true } = props;
+  const { kind: type, level, id, allMunicipalities, onSelect, candidateSelector = true } = props;
   const filter = useEffectiveFilter();
   const office = props.cargo ?? filter.cargo;
   const candidateColor = useCandidateColor();
@@ -58,16 +58,16 @@ export function useElectoralMap(props: ElectoralMapCanvasProps) {
     office,
     round: filter.turno,
     t: filter.t,
-    scope: mapScopeOf(level, id, todosMunicipios),
-    candidateA: props.candidatoA,
-    candidateB: props.candidatoB,
+    scope: mapScopeOf(level, id, allMunicipalities),
+    candidateA: props.candidateA,
+    candidateB: props.candidateB,
     highlight,
   });
   const { mode, efA, efB, data, places } = view;
   const items = data?.items;
   const scale = useMemo(() => mapScaleOf(type, items ?? [], efA, efB), [items, type, efA, efB]);
   const basemap = useBasemapStyle(props.basemap ?? basemapPreference, dark);
-  const picking = useMapPicking({ mode, itemsByKey: view.itemsByKey, onSelect: onSelecionar, mapRef });
+  const picking = useMapPicking({ mode, itemsByKey: view.itemsByKey, onSelect, mapRef });
   const { layers, colorA, colorB } = useMapLayers({
     type,
     mode,
@@ -102,7 +102,7 @@ export function useElectoralMap(props: ElectoralMapCanvasProps) {
     ...view,
     type,
     props,
-    seletorCandidatos,
+    candidateSelector,
     dark,
     zoom,
     setZoom,

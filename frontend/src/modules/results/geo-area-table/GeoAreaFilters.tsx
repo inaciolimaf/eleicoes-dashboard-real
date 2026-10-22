@@ -109,7 +109,7 @@ function PlaceFilters({
         <MultiSelect
           size="xs"
           label="UF"
-          data={UFS.map((state) => ({ value: state.uf, label: `${state.uf.toUpperCase()} · ${state.nome}` }))}
+          data={UFS.map((state) => ({ value: state.uf, label: `${state.uf.toUpperCase()} · ${state.name}` }))}
           value={filters.states}
           onChange={(value) => update({ states: value })}
           searchable

@@ -8,7 +8,7 @@ import { initials } from "../../../lib/formatting";
 
 /** Sign-in buttons for a visitor: a labelled one on wide screens, an icon one on narrow ones. */
 function SignInButtons() {
-  const openAuth = () => useUi.getState().setAuthAberto(true);
+  const openAuth = () => useUi.getState().setAuthOpen(true);
   return (
     <>
       <Button
@@ -29,7 +29,7 @@ function SignInButtons() {
 
 /** Account avatar that opens the user's menu. */
 export function UserMenu() {
-  const { user, sair: signOut } = useAuth();
+  const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   if (!user) return <SignInButtons />;

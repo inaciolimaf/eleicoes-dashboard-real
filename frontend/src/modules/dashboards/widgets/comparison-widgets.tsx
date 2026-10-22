@@ -22,7 +22,7 @@ function ComparisonColumn({ level, id }: { level: string; id: string }) {
         p="xs"
         style={{ border: "1px solid var(--mantine-color-default-border)", borderRadius: 10, minWidth: 0 }}
       >
-        <WithResults linhasSkeleton={3}>
+        <WithResults skeletonRows={3}>
           {(results) => (
             <Stack gap={6}>
               <Group justify="space-between" wrap="nowrap">
@@ -49,8 +49,8 @@ function ComparisonColumn({ level, id }: { level: string; id: string }) {
                           {candidate.ballot_name}
                         </Text>
                         <Num
-                          valor={candidate.valid_pct}
-                          tipo="pct"
+value={candidate.valid_pct}
+kind="pct"
                           style={{ fontSize: 12, fontWeight: 700 }}
                         />
                       </Group>
@@ -94,7 +94,7 @@ function CandidateComparison({ candidateIds, height }: { candidateIds: string[];
       nivel: filter.nivel,
       id: filter.id,
       t: filter.t,
-      candidatos: selected,
+      candidates: selected,
     },
     selected.length > 0,
   );
@@ -115,17 +115,17 @@ function CandidateComparison({ candidateIds, height }: { candidateIds: string[];
       .filter((x): x is NonNullable<typeof x> => !!x);
     return {
       grid: { left: 4, right: 18, top: 28, bottom: 4, containLabel: true },
-      legend: { top: 0, textStyle: { color: chartColors.texto, fontSize: 11 } },
+      legend: { top: 0, textStyle: { color: chartColors.text, fontSize: 11 } },
       tooltip: { trigger: "axis", axisPointer: { type: "shadow" }, valueFormatter: (v) => fmtPct(Number(v)) },
       xAxis: {
         type: "value",
-        axisLabel: { color: chartColors.textoFraco, formatter: "{value}%" },
-        splitLine: { lineStyle: { color: chartColors.linha } },
+        axisLabel: { color: chartColors.textMuted, formatter: "{value}%" },
+        splitLine: { lineStyle: { color: chartColors.line } },
       },
       yAxis: {
         type: "category",
         data: items.map((i) => i.name),
-        axisLabel: { color: chartColors.texto, fontSize: 11, width: 110, overflow: "truncate" },
+        axisLabel: { color: chartColors.text, fontSize: 11, width: 110, overflow: "truncate" },
       },
       series: candidates.map((candidate) => ({
         type: "bar",
@@ -139,8 +139,8 @@ function CandidateComparison({ candidateIds, height }: { candidateIds: string[];
       })),
     } as EChartsOption;
   }, [data, selectedKey, candidateColor, chartColors]);
-  if (query.isLoading || base.isLoading) return <Loading altura={height} />;
-  if (query.error) return <ErrorView erro={query.error} onRetry={() => query.refetch()} />;
+  if (query.isLoading || base.isLoading) return <Loading height={height} />;
+  if (query.error) return <ErrorView error={query.error} onRetry={() => query.refetch()} />;
   if (!option) return <NoData />;
   return <EChart option={option} height={height} />;
 }

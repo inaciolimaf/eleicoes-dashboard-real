@@ -15,10 +15,10 @@ import { TimeSlider } from "./TimeSlider";
 const RECONNECT_BANNER_DELAY_MS = 2500;
 
 function ReconnectBanner() {
-  const socketState = useUi((s) => s.wsEstado);
+  const socketState = useUi((s) => s.wsStatus);
   const [visible, setVisible] = useState(false);
   useEffect(() => {
-    if (socketState !== "reconectando") {
+    if (socketState !== "reconnecting") {
       setVisible(false);
       return;
     }
@@ -60,7 +60,7 @@ export function Loading() {
 
 /** AppShell: header, navbar recolhível, barra de filtro, conteúdo e slider de tempo fixo no rodapé. */
 export function AppLayout() {
-  const navbarOpen = useUi((s) => s.navbarAberta);
+  const navbarOpen = useUi((s) => s.navbarOpen);
   const desktopNavOpen = useDesktopNav((s) => s.aberta);
   const round = useFilter((s) => s.turno);
   // global topics: events (toasts) and status

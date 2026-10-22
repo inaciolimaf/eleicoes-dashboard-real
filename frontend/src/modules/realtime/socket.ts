@@ -19,7 +19,7 @@ class LiveSocket {
   ultimoSeq = 0;
 
   /** Connects once and keeps the cache in sync: login/logout reauthenticate, a reconnect refetches. */
-  iniciar(qc: QueryClient) {
+  start(qc: QueryClient) {
     if (this.qc) return;
     this.qc = qc;
     this.connect();
@@ -48,7 +48,7 @@ class LiveSocket {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
-    useUi.getState().setWsEstado(this.hasConnected ? "reconectando" : "conectando");
+    useUi.getState().setWsStatus(this.hasConnected ? "reconnecting" : "connecting");
     let ws: WebSocket;
     try {
       ws = new WebSocket(this.url());
@@ -64,7 +64,7 @@ class LiveSocket {
       this.pingTimer = null;
       if (this.ws === ws) {
         this.ws = null;
-        useUi.getState().setWsEstado("reconectando");
+        useUi.getState().setWsStatus("reconnecting");
         this.schedule();
       }
     };
@@ -81,7 +81,7 @@ class LiveSocket {
     const isReconnect = this.hasConnected;
     this.hasConnected = true;
     this.attempt = 0;
-    useUi.getState().setWsEstado("aberto");
+    useUi.getState().setWsStatus("open");
     const token = useAuth.getState().token;
     if (token) this.send({ op: "auth", token });
     const topics = [...this.refs.keys()];

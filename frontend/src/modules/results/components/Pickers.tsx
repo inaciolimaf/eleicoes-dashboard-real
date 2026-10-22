@@ -49,7 +49,7 @@ export function GeoAreaPicker({
       for (const state of UFS)
         base.push({
           value: geoAreaValue("state", state.uf),
-          label: `${state.nome} (${state.uf.toUpperCase()})`,
+          label: `${state.name} (${state.uf.toUpperCase()})`,
         });
     const remote = (query.data?.items ?? [])
       .filter((item) => item.type !== "candidate" && allows(item.type as SearchType))

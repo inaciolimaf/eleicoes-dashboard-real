@@ -19,15 +19,15 @@ const ANA = { type: "candidate", ref: "280001", label: "Ana Lima" } as const;
 describe("favorites without an account", () => {
   it("adds and removes a favorite in the browser", () => {
     const { result } = renderHook(() => useFavorites(), { wrapper });
-    act(() => result.current.alternar({ ...ANA }));
-    expect(result.current.eFavorito("candidate", "280001")).toBe(true);
+    act(() => result.current.toggle({ ...ANA }));
+    expect(result.current.isFavorite("candidate", "280001")).toBe(true);
     expect(JSON.parse(localStorage.getItem("eleicoes.favoritos") ?? "{}")).toEqual({
       state: { favoritos: [ANA] },
       version: 0,
     });
-    act(() => result.current.alternar({ ...ANA }));
-    expect(result.current.eFavorito("candidate", "280001")).toBe(false);
-    expect(result.current.favoritos).toEqual([]);
+    act(() => result.current.toggle({ ...ANA }));
+    expect(result.current.isFavorite("candidate", "280001")).toBe(false);
+    expect(result.current.favorites).toEqual([]);
   });
 });
 
@@ -36,16 +36,16 @@ describe("favorites with an account", () => {
     useAuth.setState({ token: "token-abc", user: VOTER_USER });
     fakeApi({ "GET /favorites": [ANA] });
     const { result } = renderHook(() => useFavorites(), { wrapper });
-    await waitFor(() => expect(result.current.favoritos).toHaveLength(1));
-    expect(result.current.eFavorito("candidate", "280001")).toBe(true);
+    await waitFor(() => expect(result.current.favorites).toHaveLength(1));
+    expect(result.current.isFavorite("candidate", "280001")).toBe(true);
   });
 
   it("removes an account favorite through the API", async () => {
     useAuth.setState({ token: "token-abc", user: VOTER_USER });
     const api = fakeApi({ "GET /favorites": [ANA], "DELETE /favorites/candidate/280001": null });
     const { result } = renderHook(() => useFavorites(), { wrapper });
-    await waitFor(() => expect(result.current.favoritos).toHaveLength(1));
-    act(() => result.current.alternar({ ...ANA }));
+    await waitFor(() => expect(result.current.favorites).toHaveLength(1));
+    act(() => result.current.toggle({ ...ANA }));
     await waitFor(() => expect(api.calls("DELETE /favorites/candidate/280001")).toHaveLength(1));
   });
 
@@ -53,8 +53,8 @@ describe("favorites with an account", () => {
     useAuth.setState({ token: "token-abc", user: VOTER_USER });
     const api = fakeApi({ "GET /favorites": [], "POST /favorites": ANA });
     const { result } = renderHook(() => useFavorites(), { wrapper });
-    await waitFor(() => expect(result.current.favoritos).toEqual([]));
-    act(() => result.current.alternar({ ...ANA }));
+    await waitFor(() => expect(result.current.favorites).toEqual([]));
+    act(() => result.current.toggle({ ...ANA }));
     await waitFor(() => expect(api.calls("POST /favorites")).toHaveLength(1));
     expect(api.calls("POST /favorites")[0]?.body).toEqual(ANA);
   });

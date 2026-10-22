@@ -44,14 +44,14 @@ function CandidateMap({
   return (
     <Box h={{ base: 380, md: 520 }} style={{ borderRadius: 12, overflow: "hidden" }}>
       <ElectoralMap
-        tipo="desempenho"
-        nivel={level}
+kind="desempenho"
+level={level}
         id={id}
-        todosMunicipios={allMunicipalities}
-        candidatoA={candidateId}
-        seletorCandidatos={false}
+allMunicipalities={allMunicipalities}
+candidateA={candidateId}
+candidateSelector={false}
         cargo={office}
-        onSelecionar={(selectedLevel, selectedId, name) => {
+onSelect={(selectedLevel, selectedId, name) => {
           useFilter.getState().setRecorte(selectedLevel, selectedId, name);
           navigate(geoAreaLink(selectedLevel, selectedId));
         }}
@@ -62,15 +62,15 @@ function CandidateMap({
 
 /** The favorite toggle of the candidate, in the header. */
 function FavoriteButton({ candidateId, name }: { candidateId: string; name: string }) {
-  const { eFavorito, alternar } = useFavorites();
-  const favorite = eFavorito("candidate", candidateId);
+  const { isFavorite, toggle } = useFavorites();
+  const favorite = isFavorite("candidate", candidateId);
   return (
     <Tooltip label={favorite ? "Remover dos favoritos" : "Favoritar candidato"}>
       <ActionIcon
         variant="subtle"
         color="yellow"
         size="lg"
-        onClick={() => alternar({ type: "candidate", ref: candidateId, label: name })}
+        onClick={() => toggle({ type: "candidate", ref: candidateId, label: name })}
         aria-label="Favoritar candidato"
       >
         {favorite ? <IconStarFilled size={20} /> : <IconStar size={20} />}
@@ -155,7 +155,7 @@ export function CandidateScreen({ sq }: { sq: string }) {
         {candidate && (
           <CandidateAreas candidateId={sq} office={office} state={candidate.state_code ?? null} />
         )}
-        {query.error && <ErrorView erro={query.error} onRetry={() => query.refetch()} />}
+        {query.error && <ErrorView error={query.error} onRetry={() => query.refetch()} />}
       </Stack>
     </FilterProvider>
   );

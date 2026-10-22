@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 import { toPng } from "html-to-image";
 import { notifications } from "@mantine/notifications";
-import { exportarPng, exportData, downloadJson } from "../src/lib/export";
+import { exportPng, exportData, downloadJson } from "../src/lib/export";
 import { FilterProvider, useEffectiveFilter, useFixedTime } from "../src/lib/effective-filter";
 import { DEFAULT_FILTER, useFilter } from "../src/lib/filter-store";
 import { useTime } from "../src/lib/time-store";
@@ -38,7 +38,7 @@ afterEach(() => {
 describe("exports", () => {
   it("downloads the results of an area as CSV, leaving out the empty parameters", () => {
     const clicked = recordDownloads();
-    exportData("resultados", "csv", { turno: 1, cargo: 1, nivel: "state", id: "sp", t: null });
+    exportData("results", "csv", { turno: 1, cargo: 1, nivel: "state", id: "sp", t: null });
     expect(clicked[0].getAttribute("href")).toBe(
       "/api/v1/exports?resource=results&format=csv&round=1&office=1&level=state&id=sp",
     );
@@ -48,13 +48,13 @@ describe("exports", () => {
 
   it("downloads the children as JSON, at the time T and with the child level", () => {
     const clicked = recordDownloads();
-    exportData("filhos", "json", {
+    exportData("children", "json", {
       turno: 2,
       cargo: 5,
       nivel: "country",
       id: "br",
       t: "2026-10-04T18:00:00Z",
-      filhos: "state",
+      childLevel: "state",
     });
     const href = clicked[0].getAttribute("href") ?? "";
     expect(href).toContain("resource=children");
@@ -74,14 +74,14 @@ describe("exports", () => {
   });
 
   it("does nothing when the element to export is missing", async () => {
-    await exportarPng(null, "Painel");
+    await exportPng(null, "Painel");
     expect(toPng).not.toHaveBeenCalled();
   });
 
   it("exports an element as PNG named after its title, on the dark background", async () => {
     const clicked = recordDownloads();
     vi.mocked(toPng).mockResolvedValue("data:image/png;base64,AAAA");
-    await exportarPng(document.createElement("div"), "Evolução do Brasil");
+    await exportPng(document.createElement("div"), "Evolução do Brasil");
     expect(toPng).toHaveBeenCalledWith(expect.any(HTMLElement), expect.objectContaining({ cacheBust: true }));
     expect(clicked[0].download).toBe("evolucao-do-brasil.png");
     expect(clicked[0].getAttribute("href")).toBe("data:image/png;base64,AAAA");
@@ -89,7 +89,7 @@ describe("exports", () => {
 
   it("shows a notification when the PNG cannot be made", async () => {
     vi.mocked(toPng).mockRejectedValue(new Error("canvas bloqueado"));
-    await exportarPng(document.createElement("div"), "Painel");
+    await exportPng(document.createElement("div"), "Painel");
     expect(notifications.show).toHaveBeenCalledWith(
       expect.objectContaining({ title: "Falha ao exportar PNG", message: "canvas bloqueado" }),
     );
@@ -169,10 +169,10 @@ describe("query options and WebSocket state", () => {
   });
 
   it("tells whether the WebSocket is open", () => {
-    useUi.setState({ wsEstado: "conectando" });
+    useUi.setState({ wsStatus: "connecting" });
     const { result } = renderHook(() => useWsOpen());
     expect(result.current).toBe(false);
-    act(() => useUi.getState().setWsEstado("aberto"));
+    act(() => useUi.getState().setWsStatus("open"));
     expect(result.current).toBe(true);
   });
 });

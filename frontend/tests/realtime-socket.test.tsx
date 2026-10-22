@@ -65,18 +65,18 @@ describe("live socket", () => {
   it("connects once to the WebSocket of the API and reports the state", async () => {
     const { liveSocket, useUi } = await freshSocket();
     const qc = new QueryClient();
-    liveSocket.iniciar(qc);
-    liveSocket.iniciar(qc);
+    liveSocket.start(qc);
+    liveSocket.start(qc);
     expect(FakeSocket.instances).toHaveLength(1);
     expect(last().url).toMatch(/^wss?:\/\/.+\/api\/v1\/ws$/);
-    expect(useUi.getState().wsEstado).toBe("conectando");
+    expect(useUi.getState().wsStatus).toBe("connecting");
     last().open();
-    expect(useUi.getState().wsEstado).toBe("aberto");
+    expect(useUi.getState().wsStatus).toBe("open");
   });
 
   it("subscribes a topic once, however many components ask for it, and releases it at the last release", async () => {
     const { liveSocket } = await freshSocket();
-    liveSocket.iniciar(new QueryClient());
+    liveSocket.start(new QueryClient());
     last().open();
     const releaseFirst = liveSocket.subscribe(["results:1:1:state:sp", "events:1"]);
     expect(last().sent).toEqual([{ op: "subscribe", topics: ["results:1:1:state:sp", "events:1"] }]);
@@ -91,7 +91,7 @@ describe("live socket", () => {
   it("sends the topics that are still wanted when the socket opens again", async () => {
     vi.useFakeTimers();
     const { liveSocket } = await freshSocket();
-    liveSocket.iniciar(new QueryClient());
+    liveSocket.start(new QueryClient());
     last().open();
     liveSocket.subscribe(["status"]);
     last().close();
@@ -103,7 +103,7 @@ describe("live socket", () => {
   it("delivers each server message to the listeners and to the cache, and keeps the sequence number", async () => {
     const { liveSocket } = await freshSocket();
     const qc = new QueryClient();
-    liveSocket.iniciar(qc);
+    liveSocket.start(qc);
     last().open();
     const seen: WsServerMessage[] = [];
     const stop = liveSocket.listen((m) => seen.push(m));
@@ -120,14 +120,14 @@ describe("live socket", () => {
   it("authenticates when the user logs in, and reconnects without the socket when the user logs out", async () => {
     vi.useFakeTimers();
     const { liveSocket, useAuth } = await freshSocket();
-    liveSocket.iniciar(new QueryClient());
+    liveSocket.start(new QueryClient());
     last().open();
     useAuth
       .getState()
-      .setSessao("tok-1", { id: "u1", email: "a@b.c", name: "Ana", is_admin: false } as never);
+      .setSession("tok-1", { id: "u1", email: "a@b.c", name: "Ana", is_admin: false } as never);
     expect(last().sent.at(-1)).toEqual({ op: "auth", token: "tok-1" });
     const before = FakeSocket.instances.length;
-    useAuth.getState().sair();
+    useAuth.getState().signOut();
     vi.advanceTimersByTime(100);
     // sockets of earlier test modules may reconnect too: the new one is at least there
     expect(FakeSocket.instances.length).toBeGreaterThan(before);
@@ -138,21 +138,21 @@ describe("live socket", () => {
     const { liveSocket, useUi } = await freshSocket();
     const qc = new QueryClient();
     const invalidate = vi.spyOn(qc, "invalidateQueries");
-    liveSocket.iniciar(qc);
+    liveSocket.start(qc);
     last().open();
     last().close();
-    expect(useUi.getState().wsEstado).toBe("reconectando");
+    expect(useUi.getState().wsStatus).toBe("reconnecting");
     vi.advanceTimersByTime(31_000);
     expect(FakeSocket.instances).toHaveLength(2);
     last().open();
-    expect(useUi.getState().wsEstado).toBe("aberto");
+    expect(useUi.getState().wsStatus).toBe("open");
     expect(invalidate).toHaveBeenCalledTimes(1);
   });
 
   it("closes a socket that errors, and retries when the connection cannot be created", async () => {
     vi.useFakeTimers();
     const { liveSocket } = await freshSocket();
-    liveSocket.iniciar(new QueryClient());
+    liveSocket.start(new QueryClient());
     last().onerror?.();
     expect(last().readyState).toBe(FakeSocket.CLOSED);
     vi.advanceTimersByTime(31_000);
@@ -166,13 +166,13 @@ describe("live socket", () => {
     vi.stubGlobal("WebSocket", Object.assign(Broken, { OPEN: 1, CLOSED: 3 }));
     vi.resetModules();
     const fresh = await import("../src/modules/realtime/socket");
-    expect(() => fresh.liveSocket.iniciar(new QueryClient())).not.toThrow();
+    expect(() => fresh.liveSocket.start(new QueryClient())).not.toThrow();
   });
 
   it("reconnects at once when the page becomes visible with the socket closed", async () => {
     vi.useFakeTimers();
     const { liveSocket } = await freshSocket();
-    liveSocket.iniciar(new QueryClient());
+    liveSocket.start(new QueryClient());
     last().open();
     last().readyState = FakeSocket.CLOSED;
     Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
@@ -188,7 +188,7 @@ describe("useLive", () => {
     vi.resetModules();
     const { liveSocket } = await import("../src/modules/realtime/socket");
     const { useLive } = await import("../src/modules/realtime/useLive");
-    liveSocket.iniciar(new QueryClient());
+    liveSocket.start(new QueryClient());
     last().open();
     const { unmount } = renderHook(() => useLive(["events:1", null, false, "events:1", ""]));
     expect(last().sent).toEqual([{ op: "subscribe", topics: ["events:1"] }]);
@@ -200,7 +200,7 @@ describe("useLive", () => {
     vi.resetModules();
     const { liveSocket } = await import("../src/modules/realtime/socket");
     const { useLive } = await import("../src/modules/realtime/useLive");
-    liveSocket.iniciar(new QueryClient());
+    liveSocket.start(new QueryClient());
     last().open();
     renderHook(() => useLive([undefined, false]));
     expect(last().sent).toEqual([]);

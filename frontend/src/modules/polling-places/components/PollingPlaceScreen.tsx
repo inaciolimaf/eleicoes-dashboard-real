@@ -13,11 +13,11 @@ import { useFavorites } from "../../accounts";
 export function PollingPlaceScreen({ id }: { id: string }) {
   const filter = useEffectiveFilter();
   const query = usePollingPlace(id, filter.turno);
-  const { eFavorito, alternar } = useFavorites();
+  const { isFavorite, toggle } = useFavorites();
   useEffect(() => {
     if (id) useFilter.getState().setRecorte("polling_place", id, query.data?.name);
   }, [id, query.data?.name]);
-  const isFavorite = eFavorito("polling_place", id);
+  const favorite = isFavorite("polling_place", id);
   return (
     <FilterProvider value={{ nivel: "polling_place", id }}>
       <Stack gap="md">
@@ -28,22 +28,22 @@ export function PollingPlaceScreen({ id }: { id: string }) {
             </Text>
             <Title order={2}>{query.data?.name ?? "Local de votação"}</Title>
           </Stack>
-          <Tooltip label={isFavorite ? "Remover dos favoritos" : "Favoritar (meu colégio)"}>
+          <Tooltip label={favorite ? "Remover dos favoritos" : "Favoritar (meu colégio)"}>
             <ActionIcon
               variant="subtle"
               color="yellow"
               size="lg"
-              onClick={() => alternar({ type: "polling_place", ref: id, label: query.data?.name ?? id })}
+              onClick={() => toggle({ type: "polling_place", ref: id, label: query.data?.name ?? id })}
               aria-label="Favoritar local"
             >
-              {isFavorite ? <IconStarFilled size={20} /> : <IconStar size={20} />}
+              {favorite ? <IconStarFilled size={20} /> : <IconStar size={20} />}
             </ActionIcon>
           </Tooltip>
         </Group>
         <Grid gutter="md">
           <Grid.Col span={{ base: 12, lg: 7 }}>
             <Card p="md">
-              <PollingPlaceDetail localId={id} alturaLista={420} />
+              <PollingPlaceDetail placeId={id} listHeight={420} />
             </Card>
           </Grid.Col>
           <Grid.Col span={{ base: 12, lg: 5 }}>
@@ -52,10 +52,10 @@ export function PollingPlaceScreen({ id }: { id: string }) {
                 <Text fw={700} mb="xs">
                   Resultado agregado do local
                 </Text>
-                <WithResults>{(r) => <TotalsBlock res={r} />}</WithResults>
+                <WithResults>{(r) => <TotalsBlock result={r} />}</WithResults>
               </Card>
               <Card p="md">
-                <WithResults linhasSkeleton={5}>{(r) => <Scoreboard res={r} />}</WithResults>
+                <WithResults skeletonRows={5}>{(r) => <Scoreboard result={r} />}</WithResults>
               </Card>
             </Stack>
           </Grid.Col>
@@ -64,7 +64,7 @@ export function PollingPlaceScreen({ id }: { id: string }) {
               <Text fw={700} mb="xs">
                 Evolução (pelo horário de totalização dos BUs)
               </Text>
-              <Evolution altura={260} />
+              <Evolution height={260} />
             </Card>
           </Grid.Col>
         </Grid>

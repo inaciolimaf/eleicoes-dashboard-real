@@ -64,7 +64,7 @@ export function NewAlertCard() {
           {fields.office && (
             <Select
               label="Cargo"
-              data={OFFICE_OPTIONS.map((o) => ({ value: o.valor, label: o.rotulo }))}
+              data={OFFICE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
               value={String(officeCode === 8 ? 7 : officeCode)}
               onChange={(value) => setOfficeCode(Number(value ?? 1))}
               allowDeselect={false}
@@ -78,9 +78,9 @@ export function NewAlertCard() {
               label="Candidato"
               value={candidateCode}
               onChange={setCandidateCode}
-              turno={filter.turno}
-              cargo={officeCode}
-              uf={geoArea ? stateOfId(geoArea.nivel, geoArea.id) : null}
+round={filter.turno}
+office={officeCode}
+state={geoArea ? stateOfId(geoArea.nivel, geoArea.id) : null}
             />
           )}
           {fields.limit && (
@@ -97,9 +97,9 @@ export function NewAlertCard() {
         {fields.pollingPlace && (
           <GeoAreaPicker
             label="Local de votação"
-            tipos={["polling_place"]}
-            incluirBrasil={false}
-            incluirUfs={false}
+types={["polling_place"]}
+includeBrazil={false}
+includeStates={false}
             value={pollingPlace}
             onChange={setPollingPlace}
           />

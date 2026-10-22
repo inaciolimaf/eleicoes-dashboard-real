@@ -22,13 +22,13 @@ export function EventsWidget({ config, height }: WidgetProps) {
   const onlyArea = configBool(config, "soRecorte", false);
   return (
     <EventFeed
-      tipos={configArray(config, "tipos")}
-      limite={configNumber(config, "limite", 50)}
-      cargo={configBool(config, "soCargo", false) ? filter.cargo : null}
-      nivel={onlyArea ? filter.nivel : null}
+types={configArray(config, "tipos")}
+limit={configNumber(config, "limite", 50)}
+office={configBool(config, "soCargo", false) ? filter.cargo : null}
+level={onlyArea ? filter.nivel : null}
       id={onlyArea ? filter.id : null}
-      compacto={height < 220}
-      alturaMax={height}
+compact={height < 220}
+maxHeight={height}
     />
   );
 }
@@ -37,7 +37,7 @@ export function EventsWidget({ config, height }: WidgetProps) {
 export function CandidateWidget({ config, height }: WidgetProps) {
   return (
     <ScrollBody height={height}>
-      <CandidateCard sqcand={configStringOrNull(config, "sqcand")} />
+      <CandidateCard tseCandidateId={configStringOrNull(config, "sqcand")} />
     </ScrollBody>
   );
 }
@@ -48,7 +48,7 @@ export function PollingPlaceWidget({ config, height }: WidgetProps) {
   const id = configStringOrNull(config, "localId") ?? (filter.nivel === "polling_place" ? filter.id : null);
   return (
     <ScrollBody height={height}>
-      <PollingPlaceDetail localId={id} alturaLista={Math.max(160, height - 120)} />
+      <PollingPlaceDetail placeId={id} listHeight={Math.max(160, height - 120)} />
     </ScrollBody>
   );
 }
@@ -59,7 +59,7 @@ export function SectionWidget({ config, height }: WidgetProps) {
   const id = configStringOrNull(config, "secaoId") ?? (filter.nivel === "section" ? filter.id : null);
   return (
     <ScrollBody height={height}>
-      <SectionDetail secaoId={id} compacto />
+      <SectionDetail sectionId={id} compact />
     </ScrollBody>
   );
 }

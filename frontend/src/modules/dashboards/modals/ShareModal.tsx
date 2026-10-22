@@ -13,7 +13,7 @@ interface ShareModalProps {
 /** Creates a public link to a dashboard (live or frozen in time). Needs the dashboard saved in the account. */
 export function ShareModal({ dashboard, open, onClose }: ShareModalProps) {
   const loggedIn = !!useAuth((s) => s.token);
-  const openAuth = useUi((s) => s.setAuthAberto);
+  const openAuth = useUi((s) => s.setAuthOpen);
   const share = useShareLink(dashboard);
 
   return (

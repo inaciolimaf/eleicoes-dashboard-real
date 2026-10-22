@@ -130,7 +130,7 @@ function configOf(editor: EditorState, dashboard: Dashboard): DashboardConfig {
 
 function EmptyDashboard({ onAddWidget }: { onAddWidget: () => void }) {
   return (
-    <NoData titulo="Painel vazio">
+    <NoData title="Painel vazio">
       <Stack align="center" gap="xs">
         <span>Adicione widgets do catálogo para montar o seu painel.</span>
         <Button leftSection={<IconPlus size={16} />} onClick={onAddWidget}>

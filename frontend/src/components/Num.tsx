@@ -22,51 +22,51 @@ export function useFlash(value: unknown): boolean {
 }
 
 interface NumProps {
-  valor: number | null | undefined;
-  tipo?: "int" | "pct" | "pp" | "compact" | "dec";
-  casas?: number;
+  value: number | null | undefined;
+  kind?: "int" | "pct" | "pp" | "compact" | "dec";
+  decimals?: number;
   className?: string;
   style?: CSSProperties;
-  sufixo?: string;
-  prefixo?: string;
-  brilho?: boolean;
+  suffix?: string;
+  prefix?: string;
+  glow?: boolean;
 }
 
 /** Animated number (it rolls to the new value), formatted in pt-BR, with a glow when it changes. */
 export function Num({
-  valor,
-  tipo = "int",
-  casas,
+  value,
+  kind = "int",
+  decimals,
   className,
   style,
-  sufixo,
-  prefixo,
-  brilho = true,
+  suffix,
+  prefix,
+  glow = true,
 }: NumProps) {
   const animated = usePrefs((s) => s.animacoes);
-  const flash = useFlash(valor);
-  const classes = ["num", brilho && flash ? "glow" : "", className ?? ""].join(" ");
-  if (valor === null || valor === undefined || !Number.isFinite(valor)) {
+  const flash = useFlash(value);
+  const classes = ["num", glow && flash ? "glow" : "", className ?? ""].join(" ");
+  if (value === null || value === undefined || !Number.isFinite(value)) {
     return (
       <span className={classes} style={style}>
         —
       </span>
     );
   }
-  const decimals = casas ?? (tipo === "pct" || tipo === "pp" ? 2 : tipo === "dec" ? 1 : 0);
+  const digits = decimals ?? (kind === "pct" || kind === "pp" ? 2 : kind === "dec" ? 1 : 0);
   const format: Format =
-    tipo === "compact"
+    kind === "compact"
       ? { notation: "compact", maximumFractionDigits: 1 }
-      : { minimumFractionDigits: tipo === "int" ? 0 : decimals, maximumFractionDigits: decimals };
-  const suffix = sufixo ?? (tipo === "pct" ? "%" : tipo === "pp" ? " p.p." : undefined);
+      : { minimumFractionDigits: kind === "int" ? 0 : digits, maximumFractionDigits: digits };
+  const suffixText = suffix ?? (kind === "pct" ? "%" : kind === "pp" ? " p.p." : undefined);
   return (
     <span className={classes} style={{ display: "inline-block", ...style }}>
       <NumberFlow
-        value={valor}
+        value={value}
         locales="pt-BR"
         format={format}
-        suffix={suffix}
-        prefix={prefixo}
+        suffix={suffixText}
+        prefix={prefix}
         animated={animated}
         willChange
       />

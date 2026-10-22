@@ -53,7 +53,7 @@ export interface DefWidget {
   fields: FieldConfig[];
   Component: ComponentType<WidgetProps>;
   /** Which data the CSV/JSON export of the widget uses (`/export`). */
-  exportKind?: "resultados" | "filhos";
+  exportKind?: "results" | "children";
 }
 
 /** Option list for a select field, from `[value, label]` pairs. */

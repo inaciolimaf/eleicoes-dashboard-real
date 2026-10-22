@@ -94,7 +94,7 @@ function applyEvent(qc: QueryClient, e: EventDto, round: number, frozen: boolean
       old && !old.events.some((x) => x.id === e.id) ? { ...old, events: [...old.events, e] } : old,
     );
   }
-  if (frozen) useTime.getState().incNovidades();
+  if (frozen) useTime.getState().incUpdates();
   const prefs = usePrefs.getState();
   if (prefs.toasts.includes(e.type)) {
     notifications.show({
@@ -139,7 +139,7 @@ export function applyMessage(qc: QueryClient, msg: WsServerMessage) {
       return;
     case "results": {
       if (frozen) {
-        useTime.getState().incNovidades();
+        useTime.getState().incUpdates();
         return;
       }
       const [, round, office, level, ...rest] = msg.topic.split(":");

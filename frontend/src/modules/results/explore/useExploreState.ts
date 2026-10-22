@@ -30,10 +30,10 @@ export function useExploreState(level: Level, id: string) {
   const [allMunicipalities, setAllMunicipalities] = useState(false);
   const [axis, setAxis] = useState<EvolutionAxisChoice>("t");
   const [metric, setMetric] = useState<EvolutionMetricChoice>("pct");
-  const { eFavorito, alternar } = useFavorites();
+  const { isFavorite, toggle } = useFavorites();
   const name = query.data?.geo_area.name ?? defaultGeoAreaName(level, id);
   const parent = query.data?.geo_area.breadcrumb?.[query.data.geo_area.breadcrumb.length - 2];
-  const favorite = eFavorito("geo_area", `${level}:${id}`);
+  const favorite = isFavorite("geo_area", `${level}:${id}`);
 
   /** Opens an area: the filter store follows it, except for the places and sections, which have their own pages. */
   const openArea = (areaLevel: Level, areaId: string, areaName?: string) => {
@@ -50,11 +50,11 @@ export function useExploreState(level: Level, id: string) {
     name,
     parent,
     favorite,
-    toggleFavorite: () => alternar({ type: "geo_area", ref: `${level}:${id}`, label: name }),
+    toggleFavorite: () => toggle({ type: "geo_area", ref: `${level}:${id}`, label: name }),
     childLevel: childLevelOf(level),
     /** Level of the table's rows: the municipalities when the country lists all of them. */
     childrenParam: (level === "country" && allMunicipalities ? "municipality" : null) as Level | null,
-    mapTypes: MAP_TYPES.filter((type) => !type.proporcional || proportional),
+    mapTypes: MAP_TYPES.filter((type) => !type.proportional || proportional),
     mapType,
     setMapType,
     allMunicipalities,

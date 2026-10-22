@@ -60,7 +60,7 @@ function NavItem({
 /** One link per dashboard the user has; the default one also answers the home screen. */
 function DashboardLinks() {
   const { pathname } = useLocation();
-  const { paineis: dashboards } = useDashboards();
+  const { dashboards } = useDashboards();
   const closeNavbar = useUi((s) => s.setNavbar);
   if (dashboards.length === 0)
     return (
@@ -80,12 +80,12 @@ function DashboardLinks() {
           key={dashboard.id}
           component={Link}
           to={`/paineis/${dashboard.id}`}
-          label={dashboard.nome}
+          label={dashboard.name}
           leftSection={<IconLayoutDashboard size={18} stroke={1.6} />}
           rightSection={
-            dashboard.padrao ? <IconStarFilled size={12} color="var(--mantine-color-yellow-5)" /> : undefined
+            dashboard.isDefault ? <IconStarFilled size={12} color="var(--mantine-color-yellow-5)" /> : undefined
           }
-          active={pathname === `/paineis/${dashboard.id}` || (pathname === "/" && dashboard.padrao)}
+          active={pathname === `/paineis/${dashboard.id}` || (pathname === "/" && dashboard.isDefault)}
           onClick={() => closeNavbar(false)}
           style={NAV_RADIUS}
         />
@@ -156,7 +156,7 @@ export function Navbar() {
           {user?.is_admin && <NavItem to="/admin" label="Admin" icon={IconShieldLock} />}
         </Stack>
       </ScrollArea>
-      <NewDashboardModal aberto={creating} onClose={() => setCreating(false)} />
+      <NewDashboardModal open={creating} onClose={() => setCreating(false)} />
     </>
   );
 }

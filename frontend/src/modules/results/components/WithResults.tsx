@@ -42,7 +42,7 @@ export function StateChoice({
               key={u.uf}
               size="compact-xs"
               variant="default"
-              onClick={() => onSelectState(u.uf, u.nome)}
+              onClick={() => onSelectState(u.uf, u.name)}
             >
               {u.uf.toUpperCase()}
             </Button>
@@ -73,8 +73,8 @@ export function WithResults({ level, id, children, skeletonRows = 4, onSelectSta
   );
   useLive([!withoutBrResult && topic.results(filter.turno, filter.cargo, resolvedLevel, resolvedId)]);
   if (withoutBrResult) return <StateChoice office={filter.cargo} onSelectState={onSelectState} />;
-  if (query.isLoading) return <Loading linhas={skeletonRows} />;
-  if (query.error) return <ErrorView erro={query.error} onRetry={() => query.refetch()} />;
+  if (query.isLoading) return <Loading rows={skeletonRows} />;
+  if (query.error) return <ErrorView error={query.error} onRetry={() => query.refetch()} />;
   if (!query.data || query.data.no_data) return <NoData />;
   return <>{children(query.data)}</>;
 }

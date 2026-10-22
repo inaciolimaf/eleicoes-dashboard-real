@@ -33,7 +33,7 @@ export function useMapData(args: MapDataArgs) {
   const stateMesh = useStateMesh();
   const municipalityMesh = useMunicipalityMesh(mode !== "uf");
   const base = useChildren(
-    { turno: round, cargo: office, nivel: level, id, t, filhos: childLevel },
+    { turno: round, cargo: office, nivel: level, id, t, childLevel: childLevel },
     mode !== "pontos",
   );
   const selection = useCandidateSelection(args.candidateA, args.candidateB, base.data?.candidates);
@@ -47,8 +47,8 @@ export function useMapData(args: MapDataArgs) {
       nivel: level,
       id,
       t,
-      filhos: childLevel,
-      candidatos: requested.filter((x): x is string => !!x),
+      childLevel: childLevel,
+      candidates: requested.filter((x): x is string => !!x),
     },
     mode !== "pontos" && needsValues && !!efA,
   );
@@ -69,7 +69,7 @@ export function useMapData(args: MapDataArgs) {
   );
   // the winners per candidate across Brazil, for the legend of a highlighted candidate on the state map
   const countryWinners = useChildren(
-    { turno: round, cargo: office, nivel: "country", id: "br", t, filhos: "municipality" },
+    { turno: round, cargo: office, nivel: "country", id: "br", t, childLevel: "municipality" },
     mode === "uf" && !!highlight && type === "vencedores",
   );
 

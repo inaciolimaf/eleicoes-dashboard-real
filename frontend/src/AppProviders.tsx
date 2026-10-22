@@ -11,7 +11,7 @@ import { PrefsSync } from "./modules/accounts";
 /** Theme, dates, modals and toasts around the app; the screen tests render inside the same providers. */
 export function AppProviders({ children }: { children: ReactNode }) {
   const density = usePrefs((s) => s.densidade);
-  const tvMode = useUi((s) => s.modoTv);
+  const tvMode = useUi((s) => s.tvMode);
   const theme = useMemo(
     () => buildTheme(tvMode ? 1.3 : density === "compacta" ? 0.92 : 1),
     [density, tvMode],

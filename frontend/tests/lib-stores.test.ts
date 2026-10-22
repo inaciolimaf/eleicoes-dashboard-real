@@ -13,8 +13,8 @@ beforeEach(() => {
   useFilter.setState({ ...DEFAULT_FILTER });
   usePrefs.setState({ ...DEFAULT_PREFS, coresCandidatos: {} });
   useAuth.setState({ token: null, user: null });
-  useUi.setState({ navbarAberta: false, modoTv: false, authAberto: false, wsEstado: "conectando" });
-  useTime.setState({ t: null, tocando: false, velocidade: 60, novidades: 0 });
+  useUi.setState({ navbarOpen: false, tvMode: false, authOpen: false, wsStatus: "connecting" });
+  useTime.setState({ t: null, playing: false, speed: 60, updates: 0 });
 });
 
 describe("filter store", () => {
@@ -77,11 +77,11 @@ describe("auth store", () => {
   const user = { id: "u1", email: "ana@example.com", name: "Ana", is_admin: false };
 
   it("opens and ends the session", () => {
-    useAuth.getState().setSessao("tok", user);
+    useAuth.getState().setSession("tok", user);
     expect(useAuth.getState()).toMatchObject({ token: "tok", user });
-    useAuth.getState().setUsuario({ ...user, name: "Ana Lima" });
+    useAuth.getState().setUser({ ...user, name: "Ana Lima" });
     expect(useAuth.getState().user?.name).toBe("Ana Lima");
-    useAuth.getState().sair();
+    useAuth.getState().signOut();
     expect(useAuth.getState()).toMatchObject({ token: null, user: null });
   });
 
@@ -106,16 +106,16 @@ describe("auth store", () => {
 describe("ui store", () => {
   it("toggles and sets the layout flags", () => {
     useUi.getState().toggleNavbar();
-    expect(useUi.getState().navbarAberta).toBe(true);
+    expect(useUi.getState().navbarOpen).toBe(true);
     useUi.getState().setNavbar(false);
-    useUi.getState().setModoTv(true);
-    useUi.getState().setAuthAberto(true);
-    expect(useUi.getState()).toMatchObject({ navbarAberta: false, modoTv: true, authAberto: true });
+    useUi.getState().setTvMode(true);
+    useUi.getState().setAuthOpen(true);
+    expect(useUi.getState()).toMatchObject({ navbarOpen: false, tvMode: true, authOpen: true });
   });
 
   it("keeps the WebSocket state", () => {
-    useUi.getState().setWsEstado("aberto");
-    expect(useUi.getState().wsEstado).toBe("aberto");
+    useUi.getState().setWsStatus("open");
+    expect(useUi.getState().wsStatus).toBe("open");
   });
 
   it("toggles the desktop navigation", () => {
@@ -129,19 +129,19 @@ describe("time store", () => {
   it("selects an instant and returns to live", () => {
     useTime.getState().setT("2026-10-04T18:00:00Z");
     expect(useTime.getState().t).toBe("2026-10-04T18:00:00Z");
-    useTime.getState().incNovidades();
-    useTime.getState().incNovidades();
-    expect(useTime.getState().novidades).toBe(2);
+    useTime.getState().incUpdates();
+    useTime.getState().incUpdates();
+    expect(useTime.getState().updates).toBe(2);
     useTime.getState().setT(null);
-    expect(useTime.getState()).toMatchObject({ t: null, tocando: false, novidades: 0 });
+    expect(useTime.getState()).toMatchObject({ t: null, playing: false, updates: 0 });
   });
 
   it("plays at a speed and resets to live", () => {
-    useTime.getState().setVelocidade(300);
-    useTime.getState().setTocando(true);
-    expect(useTime.getState()).toMatchObject({ velocidade: 300, tocando: true });
-    useTime.getState().incNovidades();
-    useTime.getState().aoVivo();
-    expect(useTime.getState()).toMatchObject({ t: null, tocando: false, novidades: 0 });
+    useTime.getState().setSpeed(300);
+    useTime.getState().setPlaying(true);
+    expect(useTime.getState()).toMatchObject({ speed: 300, playing: true });
+    useTime.getState().incUpdates();
+    useTime.getState().goLive();
+    expect(useTime.getState()).toMatchObject({ t: null, playing: false, updates: 0 });
   });
 });

@@ -20,10 +20,10 @@ function Stat({
         <Text size="xs" c="dimmed" tt="uppercase" fw={600} style={{ letterSpacing: 0.4 }}>
           {label}
         </Text>
-        <Num valor={value} style={{ fontSize: "1.05rem", fontWeight: 600 }} />
+        <Num value={value} style={{ fontSize: "1.05rem", fontWeight: 600 }} />
         {pct !== undefined && pct !== null && (
           <Text size="xs" c="dimmed">
-            <Num valor={pct} tipo="pct" brilho={false} />
+            <Num value={pct} kind="pct" glow={false} />
           </Text>
         )}
       </Stack>

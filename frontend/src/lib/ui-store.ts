@@ -2,27 +2,27 @@ import { persist as persistNav } from "zustand/middleware";
 import { create } from "zustand";
 
 interface UiState {
-  navbarAberta: boolean;
-  modoTv: boolean;
-  authAberto: boolean;
-  wsEstado: "conectando" | "aberto" | "reconectando" | "fechado";
+  navbarOpen: boolean;
+  tvMode: boolean;
+  authOpen: boolean;
+  wsStatus: "connecting" | "open" | "reconnecting" | "closed";
   toggleNavbar: () => void;
   setNavbar: (b: boolean) => void;
-  setModoTv: (b: boolean) => void;
-  setAuthAberto: (b: boolean) => void;
-  setWsEstado: (e: UiState["wsEstado"]) => void;
+  setTvMode: (b: boolean) => void;
+  setAuthOpen: (b: boolean) => void;
+  setWsStatus: (e: UiState["wsStatus"]) => void;
 }
 
 export const useUi = create<UiState>()((set) => ({
-  navbarAberta: false,
-  modoTv: false,
-  authAberto: false,
-  wsEstado: "conectando",
-  toggleNavbar: () => set((s) => ({ navbarAberta: !s.navbarAberta })),
-  setNavbar: (navbarAberta) => set({ navbarAberta }),
-  setModoTv: (modoTv) => set({ modoTv }),
-  setAuthAberto: (authOpen) => set({ authAberto: authOpen }),
-  setWsEstado: (wsEstado) => set({ wsEstado }),
+  navbarOpen: false,
+  tvMode: false,
+  authOpen: false,
+  wsStatus: "connecting",
+  toggleNavbar: () => set((s) => ({ navbarOpen: !s.navbarOpen })),
+  setNavbar: (navbarOpen) => set({ navbarOpen }),
+  setTvMode: (tvMode) => set({ tvMode }),
+  setAuthOpen: (authOpen) => set({ authOpen: authOpen }),
+  setWsStatus: (wsStatus) => set({ wsStatus }),
 }));
 
 interface NavDesktopState {

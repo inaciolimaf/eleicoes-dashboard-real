@@ -239,9 +239,9 @@ function TemplateOptions({ template, name, onNameChange, areaId, onArea }: Templ
         {template.needs && (
           <GeoAreaPicker
             label={NEEDS_LABEL[template.needs]}
-            tipos={[template.needs]}
-            incluirBrasil={false}
-            incluirUfs={template.needs === "state"}
+types={[template.needs]}
+includeBrazil={false}
+includeStates={template.needs === "state"}
             value={areaId}
             onChange={onArea}
           />

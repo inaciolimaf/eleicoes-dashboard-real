@@ -254,7 +254,7 @@ function OfficeResults({
   section: PollingSectionDto;
   initialOffice: number | undefined;
 }) {
-  if (section.offices.length === 0) return <NoData titulo="Boletim de urna ainda não coletado" />;
+  if (section.offices.length === 0) return <NoData title="Boletim de urna ainda não coletado" />;
   return (
     <Tabs defaultValue={String(initialOffice)} variant="outline">
       <ScrollArea type="never">
@@ -275,18 +275,18 @@ function OfficeResults({
 
 /** Ballot box of a section: status, facts, the hash and the votes per office. */
 export function SectionDetail({
-  secaoId,
-  compacto,
+  sectionId,
+  compact,
 }: {
-  secaoId: string | null | undefined;
-  compacto?: boolean;
+  sectionId: string | null | undefined;
+  compact?: boolean;
 }) {
   const filter = useEffectiveFilter();
-  const query = useSection(secaoId, filter.turno);
-  if (!secaoId)
-    return <NoData titulo="Escolha uma seção">Use a busca (Ctrl+K) ou configure o widget.</NoData>;
-  if (query.isLoading) return <Loading linhas={4} />;
-  if (query.error) return <ErrorView erro={query.error} onRetry={() => query.refetch()} />;
+  const query = useSection(sectionId, filter.turno);
+  if (!sectionId)
+    return <NoData title="Escolha uma seção">Use a busca (Ctrl+K) ou configure o widget.</NoData>;
+  if (query.isLoading) return <Loading rows={4} />;
+  if (query.error) return <ErrorView error={query.error} onRetry={() => query.refetch()} />;
   const section = query.data;
   if (!section) return <NoData />;
   const initialOffice =
@@ -295,8 +295,8 @@ export function SectionDetail({
   return (
     <Stack gap="sm">
       <SectionHeader section={section} />
-      <SectionFacts section={section} compact={compacto} />
-      {!compacto && <HashRow section={section} />}
+      <SectionFacts section={section} compact={compact} />
+      {!compact && <HashRow section={section} />}
       <OfficeResults section={section} initialOffice={initialOffice} />
     </Stack>
   );

@@ -71,7 +71,7 @@ describe("useTimelineEvents", () => {
 describe("useReplayClock", () => {
   it("moves the clock by the speed every two seconds and stops when paused", () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval"] });
-    useTime.setState({ velocidade: 60 });
+    useTime.setState({ speed: 60 });
     const backToLive = vi.fn();
     const { rerender } = renderHook(
       ({ playing }) => useReplayClock(playing, BASE, BASE + 3600_000, backToLive),
@@ -89,7 +89,7 @@ describe("useReplayClock", () => {
 
   it("goes back to live when the replay reaches the end", () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval"] });
-    useTime.setState({ velocidade: 300, t: new Date(BASE + 3599_000).toISOString() });
+    useTime.setState({ speed: 300, t: new Date(BASE + 3599_000).toISOString() });
     const backToLive = vi.fn();
     renderHook(() => useReplayClock(true, BASE, BASE + 3600_000, backToLive));
     act(() => vi.advanceTimersByTime(2000));

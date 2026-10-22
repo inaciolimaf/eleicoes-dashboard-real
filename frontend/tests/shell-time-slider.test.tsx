@@ -42,16 +42,16 @@ describe("shell time slider", () => {
     fakeApi(shellAnswers({ "GET /timeline": timelineWith(TIMELINE_EVENTS) }));
     const { user } = await renderScreen("/conta");
     await user.click(await screen.findByRole("button", { name: "Reproduzir" }));
-    expect(useTime.getState().tocando).toBe(true);
+    expect(useTime.getState().playing).toBe(true);
     await user.click(screen.getByRole("button", { name: "Pausar" }));
-    expect(useTime.getState().tocando).toBe(false);
+    expect(useTime.getState().playing).toBe(false);
   });
 
   it("changes the replay speed", async () => {
     fakeApi(shellAnswers({ "GET /timeline": timelineWith(TIMELINE_EVENTS) }));
     const { user } = await renderScreen("/conta");
     await user.click(await screen.findByRole("radio", { name: "10×" }));
-    expect(useTime.getState().velocidade).toBe(10);
+    expect(useTime.getState().speed).toBe(10);
   });
 
   it("jumps to the next event from the clock and back to the previous one", async () => {
@@ -70,7 +70,7 @@ describe("shell time slider", () => {
   it("offers to return to live from the novelty badge and the AO VIVO button", async () => {
     fakeApi(shellAnswers({ "GET /timeline": timelineWith(TIMELINE_EVENTS) }));
     const { user } = await renderScreen("/conta");
-    useTime.setState({ t: minutesAgo(60), novidades: 2 });
+    useTime.setState({ t: minutesAgo(60), updates: 2 });
     await user.click(await screen.findByText(/2 novidades/));
     expect(useTime.getState().t).toBeNull();
     useTime.setState({ t: minutesAgo(60) });

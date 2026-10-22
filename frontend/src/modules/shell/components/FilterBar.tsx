@@ -17,13 +17,13 @@ import { GeoCrumbs, defaultBreadcrumb } from "./GeoCrumbs";
 export function FilterBar() {
   const filter = useFilter();
   const time = useTime((s) => s.t);
-  const goLive = useTime((s) => s.aoVivo);
+  const goLive = useTime((s) => s.goLive);
   const withoutBrResult = useOfficeWithoutBrResult(filter.cargo, filter.nivel);
   const geoQuery = useResults(
     { turno: filter.turno, cargo: filter.cargo, nivel: filter.nivel, id: filter.id, t: time },
     !withoutBrResult && filter.nivel !== "country",
   );
-  const { favoritos: favorites, eFavorito: isFavorite, alternar: toggleFavorite } = useFavorites();
+  const { favorites, isFavorite, toggle: toggleFavorite } = useFavorites();
   const status = useStatus();
   const crumbs: GeoAreaRefDto[] = geoQuery.data?.geo_area.breadcrumb?.length
     ? geoQuery.data.geo_area.breadcrumb

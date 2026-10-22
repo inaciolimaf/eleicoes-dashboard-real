@@ -17,13 +17,13 @@ describe("candidate status labels", () => {
   ];
 
   it.each(cases)("maps %s to %s", (status, rotulo) => {
-    expect(SITUATION_STYLES[status].rotulo).toBe(rotulo);
+    expect(SITUATION_STYLES[status].label).toBe(rotulo);
   });
 
   it("gives every status a description and a colour", () => {
     for (const [status] of cases) {
-      expect(SITUATION_STYLES[status].descricao.length).toBeGreaterThan(0);
-      expect(SITUATION_STYLES[status].cor.length).toBeGreaterThan(0);
+      expect(SITUATION_STYLES[status].description.length).toBeGreaterThan(0);
+      expect(SITUATION_STYLES[status].color.length).toBeGreaterThan(0);
     }
   });
 });

@@ -60,9 +60,9 @@ export function AdminScreen() {
           </Button>
         </Group>
         {health.isLoading ? (
-          <Loading linhas={4} />
+          <Loading rows={4} />
         ) : health.error ? (
-          <ErrorView erro={health.error} onRetry={() => health.refetch()} />
+          <ErrorView error={health.error} onRetry={() => health.refetch()} />
         ) : health.data ? (
           <Metrics data={health.data} />
         ) : null}

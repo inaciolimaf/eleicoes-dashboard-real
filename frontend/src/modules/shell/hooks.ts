@@ -22,7 +22,7 @@ export function useSearch(text: string) {
 /** Goes back to the live view and refetches the live numbers: diffs were not applied while the view was in the past. */
 export function useBackToLive(): () => void {
   const queryClient = useQueryClient();
-  const goLive = useTime((s) => s.aoVivo);
+  const goLive = useTime((s) => s.goLive);
   return () => {
     goLive();
     queryClient.invalidateQueries({
@@ -46,7 +46,7 @@ export function useReplayClock(
     const id = setInterval(() => {
       const current = useTime.getState().t;
       const base = current ? new Date(current).getTime() : start;
-      const next = base + useTime.getState().velocidade * REPLAY_STEP_MS;
+      const next = base + useTime.getState().speed * REPLAY_STEP_MS;
       if (next >= end) {
         backToLive();
         return;

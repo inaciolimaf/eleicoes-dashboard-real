@@ -104,10 +104,10 @@ export function GeoAreaTable(props: GeoAreaTableProps) {
   });
   const { query, listedLevel, columns } = table;
   const onSelect = props.onSelect;
-  if (query.isLoading) return <Loading linhas={6} />;
-  if (query.error) return <ErrorView erro={query.error} onRetry={() => query.refetch()} />;
+  if (query.isLoading) return <Loading rows={6} />;
+  if (query.error) return <ErrorView error={query.error} onRetry={() => query.refetch()} />;
   if (!query.data || query.data.items.length === 0)
-    return <NoData titulo={`Sem ${LEVEL_PLURAL_LABELS[listedLevel].toLowerCase()} com dados`} />;
+    return <NoData title={`Sem ${LEVEL_PLURAL_LABELS[listedLevel].toLowerCase()} com dados`} />;
 
   const openItem = (item: ChildItemDto) =>
     onSelect ? () => onSelect(asLevel(item.level), item.id, item.name) : undefined;

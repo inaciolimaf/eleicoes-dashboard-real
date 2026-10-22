@@ -99,34 +99,34 @@ export function geoAreaLink(level: Level, id: string): string {
   return `/explorar/${segmentOfLevel(level)}/${encodeURIComponent(id)}`;
 }
 
-export const UFS: { uf: string; nome: string; regiao: string; capital: string }[] = [
-  { uf: "ac", nome: "Acre", regiao: "Norte", capital: "Rio Branco" },
-  { uf: "al", nome: "Alagoas", regiao: "Nordeste", capital: "Maceió" },
-  { uf: "am", nome: "Amazonas", regiao: "Norte", capital: "Manaus" },
-  { uf: "ap", nome: "Amapá", regiao: "Norte", capital: "Macapá" },
-  { uf: "ba", nome: "Bahia", regiao: "Nordeste", capital: "Salvador" },
-  { uf: "ce", nome: "Ceará", regiao: "Nordeste", capital: "Fortaleza" },
-  { uf: "df", nome: "Distrito Federal", regiao: "Centro-Oeste", capital: "Brasília" },
-  { uf: "es", nome: "Espírito Santo", regiao: "Sudeste", capital: "Vitória" },
-  { uf: "go", nome: "Goiás", regiao: "Centro-Oeste", capital: "Goiânia" },
-  { uf: "ma", nome: "Maranhão", regiao: "Nordeste", capital: "São Luís" },
-  { uf: "mg", nome: "Minas Gerais", regiao: "Sudeste", capital: "Belo Horizonte" },
-  { uf: "ms", nome: "Mato Grosso do Sul", regiao: "Centro-Oeste", capital: "Campo Grande" },
-  { uf: "mt", nome: "Mato Grosso", regiao: "Centro-Oeste", capital: "Cuiabá" },
-  { uf: "pa", nome: "Pará", regiao: "Norte", capital: "Belém" },
-  { uf: "pb", nome: "Paraíba", regiao: "Nordeste", capital: "João Pessoa" },
-  { uf: "pe", nome: "Pernambuco", regiao: "Nordeste", capital: "Recife" },
-  { uf: "pi", nome: "Piauí", regiao: "Nordeste", capital: "Teresina" },
-  { uf: "pr", nome: "Paraná", regiao: "Sul", capital: "Curitiba" },
-  { uf: "rj", nome: "Rio de Janeiro", regiao: "Sudeste", capital: "Rio de Janeiro" },
-  { uf: "rn", nome: "Rio Grande do Norte", regiao: "Nordeste", capital: "Natal" },
-  { uf: "ro", nome: "Rondônia", regiao: "Norte", capital: "Porto Velho" },
-  { uf: "rr", nome: "Roraima", regiao: "Norte", capital: "Boa Vista" },
-  { uf: "rs", nome: "Rio Grande do Sul", regiao: "Sul", capital: "Porto Alegre" },
-  { uf: "sc", nome: "Santa Catarina", regiao: "Sul", capital: "Florianópolis" },
-  { uf: "se", nome: "Sergipe", regiao: "Nordeste", capital: "Aracaju" },
-  { uf: "sp", nome: "São Paulo", regiao: "Sudeste", capital: "São Paulo" },
-  { uf: "to", nome: "Tocantins", regiao: "Norte", capital: "Palmas" },
+export const UFS: { uf: string; name: string; region: string; capital: string }[] = [
+  { uf: "ac", name: "Acre", region: "Norte", capital: "Rio Branco" },
+  { uf: "al", name: "Alagoas", region: "Nordeste", capital: "Maceió" },
+  { uf: "am", name: "Amazonas", region: "Norte", capital: "Manaus" },
+  { uf: "ap", name: "Amapá", region: "Norte", capital: "Macapá" },
+  { uf: "ba", name: "Bahia", region: "Nordeste", capital: "Salvador" },
+  { uf: "ce", name: "Ceará", region: "Nordeste", capital: "Fortaleza" },
+  { uf: "df", name: "Distrito Federal", region: "Centro-Oeste", capital: "Brasília" },
+  { uf: "es", name: "Espírito Santo", region: "Sudeste", capital: "Vitória" },
+  { uf: "go", name: "Goiás", region: "Centro-Oeste", capital: "Goiânia" },
+  { uf: "ma", name: "Maranhão", region: "Nordeste", capital: "São Luís" },
+  { uf: "mg", name: "Minas Gerais", region: "Sudeste", capital: "Belo Horizonte" },
+  { uf: "ms", name: "Mato Grosso do Sul", region: "Centro-Oeste", capital: "Campo Grande" },
+  { uf: "mt", name: "Mato Grosso", region: "Centro-Oeste", capital: "Cuiabá" },
+  { uf: "pa", name: "Pará", region: "Norte", capital: "Belém" },
+  { uf: "pb", name: "Paraíba", region: "Nordeste", capital: "João Pessoa" },
+  { uf: "pe", name: "Pernambuco", region: "Nordeste", capital: "Recife" },
+  { uf: "pi", name: "Piauí", region: "Nordeste", capital: "Teresina" },
+  { uf: "pr", name: "Paraná", region: "Sul", capital: "Curitiba" },
+  { uf: "rj", name: "Rio de Janeiro", region: "Sudeste", capital: "Rio de Janeiro" },
+  { uf: "rn", name: "Rio Grande do Norte", region: "Nordeste", capital: "Natal" },
+  { uf: "ro", name: "Rondônia", region: "Norte", capital: "Porto Velho" },
+  { uf: "rr", name: "Roraima", region: "Norte", capital: "Boa Vista" },
+  { uf: "rs", name: "Rio Grande do Sul", region: "Sul", capital: "Porto Alegre" },
+  { uf: "sc", name: "Santa Catarina", region: "Sul", capital: "Florianópolis" },
+  { uf: "se", name: "Sergipe", region: "Nordeste", capital: "Aracaju" },
+  { uf: "sp", name: "São Paulo", region: "Sudeste", capital: "São Paulo" },
+  { uf: "to", name: "Tocantins", region: "Norte", capital: "Palmas" },
 ];
 
 export const STATE_BY_CODE: Record<string, (typeof UFS)[number]> = Object.fromEntries(
@@ -137,7 +137,7 @@ export const REGIONS = ["Norte", "Nordeste", "Centro-Oeste", "Sudeste", "Sul"];
 /** Display name of a geo area when the API has not answered yet. */
 export function defaultGeoAreaName(level: Level, id: string): string {
   if (level === "country") return "Brasil";
-  if (level === "state") return id === "zz" ? "Exterior" : (STATE_BY_CODE[id]?.nome ?? id.toUpperCase());
+  if (level === "state") return id === "zz" ? "Exterior" : (STATE_BY_CODE[id]?.name ?? id.toUpperCase());
   if (level === "zone") return `Zona ${Number(id.split("-z")[1] ?? "")}`;
   if (level === "section") return `Seção ${Number(id.split("-s")[1] ?? "")}`;
   return id;

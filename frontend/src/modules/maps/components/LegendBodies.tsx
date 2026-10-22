@@ -120,13 +120,13 @@ export function WinnersBody({
         })}
       </Stack>
       <Tooltip
-        label={`Opacidade proporcional à margem de vitória do líder: ${MARGIN_BANDS.map((f) => f.rotulo).join(" · ")}`}
+        label={`Opacidade proporcional à margem de vitória do líder: ${MARGIN_BANDS.map((f) => f.label).join(" · ")}`}
       >
         <Stack gap={2}>
           <Group gap={3} wrap="nowrap">
             {MARGIN_BANDS.map((f) => (
               <Box
-                key={f.rotulo}
+                key={f.label}
                 h={8}
                 style={{ flex: 1, background: `rgba(140,150,175,${f.alpha})`, borderRadius: 2 }}
               />

@@ -367,7 +367,7 @@ describe("map style and layers", () => {
 
   it("names every kind of map, and offers the party kind only to proportional offices", () => {
     expect(MAP_TYPE_LABELS.partido).toBe("Partido mais votado");
-    expect(MAP_TYPES.filter((t) => t.proporcional).map((t) => t.valor)).toEqual(["partido"]);
+    expect(MAP_TYPES.filter((t) => t.proportional).map((t) => t.value)).toEqual(["partido"]);
   });
 
   function inputs(over: Partial<MapLayerInputs>): MapLayerInputs {

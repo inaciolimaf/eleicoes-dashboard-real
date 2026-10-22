@@ -11,7 +11,7 @@ import {
 import type { RefObject } from "react";
 import type { Level } from "../../../api/models";
 import { useEffectiveFilter } from "../../../lib/effective-filter";
-import { exportData, exportarPng } from "../../../lib/export";
+import { exportData, exportPng } from "../../../lib/export";
 import type { WidgetCfg } from "../schema";
 import { REGISTRY } from "../widgets/registry";
 
@@ -65,19 +65,19 @@ export function WidgetMenu({
           <>
             <Menu.Item
               leftSection={<IconFileTypeCsv size={14} />}
-              onClick={() => exportData(exportKind, "csv", { ...filter, filhos: children })}
+              onClick={() => exportData(exportKind, "csv", { ...filter, childLevel: children })}
             >
               Dados (CSV)
             </Menu.Item>
             <Menu.Item
               leftSection={<IconJson size={14} />}
-              onClick={() => exportData(exportKind, "json", { ...filter, filhos: children })}
+              onClick={() => exportData(exportKind, "json", { ...filter, childLevel: children })}
             >
               Dados (JSON)
             </Menu.Item>
           </>
         )}
-        <Menu.Item leftSection={<IconPhoto size={14} />} onClick={() => exportarPng(cardRef.current, title)}>
+        <Menu.Item leftSection={<IconPhoto size={14} />} onClick={() => exportPng(cardRef.current, title)}>
           Imagem (PNG)
         </Menu.Item>
         {onRemove && editing && (

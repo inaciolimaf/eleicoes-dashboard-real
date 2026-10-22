@@ -23,7 +23,7 @@ export function useMe() {
 }
 
 export function useLogin() {
-  const setSession = useAuth((s) => s.setSessao);
+  const setSession = useAuth((s) => s.setSession);
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (credentials: { email: string; password: string }) =>
@@ -39,7 +39,7 @@ export function useLogin() {
 }
 
 export function useRegister() {
-  const setSession = useAuth((s) => s.setSessao);
+  const setSession = useAuth((s) => s.setSession);
   return useMutation({
     mutationFn: (credentials: { email: string; password: string; name: string }) =>
       api<TokenDto>("/auth/register", {

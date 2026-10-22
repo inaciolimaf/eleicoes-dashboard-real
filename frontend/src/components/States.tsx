@@ -4,12 +4,12 @@ import type { ReactNode } from "react";
 import { ApiError } from "../api/client";
 
 /** Skeleton placeholder while data loads: rows, or one block of a given height. */
-export function Loading({ linhas = 4, altura }: { linhas?: number; altura?: number | string }) {
-  if (altura) return <Skeleton h={altura} radius="md" />;
+export function Loading({ rows = 4, height }: { rows?: number; height?: number | string }) {
+  if (height) return <Skeleton h={height} radius="md" />;
   return (
     <Stack gap="xs" p="xs" aria-busy="true" aria-label="Carregando">
       <Skeleton h={18} w="45%" radius="sm" />
-      {Array.from({ length: linhas }, (_, i) => (
+      {Array.from({ length: rows }, (_, i) => (
         <Group key={i} gap="sm" wrap="nowrap">
           <Skeleton circle h={32} w={32} />
           <Stack gap={6} style={{ flex: 1 }}>
@@ -23,7 +23,7 @@ export function Loading({ linhas = 4, altura }: { linhas?: number; altura?: numb
 }
 
 /** Empty state: a title and a hint (by default, the TSE has not published results yet). */
-export function NoData({ titulo = "Sem dados ainda", children }: { titulo?: string; children?: ReactNode }) {
+export function NoData({ title = "Sem dados ainda", children }: { title?: string; children?: ReactNode }) {
   return (
     <Center py="lg" px="sm" h="100%">
       <Stack align="center" gap={6} maw={360}>
@@ -31,7 +31,7 @@ export function NoData({ titulo = "Sem dados ainda", children }: { titulo?: stri
           <IconDatabaseOff size={22} />
         </ThemeIcon>
         <Text fw={600} ta="center">
-          {titulo}
+          {title}
         </Text>
         <Text size="sm" c="dimmed" ta="center">
           {children ??
@@ -42,20 +42,20 @@ export function NoData({ titulo = "Sem dados ainda", children }: { titulo?: stri
   );
 }
 
-/** Error state with the API message and a retry button; `compacto` is the one-line version for cards. */
+/** Error state with the API message and a retry button; `compact` is the one-line version for cards. */
 export function ErrorView({
-  erro,
+  error,
   onRetry,
-  compacto,
+  compact,
 }: {
-  erro: unknown;
+  error: unknown;
   onRetry?: () => void;
-  compacto?: boolean;
+  compact?: boolean;
 }) {
   const message =
-    erro instanceof ApiError ? erro.message : erro instanceof Error ? erro.message : "Erro inesperado.";
-  const status = erro instanceof ApiError ? erro.status : null;
-  if (compacto)
+    error instanceof ApiError ? error.message : error instanceof Error ? error.message : "Erro inesperado.";
+  const status = error instanceof ApiError ? error.status : null;
+  if (compact)
     return (
       <Group gap={6} p="xs" wrap="nowrap">
         <IconAlertTriangle size={16} color="var(--mantine-color-red-5)" />

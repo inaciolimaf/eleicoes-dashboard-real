@@ -113,8 +113,8 @@ export function ProgressHeatmap({
   const filter = useEffectiveFilter();
   const query = useProgress(filter.turno, filter.t);
   useLive([topic.progress(filter.turno)]);
-  if (query.isLoading) return <Loading altura={240} />;
-  if (query.error) return <ErrorView erro={query.error} onRetry={() => query.refetch()} />;
+  if (query.isLoading) return <Loading height={240} />;
+  if (query.error) return <ErrorView error={query.error} onRetry={() => query.refetch()} />;
   if (!query.data || !query.data.items.length) return <NoData />;
   const items = query.data.items.filter((item) => item.state_code !== ABROAD_STATE_CODE || mode === "list");
   return (

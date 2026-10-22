@@ -132,20 +132,20 @@ function SectionsTable({ place, listHeight }: { place: PollingPlaceDto; listHeig
 
 /** Polling place card: address, municipality and zone links, the map and the sections table. */
 export function PollingPlaceDetail({
-  localId,
+  placeId,
   showMap = true,
-  alturaLista,
+  listHeight,
 }: {
-  localId: string | null | undefined;
+  placeId: string | null | undefined;
   showMap?: boolean;
-  alturaLista?: number | string;
+  listHeight?: number | string;
 }) {
   const filter = useEffectiveFilter();
-  const query = usePollingPlace(localId, filter.turno);
-  if (!localId)
-    return <NoData titulo="Escolha um local de votação">Use a busca (Ctrl+K) ou configure o widget.</NoData>;
-  if (query.isLoading) return <Loading linhas={4} />;
-  if (query.error) return <ErrorView erro={query.error} onRetry={() => query.refetch()} />;
+  const query = usePollingPlace(placeId, filter.turno);
+  if (!placeId)
+    return <NoData title="Escolha um local de votação">Use a busca (Ctrl+K) ou configure o widget.</NoData>;
+  if (query.isLoading) return <Loading rows={4} />;
+  if (query.error) return <ErrorView error={query.error} onRetry={() => query.refetch()} />;
   const place = query.data;
   if (!place) return <NoData />;
   return (
@@ -161,10 +161,10 @@ export function PollingPlaceDetail({
               border: "1px solid var(--mantine-color-default-border)",
             }}
           >
-            <ElectoralMap tipo="locais" nivel="polling_place" id={place.id} legenda={false} altura={220} />
+            <ElectoralMap kind="locais" level="polling_place" id={place.id} legend={false} height={220} />
           </Box>
         )}
-        <SectionsTable place={place} listHeight={alturaLista} />
+        <SectionsTable place={place} listHeight={listHeight} />
       </SimpleGrid>
     </Stack>
   );

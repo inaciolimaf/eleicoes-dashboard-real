@@ -37,7 +37,7 @@ function tableColumns(level: Level, allMunicipalities: boolean, proportional: bo
 }
 
 function ChildrenExportMenu({ state, level, id }: { state: ExploreState; level: Level; id: string }) {
-  const exportArgs = { ...state.filter, nivel: level, id, filhos: state.childrenParam };
+  const exportArgs = { ...state.filter, nivel: level, id, childLevel: state.childrenParam };
   return (
     <Menu position="bottom-end">
       <Menu.Target>
@@ -46,8 +46,8 @@ function ChildrenExportMenu({ state, level, id }: { state: ExploreState; level: 
         </Button>
       </Menu.Target>
       <Menu.Dropdown>
-        <Menu.Item onClick={() => exportData("filhos", "csv", exportArgs)}>CSV</Menu.Item>
-        <Menu.Item onClick={() => exportData("filhos", "json", exportArgs)}>JSON</Menu.Item>
+        <Menu.Item onClick={() => exportData("children", "csv", exportArgs)}>CSV</Menu.Item>
+        <Menu.Item onClick={() => exportData("children", "json", exportArgs)}>JSON</Menu.Item>
       </Menu.Dropdown>
     </Menu>
   );

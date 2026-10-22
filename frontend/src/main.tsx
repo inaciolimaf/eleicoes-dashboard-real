@@ -23,7 +23,7 @@ const queryClient = new QueryClient({
   },
 });
 
-liveSocket.iniciar(queryClient);
+liveSocket.start(queryClient);
 
 function Root() {
   return (

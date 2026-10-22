@@ -6,25 +6,25 @@ export type Speed = (typeof SPEEDS)[number];
 interface TimeState {
   /** Selected instant (ISO UTC). null = live. */
   t: string | null;
-  tocando: boolean;
-  velocidade: Speed;
+  playing: boolean;
+  speed: Speed;
   /** updates received over the WebSocket while T is not live */
-  novidades: number;
+  updates: number;
   setT: (t: string | null) => void;
-  aoVivo: () => void;
-  setTocando: (b: boolean) => void;
-  setVelocidade: (v: Speed) => void;
-  incNovidades: () => void;
+  goLive: () => void;
+  setPlaying: (b: boolean) => void;
+  setSpeed: (v: Speed) => void;
+  incUpdates: () => void;
 }
 
 export const useTime = create<TimeState>()((set) => ({
   t: null,
-  tocando: false,
-  velocidade: 60,
-  novidades: 0,
-  setT: (t) => set(t === null ? { t: null, tocando: false, novidades: 0 } : { t }),
-  aoVivo: () => set({ t: null, tocando: false, novidades: 0 }),
-  setTocando: (tocando) => set({ tocando }),
-  setVelocidade: (velocidade) => set({ velocidade }),
-  incNovidades: () => set((s) => ({ novidades: s.novidades + 1 })),
+  playing: false,
+  speed: 60,
+  updates: 0,
+  setT: (t) => set(t === null ? { t: null, playing: false, updates: 0 } : { t }),
+  goLive: () => set({ t: null, playing: false, updates: 0 }),
+  setPlaying: (playing) => set({ playing }),
+  setSpeed: (speed) => set({ speed }),
+  incUpdates: () => set((s) => ({ updates: s.updates + 1 })),
 }));

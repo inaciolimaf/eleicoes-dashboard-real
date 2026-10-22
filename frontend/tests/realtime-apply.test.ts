@@ -35,7 +35,7 @@ let qc: QueryClient;
 beforeEach(() => {
   qc = new QueryClient();
   usePrefs.setState({ ...DEFAULT_PREFS, toasts: ["elected"], push: false });
-  useTime.setState({ t: null, novidades: 0 });
+  useTime.setState({ t: null, updates: 0 });
   vi.mocked(notifications.show).mockClear();
 });
 
@@ -69,7 +69,7 @@ describe("results", () => {
     useTime.setState({ t: "2026-10-04T18:00:00Z" });
     applyMessage(qc, msg({ type: "results", topic: "results:1:1:state:sp", data: { totals: 1 } }));
     expect(qc.getQueryData(qk.resultados(1, 1, "state", "sp", null))).toBeUndefined();
-    expect(useTime.getState().novidades).toBe(1);
+    expect(useTime.getState().updates).toBe(1);
   });
 });
 
@@ -129,7 +129,7 @@ describe("events", () => {
   it("counts the event while the time is frozen", () => {
     useTime.setState({ t: "2026-10-04T18:00:00Z" });
     applyMessage(qc, msg({ type: "event", topic: "events:1", data: event("f1") }));
-    expect(useTime.getState().novidades).toBe(1);
+    expect(useTime.getState().updates).toBe(1);
   });
 
   it("uses the default message and color when the event has no description or a known color", () => {

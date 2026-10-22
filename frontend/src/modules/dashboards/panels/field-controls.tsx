@@ -87,9 +87,9 @@ export function GeoPlaceField({ label, level, value, onChange }: GeoPlaceFieldPr
   return (
     <GeoAreaPicker
       label={label}
-      tipos={[level]}
-      incluirBrasil={false}
-      incluirUfs={false}
+types={[level]}
+includeBrazil={false}
+includeStates={false}
       value={selected}
       onChange={(next) => onChange(readGeoArea(next)?.id ?? undefined)}
     />
@@ -117,9 +117,9 @@ export function CandidateField({
       label={label}
       value={(value as string) ?? null}
       onChange={(next) => onChange(next ?? undefined)}
-      turno={round}
-      cargo={office}
-      uf={uf}
+round={round}
+office={office}
+state={uf}
     />
   );
 }

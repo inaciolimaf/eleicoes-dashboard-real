@@ -65,20 +65,20 @@ export function MapSidePanel(p: MapSidePanelProps) {
       </Text>
       <Stack gap={4}>
         {p.types.map((t) => (
-          <UnstyledButton key={t.valor} onClick={() => p.onTypeChange(t.valor)}>
+          <UnstyledButton key={t.value} onClick={() => p.onTypeChange(t.value)}>
             <Card
               p="xs"
               withBorder
               style={{
-                borderColor: p.type === t.valor ? "var(--mantine-color-eleicao-4)" : undefined,
-                background: p.type === t.valor ? "var(--mantine-color-default-hover)" : undefined,
+                borderColor: p.type === t.value ? "var(--mantine-color-eleicao-4)" : undefined,
+                background: p.type === t.value ? "var(--mantine-color-default-hover)" : undefined,
               }}
             >
               <Text size="sm" fw={700}>
-                {t.rotulo}
+                {t.label}
               </Text>
               <Text size="xs" c="dimmed">
-                {t.descricao}
+                {t.description}
               </Text>
             </Card>
           </UnstyledButton>
@@ -98,8 +98,8 @@ export function MapSidePanel(p: MapSidePanelProps) {
       />
       {!p.noBrResult && (
         <Card p="sm" withBorder>
-          <WithResults linhasSkeleton={3}>
-            {(r) => <Scoreboard res={r} opcoes={{ topN: 5, mostrarFotos: false }} />}
+          <WithResults skeletonRows={3}>
+            {(r) => <Scoreboard result={r} options={{ topN: 5, showPhotos: false }} />}
           </WithResults>
         </Card>
       )}

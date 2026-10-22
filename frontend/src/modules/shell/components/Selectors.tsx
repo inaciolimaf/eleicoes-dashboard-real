@@ -54,9 +54,9 @@ export function OfficeSelector({ onlySelect }: { onlySelect?: boolean }) {
   const { cargo: office, turno: round, ciclo: cycle, nivel: level, id, setFiltro: setFilter } = useFilter();
   const available = officesOfRound(elections.data, round, cycle).map((c) => Number(c.office_code));
   const options = OFFICE_OPTIONS.map((o) => ({
-    value: o.valor,
-    label: o.rotulo,
-    disabled: available.length > 0 && !o.cds.some((cd) => available.includes(cd)),
+    value: o.value,
+    label: o.label,
+    disabled: available.length > 0 && !o.codes.some((cd) => available.includes(cd)),
   }));
   // when the office does not exist in this round (e.g. the 2nd round), go to the first one that does
   useEffect(() => {

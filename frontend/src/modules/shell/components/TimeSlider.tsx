@@ -70,12 +70,12 @@ export function TimeSlider() {
   const timeline = useTimeline(round);
   const {
     t,
-    tocando: playing,
-    velocidade: speed,
-    novidades: newUpdates,
+    playing: playing,
+    speed: speed,
+    updates: newUpdates,
     setT,
-    setTocando: setPlaying,
-    setVelocidade: setSpeed,
+    setPlaying: setPlaying,
+    setSpeed: setSpeed,
   } = useTime();
   const isMobile = useMediaQuery("(max-width: 48em)");
   const start = timeline.data?.start ? new Date(timeline.data.start).getTime() : null;

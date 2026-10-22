@@ -146,7 +146,7 @@ export function CandidateCard({
               candidate.party_abbreviation,
               candidate.alliance && candidate.alliance !== candidate.party_abbreviation ? candidate.alliance : null,
               candidate.state_code
-                ? (STATE_BY_CODE[candidate.state_code]?.nome ?? candidate.state_code.toUpperCase())
+                ? (STATE_BY_CODE[candidate.state_code]?.name ?? candidate.state_code.toUpperCase())
                 : null,
             ]
               .filter(Boolean)

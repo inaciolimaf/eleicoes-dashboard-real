@@ -1,19 +1,19 @@
 import type { ElectionDto, OfficeDto } from "../api/models";
 
 export interface OfficeOption {
-  valor: string;
-  rotulo: string;
-  curto: string;
-  cds: number[];
+  value: string;
+  label: string;
+  short: string;
+  codes: number[];
 }
 
 /** Options of the office SegmentedControl. State/district resolves to 7 or 8 depending on the state. */
 export const OFFICE_OPTIONS: OfficeOption[] = [
-  { valor: "1", rotulo: "Presidente", curto: "Pres.", cds: [1] },
-  { valor: "3", rotulo: "Governador", curto: "Gov.", cds: [3] },
-  { valor: "5", rotulo: "Senador", curto: "Sen.", cds: [5] },
-  { valor: "6", rotulo: "Dep. Federal", curto: "Dep. Fed.", cds: [6] },
-  { valor: "7", rotulo: "Dep. Est./Distrital", curto: "Dep. Est.", cds: [7, 8] },
+  { value: "1", label: "Presidente", short: "Pres.", codes: [1] },
+  { value: "3", label: "Governador", short: "Gov.", codes: [3] },
+  { value: "5", label: "Senador", short: "Sen.", codes: [5] },
+  { value: "6", label: "Dep. Federal", short: "Dep. Fed.", codes: [6] },
+  { value: "7", label: "Dep. Est./Distrital", short: "Dep. Est.", codes: [7, 8] },
 ];
 
 export const OFFICE_NAME: Record<number, string> = {

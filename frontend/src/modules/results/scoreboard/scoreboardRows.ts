@@ -53,7 +53,7 @@ export function summaryLine(result: ResultsWithDataDto): string {
   const stateCode = result.geo_area.state_code;
   const stateText =
     stateCode && Number(result.office.office_code) !== PRESIDENT_OFFICE
-      ? ` · ${STATE_BY_CODE[stateCode]?.nome ?? stateCode.toUpperCase()}`
+      ? ` · ${STATE_BY_CODE[stateCode]?.name ?? stateCode.toUpperCase()}`
       : "";
   return `${result.candidates.length} candidato(s) · ${seatsText}${stateText}`;
 }

@@ -84,7 +84,7 @@ export function MapsScreen({ sp, setSp }: { sp: URLSearchParams; setSp: SetURLSe
   const mapId = filter.nivel === "section" ? (zoneOfId("section", filter.id) ?? filter.id) : filter.id;
   const breadcrumb = results.data?.geo_area.breadcrumb;
   const parent = breadcrumb?.[breadcrumb.length - 2];
-  const types = useMemo(() => MAP_TYPES.filter((t) => !t.proporcional || proportional), [proportional]);
+  const types = useMemo(() => MAP_TYPES.filter((t) => !t.proportional || proportional), [proportional]);
 
   const setParam = (key: string, value: string | null) => {
     const next = new URLSearchParams(sp);
@@ -130,12 +130,12 @@ export function MapsScreen({ sp, setSp }: { sp: URLSearchParams; setSp: SetURLSe
           }}
         >
           <ElectoralMap
-            tipo={type}
-            nivel={mapLevel}
+kind={type}
+level={mapLevel}
             id={mapId}
-            todosMunicipios={allMunicipalities}
-            onSelecionar={selectArea}
-            altura="100%"
+allMunicipalities={allMunicipalities}
+onSelect={selectArea}
+height="100%"
           />
         </Box>
         {!phone && (
@@ -151,7 +151,7 @@ export function MapsScreen({ sp, setSp }: { sp: URLSearchParams; setSp: SetURLSe
           opened={panelOpen}
           onOpen={open}
           onClose={close}
-          typeLabel={MAP_TYPES.find((t) => t.valor === type)?.rotulo}
+          typeLabel={MAP_TYPES.find((t) => t.value === type)?.label}
           level={filter.nivel}
         >
           {panel}

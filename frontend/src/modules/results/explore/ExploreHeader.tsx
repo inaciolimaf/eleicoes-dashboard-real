@@ -18,10 +18,10 @@ function ResultExportMenu({ filter, level, id }: { filter: EffectiveFilter; leve
         </Button>
       </Menu.Target>
       <Menu.Dropdown>
-        <Menu.Item onClick={() => exportData("resultados", "csv", { ...filter, nivel: level, id })}>
+        <Menu.Item onClick={() => exportData("results", "csv", { ...filter, nivel: level, id })}>
           CSV
         </Menu.Item>
-        <Menu.Item onClick={() => exportData("resultados", "json", { ...filter, nivel: level, id })}>
+        <Menu.Item onClick={() => exportData("results", "json", { ...filter, nivel: level, id })}>
           JSON
         </Menu.Item>
       </Menu.Dropdown>

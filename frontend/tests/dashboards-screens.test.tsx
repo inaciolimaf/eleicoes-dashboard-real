@@ -60,7 +60,7 @@ describe("home screen", () => {
     const api = fakeApi({});
     const { user } = await renderScreen("/");
     expect(await screen.findByText(/Este é o template/)).toBeInTheDocument();
-    expect(screen.getByText("Placar de candidatos")).toBeInTheDocument();
+    expect(screen.getAllByLabelText("Presidente").length).toBeGreaterThan(0);
 
     await user.click(screen.getByRole("button", { name: "Personalizar", hidden: true }));
     expect(

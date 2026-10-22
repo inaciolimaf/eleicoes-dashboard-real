@@ -57,4 +57,4 @@ export function timeQueryOptions(t: string | null, wsAberto: boolean) {
 }
 
 /** true while the WebSocket is open. */
-export const useWsOpen = () => useUi((s) => s.wsEstado === "aberto");
+export const useWsOpen = () => useUi((s) => s.wsStatus === "open");

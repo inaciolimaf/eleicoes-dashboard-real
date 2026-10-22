@@ -171,8 +171,8 @@ export function failWith(key: string, status: number, detail: string): void {
 export function resetStores(): void {
   localStorage.clear();
   useAuth.setState({ token: null, user: null });
-  useUi.setState({ authAberto: false, navbarAberta: false, wsEstado: "conectando" });
-  useTime.setState({ t: null, tocando: false, novidades: 0 });
+  useUi.setState({ authOpen: false, navbarOpen: false, wsStatus: "connecting" });
+  useTime.setState({ t: null, playing: false, updates: 0 });
   useFilter.setState(DEFAULT_FILTER);
   usePrefs.setState(DEFAULT_PREFS);
   useLocalFavorites.setState({ favorites: [] });

@@ -31,7 +31,7 @@ const EVENTS = [
 
 beforeEach(() => {
   useFilter.setState({ ...DEFAULT_FILTER });
-  useTime.setState({ t: null, novidades: 0 });
+  useTime.setState({ t: null, updates: 0 });
 });
 
 describe("events screen", () => {

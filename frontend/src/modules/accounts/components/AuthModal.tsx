@@ -9,8 +9,8 @@ type AuthTab = "login" | "register";
 
 /** Sign-in and account-creation modal, opened from the user menu or from any screen that needs an account. */
 export function AuthModal() {
-  const isOpen = useUi((s) => s.authAberto);
-  const setOpen = useUi((s) => s.setAuthAberto);
+  const isOpen = useUi((s) => s.authOpen);
+  const setOpen = useUi((s) => s.setAuthOpen);
   const [tab, setTab] = useState<AuthTab>("login");
   const login = useLogin();
   const register = useRegister();

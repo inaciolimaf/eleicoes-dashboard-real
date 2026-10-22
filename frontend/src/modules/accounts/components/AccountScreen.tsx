@@ -30,7 +30,7 @@ const DENSITY_OPTIONS = [
 export function AccountScreen() {
   const prefs = usePrefs();
   const user = useAuth((s) => s.user);
-  const openAuth = useUi((s) => s.setAuthAberto);
+  const openAuth = useUi((s) => s.setAuthOpen);
   return (
     <Stack gap="md" maw={900} mx="auto">
       <Stack gap={0}>

@@ -61,11 +61,11 @@ export function Evolution({
     [query.data, xAxis, metric, style, topN, showEvents, candidateColor, colors],
   );
 
-  if (query.isLoading) return <Loading altura={height} />;
-  if (query.error) return <ErrorView erro={query.error} onRetry={() => query.refetch()} />;
+  if (query.isLoading) return <Loading height={height} />;
+  if (query.error) return <ErrorView error={query.error} onRetry={() => query.refetch()} />;
   if (!option)
     return (
-      <NoData titulo="Sem série histórica ainda">A evolução aparece depois dos primeiros snapshots.</NoData>
+      <NoData title="Sem série histórica ainda">A evolução aparece depois dos primeiros snapshots.</NoData>
     );
   return <EChart option={option} height={height} />;
 }

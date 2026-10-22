@@ -58,7 +58,7 @@ export const useLocalFavorites = create<LocalFavoritesState>()(
 
 /**
  * Favorites of the quick bar: the account's when logged in, the browser's otherwise.
- * `favoritos`, `eFavorito` and `alternar` are the names the screens already use; they stay until
+ * `favorites`, `isFavorite` and `toggle` are the names the screens use; they stay until
  * those screens are renamed.
  */
 export function useFavorites() {
@@ -79,11 +79,11 @@ export function useFavorites() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.favoritos() }),
   });
   const list = useMemo(() => (loggedIn ? (remote.data ?? []) : local), [loggedIn, remote.data, local]);
-  const eFavorito = useCallback(
+  const isFavorite = useCallback(
     (type: FavoriteType, ref: string) => list.some((f) => f.type === type && f.ref === ref),
     [list],
   );
-  const alternar = useCallback(
+  const toggle = useCallback(
     (favorite: FavoriteDto) => {
       const exists = list.some((x) => x.type === favorite.type && x.ref === favorite.ref);
       if (loggedIn) {
@@ -99,5 +99,5 @@ export function useFavorites() {
     },
     [list, loggedIn, add, remove, setLocal],
   );
-  return { favoritos: list, eFavorito, alternar };
+  return { favorites: list, isFavorite, toggle };
 }

@@ -41,7 +41,7 @@ function CandidatesToolbar(props: CandidatesToolbarProps) {
         {props.byState && (
           <Select
             w={190}
-            data={UFS.map((u) => ({ value: u.uf, label: `${u.uf.toUpperCase()} · ${u.nome}` }))}
+            data={UFS.map((u) => ({ value: u.uf, label: `${u.uf.toUpperCase()} · ${u.name}` }))}
             value={props.state}
             onChange={props.onStateChange}
             searchable

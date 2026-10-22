@@ -13,7 +13,7 @@ export default function ElectoralMapCanvas(props: ElectoralMapCanvasProps) {
     <Box
       ref={model.boxRef}
       className="mapa-container"
-      style={{ height: props.altura ?? "100%", minHeight: 180 }}
+      style={{ height: props.height ?? "100%", minHeight: 180 }}
       onMouseLeave={() => model.picking.setHover(null)}
     >
       <MapCanvas model={model} />

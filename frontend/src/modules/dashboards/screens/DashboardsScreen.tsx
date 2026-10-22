@@ -44,8 +44,8 @@ export function DashboardsScreen() {
   const repo = useDashboards();
   const navigate = useNavigate();
   const [newOpen, setNewOpen] = useState(false);
-  if (repo.isLoading) return <Loading linhas={5} />;
-  if (repo.error) return <ErrorView erro={repo.error} />;
+  if (repo.isLoading) return <Loading rows={5} />;
+  if (repo.error) return <ErrorView error={repo.error} />;
   const move = (index: number, delta: -1 | 1) => {
     const ids = repo.dashboards.map((d) => d.id);
     const target = index + delta;

@@ -58,7 +58,7 @@ function ThemeToggle() {
 }
 
 export function Header() {
-  const navbarOpen = useUi((s) => s.navbarAberta);
+  const navbarOpen = useUi((s) => s.navbarOpen);
   const toggleNavbar = useUi((s) => s.toggleNavbar);
   const desktopNav = useDesktopNav();
   const isMobile = useMediaQuery("(max-width: 48em)");
@@ -94,7 +94,7 @@ export function Header() {
       </Group>
       <Group gap="xs" wrap="nowrap">
         <Search />
-        <LiveIndicator compacto={!!isMobile} />
+        <LiveIndicator compact={!!isMobile} />
         <ThemeToggle />
         <UserMenu />
       </Group>

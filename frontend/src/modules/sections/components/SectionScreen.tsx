@@ -22,7 +22,7 @@ export function SectionScreen({ id }: { id: string }) {
         <Grid gutter="md">
           <Grid.Col span={{ base: 12, lg: 8 }}>
             <Card p="md">
-              <SectionDetail secaoId={id} />
+              <SectionDetail sectionId={id} />
             </Card>
           </Grid.Col>
           <Grid.Col span={{ base: 12, lg: 4 }}>
@@ -30,7 +30,7 @@ export function SectionScreen({ id }: { id: string }) {
               <Text fw={700} mb="xs">
                 Totais do cargo selecionado
               </Text>
-              <WithResults>{(r) => <TotalsBlock res={r} compacto />}</WithResults>
+              <WithResults>{(r) => <TotalsBlock result={r} compact />}</WithResults>
             </Card>
           </Grid.Col>
         </Grid>

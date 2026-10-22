@@ -28,7 +28,7 @@ function MapControls({ state, level }: { state: ExploreState; level: Level }) {
       <Select
         size="xs"
         w={190}
-        data={state.mapTypes.map((type) => ({ value: type.valor, label: type.rotulo }))}
+        data={state.mapTypes.map((type) => ({ value: type.value, label: type.label }))}
         value={state.mapType}
         onChange={(value) => value && state.setMapType(value as MapType)}
         allowDeselect={false}
@@ -56,11 +56,11 @@ export function ExploreMap({ state, level, id }: { state: ExploreState; level: L
     >
       <Box h={{ base: 380, md: 520 }} style={{ borderRadius: 12, overflow: "hidden" }}>
         <ElectoralMap
-          tipo={state.mapType}
-          nivel={level}
+kind={state.mapType}
+level={level}
           id={id}
-          todosMunicipios={state.allMunicipalities}
-          onSelecionar={state.openArea}
+allMunicipalities={state.allMunicipalities}
+onSelect={state.openArea}
         />
       </Box>
     </ExploreBlock>

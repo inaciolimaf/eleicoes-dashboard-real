@@ -101,7 +101,7 @@ function FixedFilterFields({
         />
         <Select
           label="Cargo"
-          data={OFFICE_OPTIONS.map((o) => ({ value: o.valor, label: o.rotulo }))}
+          data={OFFICE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
           value={String(filters.cargo === 8 ? 7 : (filters.cargo ?? inherited.cargo))}
           onChange={(v) => setFilters({ cargo: Number(v ?? 1) })}
           allowDeselect={false}

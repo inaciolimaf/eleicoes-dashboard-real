@@ -37,7 +37,7 @@ export const EVENT_ICONS: Record<EventType, Icon> = {
 export const EVENT_TYPES = Object.keys(EVENT_LABELS).map((k) => ({ value: k, label: EVENT_LABELS[k] }));
 
 export function EventItem({ event, compact }: { event: EventDto; compact?: boolean }) {
-  const EventIcon = EVENT_ICONS[event.type] ?? IconFlag;
+  const EventIcon = EVENT_ICONS[event.type as EventType] ?? IconFlag;
   const color = EVENT_COLORS[event.type] ?? "blue";
   const setT = useTime((s) => s.setT);
   return (
@@ -98,13 +98,13 @@ export function EventItem({ event, compact }: { event: EventDto; compact?: boole
 }
 
 export interface EventFeedProps {
-  tipos?: string[];
-  limite?: number;
-  cargo?: number | null;
-  nivel?: Level | null;
+  types?: string[];
+  limit?: number;
+  office?: number | null;
+  level?: Level | null;
   id?: string | null;
-  compacto?: boolean;
-  alturaMax?: number | string;
+  compact?: boolean;
+  maxHeight?: number | string;
 }
 
 function EventList({
@@ -137,16 +137,16 @@ function EventList({
 }
 
 /** Live feed of the results' events, in the current round and time. */
-export function EventFeed({ tipos, limite = 50, cargo, nivel, id, compacto, alturaMax }: EventFeedProps) {
+export function EventFeed({ types, limit = 50, office, level, id, compact, maxHeight }: EventFeedProps) {
   const f = useEffectiveFilter();
   const animated = usePrefs((s) => s.animacoes);
   const q = useEvents(
     f.turno,
     {
-      types: tipos as EventType[],
-      limit: limite,
-      office: cargo ?? null,
-      level: nivel ?? null,
+      types: types as EventType[],
+      limit: limit,
+      office: office ?? null,
+      level: level ?? null,
       id: id ?? null,
     },
     f.t,
@@ -160,9 +160,9 @@ export function EventFeed({ tipos, limite = 50, cargo, nivel, id, compacto, altu
         Viradas, marcos da apuração e eleitos aparecem aqui em tempo real.
       </NoData>
     );
-  const list = <EventList events={q.data} compact={compacto} animated={animated} />;
-  return alturaMax ? (
-    <ScrollArea.Autosize mah={alturaMax} className="scroll-fino">
+  const list = <EventList events={q.data} compact={compact} animated={animated} />;
+  return maxHeight ? (
+    <ScrollArea.Autosize mah={maxHeight} className="scroll-fino">
       {list}
     </ScrollArea.Autosize>
   ) : (

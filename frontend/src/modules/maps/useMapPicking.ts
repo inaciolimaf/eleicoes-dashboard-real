@@ -41,7 +41,7 @@ export function useMapPicking({ mode, itemsByKey, onSelect, mapRef }: PickingArg
         const feature = info.object as FeatureGeo;
         const item = itemsByKey.get(feature.key) ?? null;
         const name =
-          item?.name ?? feature.properties.nome ?? STATE_BY_CODE[feature.key]?.nome ?? feature.properties.uf;
+          item?.name ?? feature.properties.nome ?? STATE_BY_CODE[feature.key]?.name ?? feature.properties.uf;
         setHover({ x: info.x, y: info.y, kind: "region", name, item });
       }
     },
@@ -64,7 +64,7 @@ export function useMapPicking({ mode, itemsByKey, onSelect, mapRef }: PickingArg
         const item = itemsByKey.get(feature.key);
         if (item) onSelect(asLevel(item.level), item.id, item.name);
         else if (mode === "uf")
-          onSelect("state", feature.key, STATE_BY_CODE[feature.key]?.nome ?? feature.key.toUpperCase());
+          onSelect("state", feature.key, STATE_BY_CODE[feature.key]?.name ?? feature.key.toUpperCase());
       }
     },
     [onSelect, itemsByKey, mode, mapRef],

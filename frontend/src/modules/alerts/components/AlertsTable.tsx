@@ -89,11 +89,11 @@ export function MyAlertsCard({
         Meus alertas
       </Text>
       {query.isLoading ? (
-        <Loading linhas={3} />
+        <Loading rows={3} />
       ) : query.error ? (
-        <ErrorView erro={query.error} onRetry={() => query.refetch()} />
+        <ErrorView error={query.error} onRetry={() => query.refetch()} />
       ) : !query.data?.length ? (
-        <NoData titulo="Nenhum alerta">Crie uma regra acima.</NoData>
+        <NoData title="Nenhum alerta">Crie uma regra acima.</NoData>
       ) : (
         <AlertsTable alerts={query.data} onToggle={onToggle} onDelete={onDelete} />
       )}

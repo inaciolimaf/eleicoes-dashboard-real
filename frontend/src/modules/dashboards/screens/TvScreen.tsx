@@ -43,7 +43,7 @@ export function TvScreen({ searchParams }: { searchParams: URLSearchParams }) {
   const navigate = useNavigate();
   const { toggle, fullscreen } = useFullscreen();
   const idle = useIdle(3500);
-  const setTvMode = useUi((s) => s.setModoTv);
+  const setTvMode = useUi((s) => s.setTvMode);
   const round = useFilter((s) => s.turno);
   useLive([topic.events(round), topic.status()]);
   const list = useMemo(

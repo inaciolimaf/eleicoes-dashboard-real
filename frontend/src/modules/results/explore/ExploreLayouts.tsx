@@ -123,7 +123,7 @@ export function ResultLayout({
       {table && <Grid.Col span={{ base: 12, lg: 8 }}>{table}</Grid.Col>}
       <Grid.Col span={{ base: 12, lg: table ? 4 : 12 }}>
         <ExploreBlock title="Eventos deste recorte">
-          <EventFeed nivel={level} id={id} cargo={filter.cargo} limite={30} alturaMax={520} />
+          <EventFeed level={level} id={id} office={filter.cargo} limit={30} maxHeight={520} />
         </ExploreBlock>
       </Grid.Col>
     </Grid>

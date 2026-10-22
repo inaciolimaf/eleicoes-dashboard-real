@@ -144,8 +144,8 @@ export function RegionPerformanceTable({
     () => rankedItems(query.data?.items ?? [], candidateId, search),
     [query.data, search, candidateId],
   );
-  if (query.isLoading) return <Loading linhas={5} />;
-  if (query.error) return <ErrorView erro={query.error} onRetry={() => query.refetch()} />;
+  if (query.isLoading) return <Loading rows={5} />;
+  if (query.error) return <ErrorView error={query.error} onRetry={() => query.refetch()} />;
   if (!items.length && !search) return <NoData />;
   const wins = query.data?.candidates.find((c) => c.tse_candidate_id === candidateId)?.wins ?? 0;
   const childLevelShown = asLevel(query.data?.child_level ?? "state");

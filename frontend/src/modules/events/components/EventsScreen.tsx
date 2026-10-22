@@ -66,10 +66,10 @@ export function EventsScreen() {
       </Card>
       <Card p="md">
         <EventFeed
-          tipos={types}
-          limite={limit}
-          cargo={onlyOffice ? filter.cargo : null}
-          nivel={onlyGeoArea ? filter.nivel : null}
+types={types}
+limit={limit}
+office={onlyOffice ? filter.cargo : null}
+level={onlyGeoArea ? filter.nivel : null}
           id={onlyGeoArea ? filter.id : null}
         />
       </Card>

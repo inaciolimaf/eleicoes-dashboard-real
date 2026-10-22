@@ -32,14 +32,14 @@ import {
 export function ScoreboardWidget({ config, height, onSelect }: WidgetProps) {
   return (
     <ScrollBody height={height}>
-      <WithResults onUf={(uf, name) => onSelect("state", uf, name)}>
+      <WithResults onSelectState={(uf, name) => onSelect("state", uf, name)}>
         {(results) => (
           <Scoreboard
-            res={results}
-            opcoes={{
+result={results}
+options={{
               topN: configNumber(config, "topN", 0),
-              soEleitos: configBool(config, "soEleitos", false),
-              mostrarFotos: configBool(config, "mostrarFotos", true),
+              onlyElected: configBool(config, "soEleitos", false),
+              showPhotos: configBool(config, "mostrarFotos", true),
             }}
           />
         )}
@@ -52,9 +52,9 @@ export function ScoreboardWidget({ config, height, onSelect }: WidgetProps) {
 export function TotalsWidget({ config, height, onSelect }: WidgetProps) {
   return (
     <ScrollBody height={height}>
-      <WithResults onUf={(uf, name) => onSelect("state", uf, name)}>
+      <WithResults onSelectState={(uf, name) => onSelect("state", uf, name)}>
         {(results) => (
-          <TotalsBlock res={results} compacto={configBool(config, "compacto", false) || height < 200} />
+          <TotalsBlock result={results} compact={configBool(config, "compacto", false) || height < 200} />
         )}
       </WithResults>
     </ScrollBody>
@@ -129,7 +129,7 @@ export function KpiWidget({ config }: WidgetProps) {
   const previous = useResults({ ...filter, t: reference }, minutes > 0);
   const highlightColor = configString(config, "corDestaque", "");
   return (
-    <WithResults linhasSkeleton={1}>
+    <WithResults skeletonRows={1}>
       {(results) => {
         const value = metric.get(results, candidateId);
         const previousValue =
@@ -143,9 +143,9 @@ export function KpiWidget({ config }: WidgetProps) {
             <Group gap={6}>
               {candidate && (
                 <CandidateAvatar
-                  fotoUrl={candidate.photo_url}
-                  nome={candidate.ballot_name}
-                  cor={candidate.color}
+photoUrl={candidate.photo_url}
+name={candidate.ballot_name}
+color={candidate.color}
                   size={26}
                 />
               )}
@@ -207,11 +207,11 @@ height={height}
 export function EvolutionWidget({ config, height }: WidgetProps) {
   return (
     <Evolution
-      eixoX={configString(config, "eixoX", "t") as "t" | "pct_secoes"}
-      metrica={configString(config, "metrica", "pct") as "pct" | "votos" | "diferenca"}
-      estilo={configString(config, "estilo", "linha") as "linha" | "area"}
+xAxis={configString(config, "eixoX", "t") as "t" | "pct_secoes"}
+metric={configString(config, "metrica", "pct") as "pct" | "votos" | "diferenca"}
+style={configString(config, "estilo", "linha") as "linha" | "area"}
       topN={configNumber(config, "topN", 6)}
-      altura={height}
+height={height}
     />
   );
 }
@@ -224,15 +224,15 @@ export function TableWidget({ config, height, onSelect }: WidgetProps) {
   return (
     <ScrollBody height={height}>
       <GeoAreaTable
-        nivel={filter.nivel}
+level={filter.nivel}
         id={filter.id}
-        filhos={childrenSetting === "municipio" && filter.nivel === "country" ? "municipality" : null}
-        colunas={columns.length ? columns : undefined}
+childLevel={childrenSetting === "municipio" && filter.nivel === "country" ? "municipality" : null}
+columns={columns.length ? columns : undefined}
         topN={configNumber(config, "topN", 0) || undefined}
-        mostrarFiltros={configBool(config, "mostrarFiltros", true)}
-        onSelecionar={onSelect}
-        alturaMax={Math.max(160, height - 110)}
-        porPagina={25}
+showFilters={configBool(config, "mostrarFiltros", true)}
+onSelect={onSelect}
+maxHeight={Math.max(160, height - 110)}
+pageSize={25}
       />
     </ScrollBody>
   );
@@ -241,7 +241,7 @@ export function TableWidget({ config, height, onSelect }: WidgetProps) {
 // 8 ─ Hemicycle
 export function HemicycleWidget({ height, onSelect }: WidgetProps) {
   return (
-    <WithResults onUf={(uf, name) => onSelect("state", uf, name)}>
+    <WithResults onSelectState={(uf, name) => onSelect("state", uf, name)}>
       {(results) =>
         results.office.voting_system !== "proporcional" || !results.alliances.length ? (
           <NoData title="Hemiciclo indisponível">
@@ -250,7 +250,7 @@ export function HemicycleWidget({ height, onSelect }: WidgetProps) {
           </NoData>
         ) : (
           <Stack gap={4}>
-            <Hemicycle agremiacoes={results.alliances} height={Math.max(160, height - 50)} />
+            <Hemicycle alliances={results.alliances} height={Math.max(160, height - 50)} />
             <Group gap={6} justify="center">
               {[...results.alliances]
                 .filter((alliance) => (alliance.seats ?? 0) > 0)
@@ -272,13 +272,13 @@ export function HemicycleWidget({ height, onSelect }: WidgetProps) {
 // 9 ─ Donut
 export function DonutWidget({ config, height, onSelect }: WidgetProps) {
   return (
-    <WithResults onUf={(uf, name) => onSelect("state", uf, name)}>
+    <WithResults onSelectState={(uf, name) => onSelect("state", uf, name)}>
       {(results) => (
         <Donut
-          res={results}
+result={results}
           topN={configNumber(config, "topN", 6)}
-          incluirBrancosNulos={configBool(config, "incluirBrancosNulos", false)}
-          altura={height}
+includeBlankNull={configBool(config, "incluirBrancosNulos", false)}
+height={height}
         />
       )}
     </WithResults>
@@ -290,8 +290,8 @@ export function HeatmapWidget({ config, height, onSelect }: WidgetProps) {
   return (
     <ScrollBody height={height}>
       <ProgressHeatmap
-        metrica={configString(config, "metrica", "pct_secoes") as "pct_secoes" | "pct_comparecimento"}
-        onSelecionarUf={(uf, name) => onSelect("state", uf, name)}
+metric={configString(config, "metrica", "pct_secoes") as "pct_secoes" | "pct_comparecimento"}
+onSelectState={(uf, name) => onSelect("state", uf, name)}
       />
     </ScrollBody>
   );

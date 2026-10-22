@@ -106,7 +106,7 @@ export async function api<T>(path: string, opts: Opts = {}): Promise<T> {
   }
   if (!resp.ok) {
     const error = await readProblem(resp);
-    if (resp.status === 401 && token && !path.startsWith("/auth/")) useAuth.getState().sair();
+    if (resp.status === 401 && token && !path.startsWith("/auth/")) useAuth.getState().signOut();
     throw error;
   }
   if (resp.status === 204) return undefined as T;

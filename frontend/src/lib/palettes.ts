@@ -78,60 +78,60 @@ export const STATUS_LABELS: Record<string, string> = {
 };
 
 export interface SituationStyle {
-  rotulo: string;
-  cor: string; // cor mantine
-  variante: "filled" | "outline" | "light";
-  descricao: string;
+  label: string;
+  color: string; // cor mantine
+  variant: "filled" | "outline" | "light";
+  description: string;
 }
 
 export const SITUATION_STYLES: Record<CandidateStatus, SituationStyle> = {
   ELECTED: {
-    rotulo: "Eleito",
-    cor: "green",
-    variante: "filled",
-    descricao: "Situação publicada pelo TSE: eleito.",
+    label: "Eleito",
+    color: "green",
+    variant: "filled",
+    description: "Situação publicada pelo TSE: eleito.",
   },
   RUNOFF: {
-    rotulo: "2º turno",
-    cor: "yellow",
-    variante: "filled",
-    descricao: "Situação publicada pelo TSE: vai ao 2º turno.",
+    label: "2º turno",
+    color: "yellow",
+    variant: "filled",
+    description: "Situação publicada pelo TSE: vai ao 2º turno.",
   },
   MATHEMATICALLY_ELECTED: {
-    rotulo: "Matematicamente eleito",
-    cor: "green",
-    variante: "outline",
-    descricao: "Definição matemática antes de 100% das seções apuradas (indicada pelo TSE).",
+    label: "Matematicamente eleito",
+    color: "green",
+    variant: "outline",
+    description: "Definição matemática antes de 100% das seções apuradas (indicada pelo TSE).",
   },
   LEADING: {
-    rotulo: "Liderando",
-    cor: "blue",
-    variante: "filled",
-    descricao: "Calculado pelo painel: lidera a apuração em andamento. Não é declaração de eleito.",
+    label: "Liderando",
+    color: "blue",
+    variant: "filled",
+    description: "Calculado pelo painel: lidera a apuração em andamento. Não é declaração de eleito.",
   },
   SUBSTITUTE: {
-    rotulo: "Suplente",
-    cor: "gray",
-    variante: "filled",
-    descricao: "Situação publicada pelo TSE: suplente.",
+    label: "Suplente",
+    color: "gray",
+    variant: "filled",
+    description: "Situação publicada pelo TSE: suplente.",
   },
   NOT_ELECTED: {
-    rotulo: "Não eleito",
-    cor: "gray",
-    variante: "light",
-    descricao: "Situação publicada pelo TSE após a totalização.",
+    label: "Não eleito",
+    color: "gray",
+    variant: "light",
+    description: "Situação publicada pelo TSE após a totalização.",
   },
   SUB_JUDICE: {
-    rotulo: "Sub judice",
-    cor: "red",
-    variante: "outline",
-    descricao: 'Destinação dos votos diferente de "Válido" (sub judice ou anulado).',
+    label: "Sub judice",
+    color: "red",
+    variant: "outline",
+    description: 'Destinação dos votos diferente de "Válido" (sub judice ou anulado).',
   },
   COUNTING: {
-    rotulo: "Em apuração",
-    cor: "gray",
-    variante: "outline",
-    descricao: "Apuração em andamento.",
+    label: "Em apuração",
+    color: "gray",
+    variant: "outline",
+    description: "Apuração em andamento.",
   },
 };
 
@@ -197,15 +197,15 @@ export function divergingColor(t: number, corA?: string, corB?: string): RGB {
 
 /** 5 bands of winning margin (p.p.) mapped to opacity. */
 export const MARGIN_BANDS = [
-  { ate: 2, alpha: 0.35, rotulo: "< 2 p.p." },
-  { ate: 5, alpha: 0.5, rotulo: "2–5 p.p." },
-  { ate: 10, alpha: 0.66, rotulo: "5–10 p.p." },
-  { ate: 20, alpha: 0.82, rotulo: "10–20 p.p." },
-  { ate: Infinity, alpha: 0.97, rotulo: "≥ 20 p.p." },
+  { upTo: 2, alpha: 0.35, label: "< 2 p.p." },
+  { upTo: 5, alpha: 0.5, label: "2–5 p.p." },
+  { upTo: 10, alpha: 0.66, label: "5–10 p.p." },
+  { upTo: 20, alpha: 0.82, label: "10–20 p.p." },
+  { upTo: Infinity, alpha: 0.97, label: "≥ 20 p.p." },
 ];
 export function marginAlpha(m: number | null | undefined): number {
   if (m === null || m === undefined || !Number.isFinite(m)) return 0.35;
-  for (const f of MARGIN_BANDS) if (m < f.ate) return f.alpha;
+  for (const f of MARGIN_BANDS) if (m < f.upTo) return f.alpha;
   return 0.97;
 }
 

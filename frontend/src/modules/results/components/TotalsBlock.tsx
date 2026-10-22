@@ -21,7 +21,7 @@ function TallyBar({ result }: { result: ResultsWithDataDto }) {
     <Box>
       <Group justify="space-between" gap={4} mb={4} wrap="nowrap">
         <Text size="sm" fw={600}>
-          <Num valor={pct} tipo="pct" />{" "}
+          <Num value={pct} kind="pct" />{" "}
           <Text span size="sm" c="dimmed" fw={400}>
             das seções totalizadas
           </Text>
@@ -53,11 +53,11 @@ function ValidVotesSummary({ result, compact }: { result: ResultsWithDataDto; co
           Votos válidos
         </Text>
         <Num
-          valor={totals.valid_votes}
+value={totals.valid_votes}
           style={{ fontSize: compact ? "1.6rem" : "2.3rem", fontWeight: 800, lineHeight: 1.1 }}
         />
         <Text size="sm" c="dimmed">
-          <Num valor={totals.pct_valid} tipo="pct" brilho={false} /> do comparecimento
+          <Num value={totals.pct_valid} kind="pct" glow={false} /> do comparecimento
         </Text>
       </Stack>
       {result.mathematically_decided && !result.final_tally && (

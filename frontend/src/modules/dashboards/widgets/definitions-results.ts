@@ -54,7 +54,7 @@ export const RESULT_DEFINITIONS: Record<ResultWidgetType, DefWidget> = {
       { key: "mostrarFotos", label: "Mostrar fotos", type: "switch" },
     ],
     Component: ScoreboardWidget,
-    exportKind: "resultados",
+    exportKind: "results",
   },
   totais: {
     type: "totais",
@@ -66,7 +66,7 @@ export const RESULT_DEFINITIONS: Record<ResultWidgetType, DefWidget> = {
     defaults: { compacto: false },
     fields: [{ key: "compacto", label: "Modo compacto", type: "switch" }],
     Component: TotalsWidget,
-    exportKind: "resultados",
+    exportKind: "results",
   },
   kpi: {
     type: "kpi",
@@ -93,7 +93,7 @@ export const RESULT_DEFINITIONS: Record<ResultWidgetType, DefWidget> = {
       { key: "corDestaque", label: "Cor do número", type: "color" },
     ],
     Component: KpiWidget,
-    exportKind: "resultados",
+    exportKind: "results",
   },
   mapa: {
     type: "mapa",
@@ -108,7 +108,7 @@ export const RESULT_DEFINITIONS: Record<ResultWidgetType, DefWidget> = {
         key: "tipo",
         label: "Tipo de mapa",
         type: "select",
-        options: MAP_TYPES.map((t) => ({ value: t.valor, label: t.rotulo })),
+        options: MAP_TYPES.map((t) => ({ value: t.value, label: t.label })),
       },
       {
         key: "nivelFilhos",
@@ -143,7 +143,7 @@ export const RESULT_DEFINITIONS: Record<ResultWidgetType, DefWidget> = {
       },
     ],
     Component: MapWidget,
-    exportKind: "filhos",
+    exportKind: "children",
   },
   evolucao: {
     type: "evolucao",
@@ -199,7 +199,7 @@ export const RESULT_DEFINITIONS: Record<ResultWidgetType, DefWidget> = {
         key: "colunas",
         label: "Colunas",
         type: "multiselect",
-        options: COLUMNS.map((c) => ({ value: c.id, label: c.rotulo })),
+        options: COLUMNS.map((c) => ({ value: c.id, label: c.label })),
       },
       {
         key: "nivelFilhos",
@@ -214,7 +214,7 @@ export const RESULT_DEFINITIONS: Record<ResultWidgetType, DefWidget> = {
       { key: "mostrarFiltros", label: "Mostrar barra de filtros", type: "switch" },
     ],
     Component: TableWidget,
-    exportKind: "filhos",
+    exportKind: "children",
   },
   comparativo: {
     type: "comparativo",
@@ -257,7 +257,7 @@ export const RESULT_DEFINITIONS: Record<ResultWidgetType, DefWidget> = {
     defaults: {},
     fields: [],
     Component: HemicycleWidget,
-    exportKind: "resultados",
+    exportKind: "results",
   },
   rosca: {
     type: "rosca",
@@ -271,7 +271,7 @@ export const RESULT_DEFINITIONS: Record<ResultWidgetType, DefWidget> = {
       { key: "incluirBrancosNulos", label: "Incluir brancos e nulos", type: "switch" },
     ],
     Component: DonutWidget,
-    exportKind: "resultados",
+    exportKind: "results",
   },
   heatmap: {
     type: "heatmap",

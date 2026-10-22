@@ -47,7 +47,7 @@ export function PartyTable({ result }: { result: ResultsWithDataDto }) {
               {fmtPct(totalVotes ? (alliance.votes / totalVotes) * 100 : null)}
             </Table.Td>
             <Table.Td ta="right">
-              <Num valor={alliance.seats} style={{ fontWeight: 700 }} />
+              <Num value={alliance.seats} style={{ fontWeight: 700 }} />
             </Table.Td>
           </Table.Tr>
         ))}

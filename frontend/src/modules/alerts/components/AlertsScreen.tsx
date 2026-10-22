@@ -9,7 +9,7 @@ import { PushCard } from "./PushCard";
 /** Notifications screen (`/alertas`): browser push, the rules of the account, and the form to create one. */
 export function AlertsScreen() {
   const loggedIn = !!useAuth((s) => s.token);
-  const openAuth = useUi((s) => s.setAuthAberto);
+  const openAuth = useUi((s) => s.setAuthOpen);
   const alerts = useAlerts();
   const save = useSaveAlert();
   const remove = useDeleteAlert();

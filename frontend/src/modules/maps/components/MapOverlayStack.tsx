@@ -17,7 +17,7 @@ export function MapOverlayStack({ model }: { model: ElectoralMapModel }) {
   return (
     <>
       {!model.framing.ready && <MapReadyFallback onReady={() => model.framing.setReady(true)} />}
-      {model.seletorCandidatos && needsValues && mode !== "pontos" && model.candidateOptions.length > 0 && (
+      {model.candidateSelector && needsValues && mode !== "pontos" && model.candidateOptions.length > 0 && (
         <CandidateSelectors
           comparison={type === "comparativo"}
           options={model.candidateOptions}
@@ -34,7 +34,7 @@ export function MapOverlayStack({ model }: { model: ElectoralMapModel }) {
         />
       )}
       <PlacesNotes pointsMode={mode === "pontos"} showsValues={needsValues} places={places.data} />
-      {props.legenda !== false && !error && (
+      {props.legend !== false && !error && (
         <Legend
           type={type}
           candidates={legend.items}

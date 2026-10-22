@@ -5,9 +5,9 @@ import type { UserDto } from "../api/models";
 interface AuthState {
   token: string | null;
   user: UserDto | null;
-  setSessao: (token: string, user: UserDto) => void;
-  setUsuario: (user: UserDto) => void;
-  sair: () => void;
+  setSession: (token: string, user: UserDto) => void;
+  setUser: (user: UserDto) => void;
+  signOut: () => void;
 }
 
 export const useAuth = create<AuthState>()(
@@ -15,9 +15,9 @@ export const useAuth = create<AuthState>()(
     (set) => ({
       token: null,
       user: null,
-      setSessao: (token, user) => set({ token, user }),
-      setUsuario: (user) => set({ user }),
-      sair: () => set({ token: null, user: null }),
+      setSession: (token, user) => set({ token, user }),
+      setUser: (user) => set({ user }),
+      signOut: () => set({ token: null, user: null }),
     }),
     {
       name: "eleicoes.auth",

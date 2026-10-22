@@ -58,8 +58,8 @@ function indicatorState(
 }
 
 const SOCKET_LABELS: Record<string, string> = {
-  aberto: "conectado",
-  reconectando: "reconectando…",
+  open: "conectado",
+  reconnecting: "reconectando…",
 };
 
 /** Tooltip with the details behind the indicator. */
@@ -86,12 +86,12 @@ function IndicatorDetails({
 }
 
 /** Indicador AO VIVO (status + ws), com "Desatualizado há X min" e modo replay. */
-export function LiveIndicator({ compacto }: { compacto?: boolean }) {
+export function LiveIndicator({ compact }: { compact?: boolean }) {
   const statusQuery = useStatus();
   useLive([topic.status()]);
   const replayTime = useTime((s) => s.t);
-  const goLive = useTime((s) => s.aoVivo);
-  const socketState = useUi((s) => s.wsEstado);
+  const goLive = useTime((s) => s.goLive);
+  const socketState = useUi((s) => s.wsStatus);
   const [, setTick] = useState(0);
   // re-renders every 30 seconds so "Desatualizado há X min" keeps up with the clock
   useEffect(() => {
@@ -120,7 +120,7 @@ export function LiveIndicator({ compacto }: { compacto?: boolean }) {
             </Text>
             {!replayTime && status?.last_tally && (
               <Text fz={10} c="dimmed" className="num" style={{ whiteSpace: "nowrap" }}>
-                {fmtTime(status.last_tally, !compacto)} BRT
+                {fmtTime(status.last_tally, !compact)} BRT
               </Text>
             )}
           </Stack>

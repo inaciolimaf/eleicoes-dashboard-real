@@ -6,8 +6,8 @@ import { StarterDashboard } from "./StarterDashboard";
 /** "/": the user's default dashboard; with none, the ready-made election night, live. */
 export function HomeScreen() {
   const repo = useDashboards();
-  if (repo.isLoading) return <Loading linhas={6} />;
-  if (repo.error) return <ErrorView erro={repo.error} />;
+  if (repo.isLoading) return <Loading rows={6} />;
+  if (repo.error) return <ErrorView error={repo.error} />;
   const dashboard = repo.dashboards.find((d) => d.isDefault) ?? repo.dashboards[0];
   if (dashboard) return <DashboardView key={dashboard.id} dashboard={dashboard} />;
   return <StarterDashboard />;

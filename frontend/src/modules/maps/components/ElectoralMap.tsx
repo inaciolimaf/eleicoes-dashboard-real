@@ -8,7 +8,7 @@ const LazyElectoralMapView = lazy(() => import("./ElectoralMapView"));
 /** Electoral map with on-demand loading: the skeleton shows until maplibre and deck.gl arrive. */
 export function ElectoralMap(props: ElectoralMapCanvasProps) {
   return (
-    <Suspense fallback={<Skeleton h={props.altura ?? "100%"} mih={180} radius="md" />}>
+    <Suspense fallback={<Skeleton h={props.height ?? "100%"} mih={180} radius="md" />}>
       <LazyElectoralMapView {...props} />
     </Suspense>
   );

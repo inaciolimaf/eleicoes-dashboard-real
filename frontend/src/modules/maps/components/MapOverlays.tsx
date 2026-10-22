@@ -113,7 +113,7 @@ export function MapError({ error, onRetry }: { error: unknown; onRetry: () => vo
   return (
     <Box style={{ position: "absolute", top: 8, left: 8, right: 50, zIndex: 7 }}>
       <Paper withBorder>
-        <ErrorView erro={error} compacto onRetry={onRetry} />
+        <ErrorView error={error} compact onRetry={onRetry} />
       </Paper>
     </Box>
   );

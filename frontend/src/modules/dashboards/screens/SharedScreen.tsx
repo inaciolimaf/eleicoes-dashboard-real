@@ -54,9 +54,9 @@ export function SharedScreen({ token }: { token: string }) {
         <FilterBar />
         <Box p={{ base: "xs", sm: "md" }}>
           {query.isLoading ? (
-            <Loading linhas={6} />
+            <Loading rows={6} />
           ) : query.error || !dashboard ? (
-            <ErrorView erro={query.error ?? new Error("Link inválido ou expirado.")} />
+            <ErrorView error={query.error ?? new Error("Link inválido ou expirado.")} />
           ) : (
             <FilterProvider value={frozen ? { t: query.data!.frozen_time, tFixo: true } : {}}>
               {dashboard.config.widgets.length === 0 ? (
@@ -106,7 +106,7 @@ function SharedHeader({
           )}
         </Group>
         <Group gap="xs" wrap="nowrap">
-          {!frozen && <LiveIndicator compacto />}
+          {!frozen && <LiveIndicator compact />}
           <ActionIcon
             variant="default"
             size="lg"

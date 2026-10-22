@@ -32,7 +32,7 @@ function StatusChip({
   const publishedByTse = status !== "LEADING" && status !== "COUNTING";
   const label = (
     <>
-      {style.descricao}
+      {style.description}
       {publishedByTse && talliedAt ? ` Publicado às ${fmtTime(talliedAt)} (Brasília).` : ""}
     </>
   );
@@ -40,13 +40,13 @@ function StatusChip({
     <Tooltip label={label}>
       <Badge
         size={size}
-        color={style.cor}
-        variant={style.variante}
+        color={style.color}
+        variant={style.variant}
         leftSection={status === "ELECTED" ? <IconCheck size={12} stroke={3} /> : undefined}
         styles={{ root: { textTransform: "uppercase", letterSpacing: 0.3, flexShrink: 0 } }}
-        aria-label={`Situação: ${style.rotulo}${suffix ? " " + suffix : ""}`}
+        aria-label={`Situação: ${style.label}${suffix ? " " + suffix : ""}`}
       >
-        {style.rotulo}
+        {style.label}
         {suffix ? ` ${suffix}` : ""}
       </Badge>
     </Tooltip>
