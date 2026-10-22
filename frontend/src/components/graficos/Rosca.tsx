@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import type { EChartsOption } from "echarts";
-import type { ResultadosComDados } from "../../api/types";
+import type { ResultsWithDataDto } from "../../api/models";
 import { useCorCandidato } from "../../lib/useCor";
 import { fmtInt, fmtPct } from "../../lib/format";
 import { EChart, useCoresGrafico } from "./EChart";
@@ -11,7 +11,7 @@ export function Rosca({
   incluirBrancosNulos = false,
   altura = 280,
 }: {
-  res: ResultadosComDados;
+  res: ResultsWithDataDto;
   topN?: number;
   incluirBrancosNulos?: boolean;
   altura?: number | string;
@@ -19,18 +19,18 @@ export function Rosca({
   const corCand = useCorCandidato();
   const c = useCoresGrafico();
   const option = useMemo<EChartsOption>(() => {
-    const ord = [...res.candidatos].sort((a, b) => b.votos - a.votos);
+    const ord = [...res.candidates].sort((a, b) => b.votes - a.votes);
     const top = ord.slice(0, topN);
-    const outros = ord.slice(topN).reduce((s, x) => s + x.votos, 0);
+    const outros = ord.slice(topN).reduce((s, x) => s + x.votes, 0);
     const data = top.map((x) => ({
-      name: x.nome_urna,
-      value: x.votos,
-      itemStyle: { color: corCand(x.sqcand, x.cor, x.numero) },
+      name: x.ballot_name,
+      value: x.votes,
+      itemStyle: { color: corCand(x.tse_candidate_id, x.color, x.ballot_number) },
     }));
     if (outros > 0) data.push({ name: "Outros", value: outros, itemStyle: { color: "#64748B" } });
     if (incluirBrancosNulos) {
-      data.push({ name: "Brancos", value: res.totais.brancos, itemStyle: { color: "#CBD5E1" } });
-      data.push({ name: "Nulos", value: res.totais.nulos, itemStyle: { color: "#475569" } });
+      data.push({ name: "Brancos", value: res.totals.blank_votes, itemStyle: { color: "#CBD5E1" } });
+      data.push({ name: "Nulos", value: res.totals.null_votes, itemStyle: { color: "#475569" } });
     }
     const total = data.reduce((s, d) => s + d.value, 0);
     return {

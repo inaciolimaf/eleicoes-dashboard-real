@@ -19,14 +19,14 @@ import { fmtInt } from "../../lib/format";
 import { fmtHora } from "../../lib/time";
 import { Carregando, ErroView, SemDados } from "../common/Estados";
 import { MapaEleitoral } from "../mapas";
-import type { StatusApuracao } from "../../api/types";
+import type { TallyStatus } from "../../api/models";
 
-export function BadgeStatus({ s }: { s: StatusApuracao }) {
+export function BadgeStatus({ s }: { s: TallyStatus }) {
   return (
     <Badge
       size="sm"
       variant="light"
-      color={s === "apurado" ? "green" : s === "parcial" ? "yellow" : "gray"}
+      color={s === "tallied" ? "green" : s === "partial" ? "yellow" : "gray"}
       leftSection={<Box w={6} h={6} style={{ borderRadius: 6, background: COR_STATUS[s] }} />}
     >
       {ROTULO_STATUS[s]}
@@ -53,29 +53,29 @@ export function DetalheLocal({
   if (q.error) return <ErroView erro={q.error} onRetry={() => q.refetch()} />;
   const l = q.data;
   if (!l) return <SemDados />;
-  const apuradas = l.secoes.filter((s) => s.status === "apurado").length;
+  const apuradas = l.sections.filter((s) => s.status === "tallied").length;
   return (
     <Stack gap="sm">
       <Stack gap={2}>
         <Text fw={800} size="lg" lh={1.2}>
-          {l.nome}
+          {l.name}
         </Text>
         <Group gap={4} wrap="nowrap">
           <IconMapPin size={14} style={{ flexShrink: 0 }} />
           <Text size="sm" c="dimmed">
-            {[l.endereco, l.bairro, l.cep].filter(Boolean).join(" · ") || "Endereço não informado"}
-            {l.aproximado ? " (posição aproximada)" : ""}
+            {[l.address, l.neighborhood, l.zip_code].filter(Boolean).join(" · ") || "Endereço não informado"}
+            {l.approximate ? " (posição aproximada)" : ""}
           </Text>
         </Group>
         <Text size="sm">
-          <Anchor component={Link} to={`/explorar/municipio/${l.municipio.id}`}>
-            {l.municipio.nome}
+          <Anchor component={Link} to={`/explorar/municipio/${l.municipality.id}`}>
+            {l.municipality.name}
           </Anchor>{" "}
           ·{" "}
-          <Anchor component={Link} to={`/explorar/zona/${l.zona.id}`}>
-            Zona {l.zona.numero}
+          <Anchor component={Link} to={`/explorar/zona/${l.zone.id}`}>
+            Zona {l.zone.number}
           </Anchor>{" "}
-          · <span className="num">{fmtInt(l.eleitores_aptos)}</span> eleitores aptos
+          · <span className="num">{fmtInt(l.eligible_voters)}</span> eleitores aptos
         </Text>
       </Stack>
       <SimpleGrid cols={{ base: 1, xl: mapa ? 2 : 1 }} spacing="sm">
@@ -88,16 +88,16 @@ export function DetalheLocal({
               border: "1px solid var(--mantine-color-default-border)",
             }}
           >
-            <MapaEleitoral tipo="locais" nivel="local" id={l.id} legenda={false} altura={220} />
+            <MapaEleitoral tipo="locais" nivel="polling_place" id={l.id} legenda={false} altura={220} />
           </Box>
         )}
         <Stack gap={4}>
           <Group justify="space-between">
             <Text size="sm" fw={700}>
-              Seções ({l.secoes.length})
+              Seções ({l.sections.length})
             </Text>
             <Text size="xs" c="dimmed">
-              {apuradas} de {l.secoes.length} apuradas
+              {apuradas} de {l.sections.length} apuradas
             </Text>
           </Group>
           <ScrollArea.Autosize mah={alturaLista ?? 260} className="scroll-fino" type="auto">
@@ -112,13 +112,13 @@ export function DetalheLocal({
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
-                {[...l.secoes]
-                  .sort((a, b) => a.numero - b.numero)
+                {[...l.sections]
+                  .sort((a, b) => a.number - b.number)
                   .map((s) => (
                     <Table.Tr key={s.id}>
                       <Table.Td>
                         <Anchor component={Link} to={`/secoes/${s.id}`} fw={700} className="num">
-                          {s.numero}
+                          {s.number}
                         </Anchor>
                       </Table.Td>
                       <Table.Td>
@@ -134,15 +134,15 @@ export function DetalheLocal({
                         </Group>
                       </Table.Td>
                       <Table.Td ta="right" className="num">
-                        {fmtInt(s.eleitores_aptos)}
+                        {fmtInt(s.eligible_voters)}
                       </Table.Td>
                       <Table.Td ta="right" className="num">
-                        {fmtInt(s.comparecimento)}
+                        {fmtInt(s.turnout)}
                       </Table.Td>
                       <Table.Td ta="right">
                         <Tooltip label="Horário de totalização do boletim de urna (Brasília)">
                           <Text size="xs" className="num" c="dimmed">
-                            {fmtHora(s.totalizado_em, false)}
+                            {fmtHora(s.tallied_at, false)}
                           </Text>
                         </Tooltip>
                       </Table.Td>

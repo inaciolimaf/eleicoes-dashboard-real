@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { Level } from "../api/models";
 
 export const SCHEMA_VERSION = 1;
 
@@ -22,7 +23,31 @@ export const TIPOS_WIDGET = [
 ] as const;
 export type TipoWidget = (typeof TIPOS_WIDGET)[number];
 
-const nivelZ = z.enum(["br", "uf", "municipio", "zona", "local", "secao"]);
+/** Níveis salvos antes da migração para a API em inglês: a leitura aceita os dois vocabulários. */
+const NIVEL_LEGADO: Record<string, Level> = {
+  br: "country",
+  uf: "state",
+  municipio: "municipality",
+  zona: "zone",
+  local: "polling_place",
+  secao: "section",
+};
+const nivelZ = z
+  .enum([
+    "br",
+    "uf",
+    "municipio",
+    "zona",
+    "local",
+    "secao",
+    "country",
+    "state",
+    "municipality",
+    "zone",
+    "polling_place",
+    "section",
+  ])
+  .transform((v): Level => NIVEL_LEGADO[v] ?? (v as Level));
 
 export const filtroGlobalZ = z
   .object({

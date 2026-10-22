@@ -13,7 +13,7 @@ import { DateTimePicker } from "@mantine/dates";
 import { IconCheck, IconCopy, IconLink } from "@tabler/icons-react";
 import { useState } from "react";
 import { api } from "../api/client";
-import type { CompartilharResp } from "../api/types";
+import type { ShareCreate, ShareDto } from "../api/models";
 import { useAuth } from "../store/auth";
 import { useTempo } from "../store/tempo";
 import { useUi } from "../store/ui";
@@ -31,7 +31,7 @@ export function CompartilharModal({
 }) {
   const logado = !!useAuth((s) => s.token);
   const t = useTempo((s) => s.t);
-  const [modo, setModo] = useState<"ao_vivo" | "congelado">("ao_vivo");
+  const [modo, setModo] = useState<"live" | "frozen">("live");
   const [tempo, setTempo] = useState<Date | null>(t ? new Date(t) : new Date());
   const [link, setLink] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -43,9 +43,12 @@ export function CompartilharModal({
     setCarregando(true);
     setErro(null);
     try {
-      const r = await api<CompartilharResp>(`/paineis/${painel.id}/compartilhar`, {
+      const r = await api<ShareDto>(`/dashboards/${painel.id}/shares`, {
         method: "POST",
-        body: { modo, tempo: modo === "congelado" && tempo ? dayjs(tempo).toISOString() : undefined },
+        body: {
+          mode: modo,
+          frozen_time: modo === "frozen" && tempo ? dayjs(tempo).toISOString() : null,
+        } satisfies ShareCreate,
       });
       setLink(`${location.origin}/p/${encodeURIComponent(r.token)}`);
     } catch (e) {
@@ -86,11 +89,11 @@ export function CompartilharModal({
             value={modo}
             onChange={(v) => setModo(v as typeof modo)}
             data={[
-              { value: "ao_vivo", label: "Seguir ao vivo" },
-              { value: "congelado", label: "Congelado no tempo T" },
+              { value: "live", label: "Seguir ao vivo" },
+              { value: "frozen", label: "Congelado no tempo T" },
             ]}
           />
-          {modo === "congelado" && (
+          {modo === "frozen" && (
             <DateTimePicker
               label="Instante (horário de Brasília)"
               value={tempo}

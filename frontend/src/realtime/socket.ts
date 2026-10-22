@@ -1,10 +1,10 @@
 import type { QueryClient } from "@tanstack/react-query";
-import type { WsClienteMsg, WsServidorMsg } from "../api/types";
+import type { WsClientMessage, WsServerMessage } from "../api/models";
 import { useAuth } from "../store/auth";
 import { useUi } from "../store/ui";
 import { aplicarMensagem } from "./aplicar";
 
-type Ouvinte = (m: WsServidorMsg) => void;
+type Ouvinte = (m: WsServerMessage) => void;
 
 /** Um único WebSocket por aba, com assinaturas por contagem de referência. */
 class LiveSocket {
@@ -64,7 +64,7 @@ class LiveSocket {
       const token = useAuth.getState().token;
       if (token) this.enviar({ op: "auth", token });
       const topicos = [...this.refs.keys()];
-      if (topicos.length) this.enviar({ op: "sub", topicos });
+      if (topicos.length) this.enviar({ op: "subscribe", topics: topicos });
       this.pingTimer = setInterval(() => this.enviar({ op: "ping" }), 25_000);
       // Recupera o que se perdeu enquanto estava desconectado
       if (reconexao && this.qc) {
@@ -81,9 +81,9 @@ class LiveSocket {
       }
     };
     ws.onmessage = (ev) => {
-      let msg: WsServidorMsg;
+      let msg: WsServerMessage;
       try {
-        msg = JSON.parse(String(ev.data)) as WsServidorMsg;
+        msg = JSON.parse(String(ev.data)) as WsServerMessage;
       } catch {
         return;
       }
@@ -130,7 +130,7 @@ class LiveSocket {
     this.agendar(100);
   }
 
-  private enviar(m: WsClienteMsg) {
+  private enviar(m: WsClientMessage) {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(m));
   }
 
@@ -141,7 +141,7 @@ class LiveSocket {
       this.refs.set(t, n + 1);
       if (n === 0) novos.push(t);
     }
-    if (novos.length) this.enviar({ op: "sub", topicos: novos });
+    if (novos.length) this.enviar({ op: "subscribe", topics: novos });
     return () => {
       const remover: string[] = [];
       for (const t of topicos) {
@@ -151,7 +151,7 @@ class LiveSocket {
           remover.push(t);
         } else this.refs.set(t, n - 1);
       }
-      if (remover.length) this.enviar({ op: "unsub", topicos: remover });
+      if (remover.length) this.enviar({ op: "unsubscribe", topics: remover });
     };
   }
 

@@ -21,7 +21,7 @@ import {
   corDivergente,
 } from "../../lib/cores";
 import { fmtInt, fmtNum } from "../../lib/format";
-import type { StatusApuracao } from "../../api/types";
+import type { TallyStatus } from "../../api/models";
 import type { TipoMapa } from "./tipos";
 
 export interface ItemLegenda {
@@ -42,7 +42,7 @@ interface Props {
   rotuloB?: string;
   corA?: string;
   corB?: string;
-  contagemStatus?: Partial<Record<StatusApuracao, number>>;
+  contagemStatus?: Partial<Record<TallyStatus, number>>;
   vitoriasMunicipios?: Map<string, number> | null;
   partidos?: { sigla: string; cor: string; n: number }[];
 }
@@ -211,7 +211,7 @@ export function Legenda(p: Props) {
         <Text size="xs" fw={600}>
           Locais de votação
         </Text>
-        {(["nao_recebido", "parcial", "apurado"] as StatusApuracao[]).map((s) => (
+        {(["not_received", "partial", "tallied"] as TallyStatus[]).map((s) => (
           <Group key={s} gap={6} justify="space-between" wrap="nowrap">
             <Group gap={6} wrap="nowrap">
               <Box w={10} h={10} style={{ borderRadius: 99, background: COR_STATUS[s] }} />

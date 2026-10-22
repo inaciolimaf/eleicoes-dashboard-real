@@ -1,13 +1,18 @@
 import { useAuth } from "../store/auth";
 
-export const API_BASE = "/api/v1";
+export const BASE = "/api/v1";
 
+/** Erro da API: o `application/problem+json` (RFC 9457) do backend. `detail` é o texto para o usuário. */
 export class ApiError extends Error {
-  status: number;
-  detail: unknown;
-  constructor(status: number, message: string, detail?: unknown) {
-    super(message);
+  readonly status: number;
+  readonly title: string;
+  readonly detail: string;
+
+  constructor(status: number, title: string, detail: string) {
+    super(detail);
+    this.name = "ApiError";
     this.status = status;
+    this.title = title;
     this.detail = detail;
   }
 }
@@ -27,10 +32,6 @@ export function qs(params?: Params): string {
   return s ? `?${s}` : "";
 }
 
-export function urlApi(path: string, params?: Params): string {
-  return `${API_BASE}${path}${qs(params)}`;
-}
-
 interface Opts {
   method?: "GET" | "POST" | "PUT" | "DELETE";
   body?: unknown;
@@ -38,19 +39,50 @@ interface Opts {
   signal?: AbortSignal;
 }
 
-function mensagemDeErro(status: number, corpo: unknown): string {
-  if (corpo && typeof corpo === "object" && "detail" in corpo) {
-    const d = (corpo as { detail: unknown }).detail;
-    if (typeof d === "string") return d;
-    if (Array.isArray(d) && d.length && typeof d[0] === "object" && d[0] && "msg" in d[0]) {
-      return String((d[0] as { msg: unknown }).msg);
-    }
+const TITULO_PADRAO: Record<number, string> = {
+  401: "Não autenticado",
+  403: "Acesso negado",
+  404: "Não encontrado",
+  409: "Conflito",
+  422: "Dados inválidos",
+  429: "Muitas tentativas",
+};
+
+const DETALHE_PADRAO: Record<number, string> = {
+  401: "Sessão expirada ou credenciais inválidas.",
+  403: "Acesso negado.",
+  404: "Não encontrado.",
+};
+
+/** Lê o erro de uma resposta. Aceita problem+json; corpo que não é JSON (HTML de proxy, texto) vira o padrão do status. */
+export async function readProblem(resp: Response): Promise<ApiError> {
+  const texto = await resp.text().catch(() => "");
+  let corpo: Record<string, unknown> = {};
+  try {
+    const lido: unknown = JSON.parse(texto);
+    if (lido && typeof lido === "object") corpo = lido as Record<string, unknown>;
+  } catch {
+    corpo = {};
   }
-  if (status === 401) return "Sessão expirada ou credenciais inválidas.";
-  if (status === 403) return "Acesso negado.";
-  if (status === 404) return "Não encontrado.";
+  const titulo =
+    typeof corpo.title === "string" && corpo.title ? corpo.title : (TITULO_PADRAO[resp.status] ?? "Erro");
+  const detalhe = detalheDe(corpo.detail) ?? detalhePadrao(resp.status);
+  return new ApiError(resp.status, titulo, detalhe);
+}
+
+function detalheDe(detail: unknown): string | null {
+  if (typeof detail === "string" && detail.trim()) return detail;
+  // validação do FastAPI (lista de erros): a primeira mensagem
+  if (Array.isArray(detail) && detail.length) {
+    const primeiro = detail[0] as { msg?: unknown } | null;
+    if (primeiro && typeof primeiro.msg === "string") return primeiro.msg;
+  }
+  return null;
+}
+
+function detalhePadrao(status: number): string {
   if (status >= 500) return "O servidor encontrou um erro. Tente de novo em instantes.";
-  return `Erro ${status}`;
+  return DETALHE_PADRAO[status] ?? `Erro ${status}`;
 }
 
 export async function api<T>(path: string, opts: Opts = {}): Promise<T> {
@@ -61,7 +93,7 @@ export async function api<T>(path: string, opts: Opts = {}): Promise<T> {
   if (body !== undefined) headers["Content-Type"] = "application/json";
   let resp: Response;
   try {
-    resp = await fetch(urlApi(path, params), {
+    resp = await fetch(`${BASE}${path}${qs(params)}`, {
       method,
       headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -69,18 +101,15 @@ export async function api<T>(path: string, opts: Opts = {}): Promise<T> {
     });
   } catch (e) {
     if ((e as Error).name === "AbortError") throw e;
-    throw new ApiError(0, "Sem conexão com o servidor.");
+    throw new ApiError(0, "Sem conexão", "Sem conexão com o servidor.");
+  }
+  if (!resp.ok) {
+    const erro = await readProblem(resp);
+    if (resp.status === 401 && token && !path.startsWith("/auth/")) useAuth.getState().sair();
+    throw erro;
   }
   if (resp.status === 204) return undefined as T;
-  const tipo = resp.headers.get("content-type") ?? "";
-  const corpo: unknown = tipo.includes("json")
-    ? await resp.json().catch(() => null)
-    : await resp.text().catch(() => null);
-  if (!resp.ok) {
-    if (resp.status === 401 && token && !path.startsWith("/auth/")) useAuth.getState().sair();
-    throw new ApiError(resp.status, mensagemDeErro(resp.status, corpo), corpo);
-  }
-  return corpo as T;
+  return (await resp.json()) as T;
 }
 
 export const isNotFound = (e: unknown) => e instanceof ApiError && e.status === 404;

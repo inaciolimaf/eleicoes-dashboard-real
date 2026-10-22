@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { TipoEvento } from "../api/types";
+import type { EventType } from "../api/models";
 
 export type Tema = "escuro" | "claro" | "auto";
 export type Densidade = "confortavel" | "compacta";
@@ -10,7 +10,7 @@ export interface Preferencias {
   densidade: Densidade;
   animacoes: boolean;
   coresCandidatos: Record<string, string>;
-  toasts: (TipoEvento | string)[];
+  toasts: (EventType | string)[];
   push: boolean;
   basemap: boolean;
 }
@@ -21,12 +21,23 @@ interface PrefsState extends Preferencias {
   carregar: (p: Partial<Preferencias>) => void;
 }
 
+/** Tipos de evento salvos no navegador com os nomes antigos. */
+const TOASTS_LEGADO: Record<string, string> = {
+  virada: "lead_change",
+  marco: "milestone",
+  eleito: "elected",
+  segundo_turno: "runoff",
+  matematicamente_definido: "mathematically_decided",
+  inicio: "start",
+  finalizado: "milestone",
+};
+
 export const PREFS_PADRAO: Preferencias = {
   tema: "escuro",
   densidade: "confortavel",
   animacoes: true,
   coresCandidatos: {},
-  toasts: ["virada", "eleito", "segundo_turno", "matematicamente_definido"],
+  toasts: ["lead_change", "elected", "runoff", "mathematically_decided"],
   push: false,
   basemap: true,
 };
@@ -45,6 +56,14 @@ export const usePrefs = create<PrefsState>()(
         }),
       carregar: (p) => set(p),
     }),
-    { name: "eleicoes.prefs" },
+    {
+      name: "eleicoes.prefs",
+      // tipos de evento salvos antes da migração para os nomes da API
+      merge: (salvo, atual) => {
+        const p = salvo as Partial<Preferencias>;
+        const toasts = p.toasts?.map((t) => TOASTS_LEGADO[t] ?? t);
+        return { ...atual, ...p, ...(toasts ? { toasts } : {}) };
+      },
+    },
   ),
 );

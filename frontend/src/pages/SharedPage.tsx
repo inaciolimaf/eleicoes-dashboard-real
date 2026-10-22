@@ -14,7 +14,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api/client";
-import type { CompartilhadoResp } from "../api/types";
+import type { SharedDashboardDto } from "../api/models";
 import { Carregando, ErroView } from "../components/common/Estados";
 import { LiveIndicator } from "../components/layout/LiveIndicator";
 import { FilterBar } from "../components/layout/FilterBar";
@@ -25,7 +25,7 @@ import { Grade } from "../paineis/Grade";
 import { aplicarFiltroDoPainel } from "../paineis/PainelView";
 import { painelDeApi } from "../paineis/repo";
 import { useLive } from "../realtime/useLive";
-import { topico } from "../realtime/topicos";
+import { topic } from "../realtime/topics";
 import { useFiltro } from "../store/filtro";
 import { usePrefs } from "../store/prefs";
 
@@ -34,15 +34,14 @@ export default function SharedPage() {
   const token = useParams().token ?? "";
   const q = useQuery({
     queryKey: ["compartilhado", token],
-    queryFn: ({ signal }) =>
-      api<CompartilhadoResp>(`/compartilhados/${encodeURIComponent(token)}`, { signal }),
+    queryFn: ({ signal }) => api<SharedDashboardDto>(`/shared/${encodeURIComponent(token)}`, { signal }),
     staleTime: 60_000,
     retry: 1,
   });
-  const painel = useMemo(() => (q.data ? painelDeApi(q.data.painel) : null), [q.data]);
-  const congelado = q.data?.modo === "congelado" && !!q.data.tempo;
+  const painel = useMemo(() => (q.data ? painelDeApi(q.data.dashboard) : null), [q.data]);
+  const congelado = q.data?.mode === "frozen" && !!q.data.frozen_time;
   const turno = useFiltro((s) => s.turno);
-  useLive([topico.eventos(turno), topico.status()]);
+  useLive([topic.events(turno), topic.status()]);
   const esquema = useComputedColorScheme("dark");
   const setPrefs = usePrefs((s) => s.set);
 
@@ -68,7 +67,7 @@ export default function SharedPage() {
             </Badge>
             {congelado && (
               <Badge color="yellow" variant="light" leftSection={<IconClockHour4 size={12} />}>
-                congelado em {fmtDataCurta(q.data?.tempo)}
+                congelado em {fmtDataCurta(q.data?.frozen_time)}
               </Badge>
             )}
           </Group>
@@ -103,7 +102,7 @@ export default function SharedPage() {
           ) : q.error || !painel ? (
             <ErroView erro={q.error ?? new Error("Link inválido ou expirado.")} />
           ) : (
-            <FiltroProvider value={congelado ? { t: q.data!.tempo, tFixo: true } : {}}>
+            <FiltroProvider value={congelado ? { t: q.data!.frozen_time, tFixo: true } : {}}>
               {painel.config.widgets.length === 0 ? (
                 <Text c="dimmed">Este painel está vazio.</Text>
               ) : (

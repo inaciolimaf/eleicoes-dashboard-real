@@ -11,7 +11,7 @@ import { useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useResultados, useStatus } from "../../api/hooks";
 import { AMBIENTE } from "./LiveIndicator";
-import type { BreadcrumbItem, Nivel } from "../../api/types";
+import type { GeoAreaRefDto, Level } from "../../api/models";
 import { useFiltro } from "../../store/filtro";
 import { useTempo } from "../../store/tempo";
 import { useFavoritos } from "../../store/favoritos";
@@ -20,13 +20,14 @@ import { NOME_CARGO } from "../../lib/cargos";
 import { fmtDataCurta } from "../../lib/time";
 import { useCargoSemResultadoBr } from "../resultados/ComResultados";
 import { spotlight } from "@mantine/spotlight";
+import { asLevel } from "../../lib/recortes";
 
-function breadcrumbPadrao(nivel: Nivel, id: string, nome?: string): BreadcrumbItem[] {
-  const l: BreadcrumbItem[] = [{ nivel: "br", id: "br", nome: "Brasil" }];
-  if (nivel === "br") return l;
+function breadcrumbPadrao(nivel: Level, id: string, nome?: string): GeoAreaRefDto[] {
+  const l: GeoAreaRefDto[] = [{ level: "country", id: "br", name: "Brasil" }];
+  if (nivel === "country") return l;
   const uf = id.slice(0, 2);
-  l.push({ nivel: "uf", id: uf, nome: nomeRecortePadrao("uf", uf) });
-  if (nivel !== "uf") l.push({ nivel, id, nome: nome ?? nomeRecortePadrao(nivel, id) });
+  l.push({ level: "state", id: uf, name: nomeRecortePadrao("state", uf) });
+  if (nivel !== "state") l.push({ level: nivel, id, name: nome ?? nomeRecortePadrao(nivel, id) });
   return l;
 }
 
@@ -40,35 +41,35 @@ export function FilterBar() {
   const semBr = useCargoSemResultadoBr(f.cargo, f.nivel);
   const q = useResultados(
     { turno: f.turno, cargo: f.cargo, nivel: f.nivel, id: f.id, t },
-    !semBr && f.nivel !== "br",
+    !semBr && f.nivel !== "country",
   );
   const { favoritos, eFavorito, alternar } = useFavoritos();
   const status = useStatus();
-  const crumbs = q.data?.recorte.breadcrumb?.length
-    ? q.data.recorte.breadcrumb
+  const crumbs = q.data?.geo_area.breadcrumb?.length
+    ? q.data.geo_area.breadcrumb
     : breadcrumbPadrao(f.nivel, f.id, f.nome);
   const atual = crumbs[crumbs.length - 1];
 
   // guarda o nome do recorte para os chips dos widgets
   useEffect(() => {
-    if (q.data?.recorte?.nome && q.data.recorte.id === f.id && q.data.recorte.nome !== f.nome)
-      useFiltro.getState().setFiltro({ nome: q.data.recorte.nome });
+    if (q.data?.geo_area?.name && q.data.geo_area.id === f.id && q.data.geo_area.name !== f.nome)
+      useFiltro.getState().setFiltro({ nome: q.data.geo_area.name });
   }, [q.data, f.id, f.nome]);
 
-  const ir = (c: BreadcrumbItem) => {
+  const ir = (c: GeoAreaRefDto) => {
     if (
-      c.nivel === "local" ||
-      c.nivel === "secao" ||
+      c.level === "polling_place" ||
+      c.level === "section" ||
       loc.pathname.startsWith("/explorar") ||
       loc.pathname.startsWith("/locais") ||
       loc.pathname.startsWith("/secoes")
     ) {
-      if (c.nivel !== "local" && c.nivel !== "secao") f.setRecorte(c.nivel, c.id, c.nome);
-      navigate(linkRecorte(c.nivel, c.id));
-    } else f.setRecorte(c.nivel, c.id, c.nome);
+      if (c.level !== "polling_place" && c.level !== "section") f.setRecorte(asLevel(c.level), c.id, c.name);
+      navigate(linkRecorte(asLevel(c.level), c.id));
+    } else f.setRecorte(asLevel(c.level), c.id, c.name);
   };
 
-  const fav = eFavorito("recorte", `${f.nivel}:${f.id}`);
+  const fav = eFavorito("geo_area", `${f.nivel}:${f.id}`);
 
   return (
     <Group
@@ -90,7 +91,7 @@ export function FilterBar() {
           >
             {crumbs.map((c, i) => (
               <Anchor
-                key={`${c.nivel}:${c.id}`}
+                key={`${c.level}:${c.id}`}
                 component="button"
                 type="button"
                 size="sm"
@@ -99,7 +100,7 @@ export function FilterBar() {
                 onClick={() => ir(c)}
                 style={{ whiteSpace: "nowrap" }}
               >
-                {c.nome}
+                {c.name}
               </Anchor>
             ))}
           </Breadcrumbs>
@@ -109,7 +110,7 @@ export function FilterBar() {
               size="sm"
               color="yellow"
               onClick={() =>
-                alternar({ tipo: "recorte", ref: `${f.nivel}:${f.id}`, rotulo: atual?.nome ?? f.id })
+                alternar({ type: "geo_area", ref: `${f.nivel}:${f.id}`, label: atual?.name ?? f.id })
               }
               aria-label="Favoritar recorte"
             >
@@ -119,10 +120,10 @@ export function FilterBar() {
           <Badge variant="light" color="gray" size="sm" style={{ flexShrink: 0 }}>
             {NOME_CARGO[f.cargo] ?? `Cargo ${f.cargo}`} · {f.turno}º turno
           </Badge>
-          {status.data && status.data.ambiente !== "oficial" && (
+          {status.data && status.data.tse_environment !== "oficial" && (
             <Tooltip label="Ambiente de dados (não é o resultado oficial)">
               <Badge variant="outline" color="grape" size="sm" style={{ flexShrink: 0 }}>
-                {AMBIENTE[status.data.ambiente] ?? status.data.ambiente}
+                {AMBIENTE[status.data.tse_environment] ?? status.data.tse_environment}
               </Badge>
             </Tooltip>
           )}
@@ -155,26 +156,26 @@ export function FilterBar() {
               </Text>
               {favoritos.slice(0, 12).map((fv) => {
                 const destino =
-                  fv.tipo === "candidato"
+                  fv.type === "candidate"
                     ? `/candidatos/${fv.ref}`
-                    : fv.tipo === "local"
+                    : fv.type === "polling_place"
                       ? `/locais/${fv.ref}`
                       : (() => {
                           const [n, ...r] = fv.ref.split(":");
-                          return linkRecorte(n as Nivel, r.join(":"));
+                          return linkRecorte(n as Level, r.join(":"));
                         })();
                 return (
                   <Badge
-                    key={`${fv.tipo}:${fv.ref}`}
+                    key={`${fv.type}:${fv.ref}`}
                     component={Link}
                     to={destino}
                     variant="outline"
-                    color={fv.tipo === "candidato" ? "grape" : "yellow"}
+                    color={fv.type === "candidate" ? "grape" : "yellow"}
                     size="sm"
                     style={{ cursor: "pointer", flexShrink: 0, textTransform: "none" }}
                     leftSection={<IconStarFilled size={10} />}
                   >
-                    {fv.rotulo}
+                    {fv.label}
                   </Badge>
                 );
               })}

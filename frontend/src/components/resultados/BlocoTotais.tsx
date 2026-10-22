@@ -1,7 +1,7 @@
 import { Alert, Box, Group, Progress, SimpleGrid, Stack, Text, Tooltip } from "@mantine/core";
 import { useElementSize } from "@mantine/hooks";
 import { IconInfoCircle } from "@tabler/icons-react";
-import type { ResultadosComDados } from "../../api/types";
+import type { ResultsWithDataDto } from "../../api/models";
 import { Num } from "../common/Num";
 import { fmtInt, fmtPct } from "../../lib/format";
 import { FonteDados } from "./FonteDados";
@@ -35,32 +35,32 @@ function Stat({
 }
 
 /** Bloco de totais (RF-03): votos válidos em destaque. */
-export function BlocoTotais({ res, compacto }: { res: ResultadosComDados; compacto?: boolean }) {
+export function BlocoTotais({ res, compacto }: { res: ResultsWithDataDto; compacto?: boolean }) {
   const { ref, width } = useElementSize();
-  const t = res.totais;
+  const t = res.totals;
   const cols = width > 640 ? 6 : width > 420 ? 3 : 2;
-  const pctEleitoradoApurado = t.eleitorado ? (t.eleitorado_apurado / t.eleitorado) * 100 : null;
+  const pctEleitoradoApurado = t.electorate ? (t.tallied_electorate / t.electorate) * 100 : null;
   return (
     <Stack gap="sm" ref={ref}>
       <Box>
         <Group justify="space-between" gap={4} mb={4} wrap="nowrap">
           <Text size="sm" fw={600}>
-            <Num valor={t.pct_secoes} tipo="pct" />{" "}
+            <Num valor={t.pct_sections} tipo="pct" />{" "}
             <Text span size="sm" c="dimmed" fw={400}>
               das seções totalizadas
             </Text>
           </Text>
           <Text size="xs" c="dimmed" className="num" visibleFrom="xs">
-            {fmtInt(t.secoes_totalizadas)} de {fmtInt(t.secoes_total)}
+            {fmtInt(t.sections_tallied)} de {fmtInt(t.sections_total)}
           </Text>
         </Group>
         <Progress
-          value={t.pct_secoes}
+          value={t.pct_sections}
           size="md"
           radius="xl"
-          color={t.pct_secoes >= 100 ? "green" : "eleicao"}
-          striped={!res.totalizacao_final && t.pct_secoes < 100}
-          animated={!res.totalizacao_final && t.pct_secoes < 100}
+          color={t.pct_sections >= 100 ? "green" : "eleicao"}
+          striped={!res.final_tally && t.pct_sections < 100}
+          animated={!res.final_tally && t.pct_sections < 100}
           aria-label="Percentual de seções totalizadas"
         />
       </Box>
@@ -71,19 +71,19 @@ export function BlocoTotais({ res, compacto }: { res: ResultadosComDados; compac
             Votos válidos
           </Text>
           <Num
-            valor={t.votos_validos}
+            valor={t.valid_votes}
             style={{ fontSize: compacto ? "1.6rem" : "2.3rem", fontWeight: 800, lineHeight: 1.1 }}
           />
           <Text size="sm" c="dimmed">
-            <Num valor={t.pct_validos} tipo="pct" brilho={false} /> do comparecimento
+            <Num valor={t.pct_valid} tipo="pct" brilho={false} /> do comparecimento
           </Text>
         </Stack>
-        {res.matematicamente_definido && !res.totalizacao_final && (
+        {res.mathematically_decided && !res.final_tally && (
           <Text size="xs" c="teal.4" fw={600}>
             Matematicamente definido
           </Text>
         )}
-        {res.totalizacao_final && (
+        {res.final_tally && (
           <Text size="xs" c="green.5" fw={700}>
             Totalização final
           </Text>
@@ -92,53 +92,53 @@ export function BlocoTotais({ res, compacto }: { res: ResultadosComDados; compac
 
       {!compacto && (
         <SimpleGrid cols={cols} spacing="sm" verticalSpacing="xs">
-          <Stat rotulo="Brancos" valor={t.brancos} pct={t.pct_brancos} dica="% sobre o total de votos" />
-          <Stat rotulo="Nulos" valor={t.nulos} pct={t.pct_nulos} dica="% sobre o total de votos" />
+          <Stat rotulo="Brancos" valor={t.blank_votes} pct={t.pct_blank} dica="% sobre o total de votos" />
+          <Stat rotulo="Nulos" valor={t.null_votes} pct={t.pct_null} dica="% sobre o total de votos" />
           <Stat
             rotulo="Abstenção"
-            valor={t.abstencao}
-            pct={t.pct_abstencao}
+            valor={t.abstention}
+            pct={t.pct_abstention}
             dica="% sobre o eleitorado apurado"
           />
           <Stat
             rotulo="Comparecimento"
-            valor={t.comparecimento}
-            pct={t.pct_comparecimento}
+            valor={t.turnout}
+            pct={t.pct_turnout}
             dica="% sobre o eleitorado apurado"
           />
-          <Stat rotulo="Votos totais" valor={t.votos_total} />
+          <Stat rotulo="Votos totais" valor={t.total_votes} />
           <Stat
             rotulo="Eleitorado"
-            valor={t.eleitorado}
+            valor={t.electorate}
             pct={pctEleitoradoApurado}
-            dica={`Eleitorado apurado: ${fmtInt(t.eleitorado_apurado)} (${fmtPct(pctEleitoradoApurado)})`}
+            dica={`Eleitorado apurado: ${fmtInt(t.tallied_electorate)} (${fmtPct(pctEleitoradoApurado)})`}
           />
         </SimpleGrid>
       )}
       {compacto && (
         <Group gap="md">
           <Text size="xs" c="dimmed">
-            Brancos <b className="num">{fmtPct(t.pct_brancos)}</b>
+            Brancos <b className="num">{fmtPct(t.pct_blank)}</b>
           </Text>
           <Text size="xs" c="dimmed">
-            Nulos <b className="num">{fmtPct(t.pct_nulos)}</b>
+            Nulos <b className="num">{fmtPct(t.pct_null)}</b>
           </Text>
           <Text size="xs" c="dimmed">
-            Abstenção <b className="num">{fmtPct(t.pct_abstencao)}</b>
+            Abstenção <b className="num">{fmtPct(t.pct_abstention)}</b>
           </Text>
         </Group>
       )}
 
-      {res.cobertura && (
+      {res.coverage && (
         <Alert
           variant="light"
-          color={res.cobertura.secoes_coletadas < res.cobertura.secoes_total ? "yellow" : "teal"}
+          color={res.coverage.collected_sections < res.coverage.total_sections ? "yellow" : "teal"}
           p="xs"
           icon={<IconInfoCircle size={16} />}
         >
           <Text size="sm">
-            <b className="num">{fmtInt(res.cobertura.secoes_coletadas)}</b> de{" "}
-            <b className="num">{fmtInt(res.cobertura.secoes_total)}</b> seções deste recorte coletadas (soma
+            <b className="num">{fmtInt(res.coverage.collected_sections)}</b> de{" "}
+            <b className="num">{fmtInt(res.coverage.total_sections)}</b> seções deste recorte coletadas (soma
             dos boletins de urna).
           </Text>
         </Alert>

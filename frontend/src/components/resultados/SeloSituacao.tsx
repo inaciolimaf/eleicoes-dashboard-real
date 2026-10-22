@@ -1,12 +1,12 @@
 import { Badge, Group, Tooltip } from "@mantine/core";
 import { IconCheck } from "@tabler/icons-react";
-import type { Situacao } from "../../api/types";
+import type { CandidateStatus } from "../../api/models";
 import { SITUACAO } from "../../lib/cores";
 import { fmtHora } from "../../lib/time";
 
 interface Props {
-  situacao: Situacao;
-  situacaoGeral?: Situacao | null;
+  situacao: CandidateStatus;
+  situacaoGeral?: CandidateStatus | null;
   /** ex.: "no Brasil", "em SP" */
   ondeGeral?: string;
   totalizadoEm?: string | null;
@@ -19,14 +19,14 @@ function Selo({
   totalizadoEm,
   size,
 }: {
-  s: Situacao;
+  s: CandidateStatus;
   sufixo?: string;
   totalizadoEm?: string | null;
   size: "xs" | "sm" | "md";
 }) {
-  const est = SITUACAO[s] ?? SITUACAO.EM_APURACAO;
-  if (s === "EM_APURACAO" && !sufixo) return null;
-  const doTse = s !== "LIDERANDO" && s !== "EM_APURACAO";
+  const est = SITUACAO[s] ?? SITUACAO.COUNTING;
+  if (s === "COUNTING" && !sufixo) return null;
+  const doTse = s !== "LEADING" && s !== "COUNTING";
   const label = (
     <>
       {est.descricao}
@@ -39,7 +39,7 @@ function Selo({
         size={size}
         color={est.cor}
         variant={est.variante}
-        leftSection={s === "ELEITO" ? <IconCheck size={12} stroke={3} /> : undefined}
+        leftSection={s === "ELECTED" ? <IconCheck size={12} stroke={3} /> : undefined}
         styles={{ root: { textTransform: "uppercase", letterSpacing: 0.3, flexShrink: 0 } }}
         aria-label={`Situação: ${est.rotulo}${sufixo ? " " + sufixo : ""}`}
       >
@@ -52,7 +52,7 @@ function Selo({
 
 /** Selo de situação (RF-03). Mostra também a situação geral quando difere da local. */
 export function SeloSituacao({ situacao, situacaoGeral, ondeGeral, totalizadoEm, size = "sm" }: Props) {
-  const mostrarGeral = situacaoGeral && situacaoGeral !== situacao && situacaoGeral !== "EM_APURACAO";
+  const mostrarGeral = situacaoGeral && situacaoGeral !== situacao && situacaoGeral !== "COUNTING";
   return (
     <Group gap={4} wrap="wrap">
       <Selo s={situacao} totalizadoEm={totalizadoEm} size={size} />

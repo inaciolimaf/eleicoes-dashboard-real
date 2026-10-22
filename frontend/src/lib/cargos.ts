@@ -1,4 +1,4 @@
-import type { Cargo, Eleicao } from "../api/types";
+import type { ElectionDto, OfficeDto } from "../api/models";
 
 export interface OpcaoCargo {
   valor: string;
@@ -34,20 +34,24 @@ export function cargoParaUf(cd: number, uf: string | null | undefined): number {
   return cd;
 }
 
-export function cargosDoTurno(eleicoes: Eleicao[] | undefined, turno: number, ciclo: string | null): Cargo[] {
+export function cargosDoTurno(
+  eleicoes: ElectionDto[] | undefined,
+  turno: number,
+  ciclo: string | null,
+): OfficeDto[] {
   if (!eleicoes) return [];
-  const mapa = new Map<number, Cargo>();
+  const mapa = new Map<number, OfficeDto>();
   for (const e of eleicoes) {
-    if (e.turno !== turno) continue;
-    if (ciclo && e.ciclo && e.ciclo !== ciclo) continue;
-    for (const c of e.cargos) mapa.set(Number(c.cd), c);
+    if (e.round !== turno) continue;
+    if (ciclo && e.cycle && e.cycle !== ciclo) continue;
+    for (const c of e.offices) mapa.set(Number(c.office_code), c);
   }
-  return [...mapa.values()].sort((a, b) => Number(a.cd) - Number(b.cd));
+  return [...mapa.values()].sort((a, b) => Number(a.office_code) - Number(b.office_code));
 }
 
-export function infoCargo(eleicoes: Eleicao[] | undefined, cd: number): Cargo | undefined {
+export function infoCargo(eleicoes: ElectionDto[] | undefined, cd: number): OfficeDto | undefined {
   for (const e of eleicoes ?? []) {
-    const c = e.cargos.find((x) => Number(x.cd) === cd);
+    const c = e.offices.find((x) => Number(x.office_code) === cd);
     if (c) return c;
   }
   return undefined;

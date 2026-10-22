@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import type { EChartsOption } from "echarts";
-import type { Nivel } from "../../api/types";
+import type { Level } from "../../api/models";
 import { useSerie } from "../../api/hooks";
 import { useFiltroEfetivo } from "../../lib/filtro-efetivo";
 import { useCorCandidato } from "../../lib/useCor";
@@ -8,10 +8,10 @@ import { brt } from "../../lib/time";
 import { fmtInt, fmtNum } from "../../lib/format";
 import { Carregando, ErroView, SemDados } from "../common/Estados";
 import { EChart, useCoresGrafico } from "./EChart";
-import { COR_EVENTO, ROTULO_EVENTO } from "../../realtime/aplicar";
+import { COR_EVENTO, ROTULO_EVENTO } from "../../lib/eventos";
 
 export interface EvolucaoProps {
-  nivel?: Nivel;
+  nivel?: Level;
   id?: string;
   eixoX?: "t" | "pct_secoes";
   metrica?: "pct" | "votos" | "diferenca";
@@ -49,12 +49,17 @@ export function Evolucao({
 
   const option = useMemo<EChartsOption | null>(() => {
     const s = q.data;
-    if (!s || !s.pontos.length) return null;
-    const ultimo = s.pontos[s.pontos.length - 1];
-    const cands = [...s.candidatos]
-      .sort((a, b) => (ultimo.candidatos[b.sqcand]?.votos ?? 0) - (ultimo.candidatos[a.sqcand]?.votos ?? 0))
+    if (!s || !s.points.length) return null;
+    const ultimo = s.points[s.points.length - 1];
+    const cands = [...s.candidates]
+      .sort(
+        (a, b) =>
+          (ultimo.candidates[b.tse_candidate_id]?.votes ?? 0) -
+          (ultimo.candidates[a.tse_candidate_id]?.votes ?? 0),
+      )
       .slice(0, Math.max(2, topN));
-    const x = (p: (typeof s.pontos)[number]) => (eixoX === "t" ? new Date(p.t).getTime() : p.pct_secoes);
+    const x = (p: (typeof s.points)[number]) =>
+      eixoX === "t" ? new Date(p.time ?? "").getTime() : p.pct_sections;
     const area = estilo === "area";
 
     let series: EChartsOption["series"];
@@ -63,41 +68,43 @@ export function Evolucao({
       series = [
         {
           type: "line",
-          name: `${a.nome_urna} − ${b.nome_urna}`,
+          name: `${a.ballot_name} − ${b.ballot_name}`,
           showSymbol: false,
           smooth: 0.2,
-          lineStyle: { width: 2.5, color: corCand(a.sqcand, a.cor) },
-          itemStyle: { color: corCand(a.sqcand, a.cor) },
+          lineStyle: { width: 2.5, color: corCand(a.tse_candidate_id, a.color) },
+          itemStyle: { color: corCand(a.tse_candidate_id, a.color) },
           areaStyle: area ? { opacity: 0.15 } : undefined,
-          data: s.pontos.map((p) => [
+          data: s.points.map((p) => [
             x(p),
-            (p.candidatos[a.sqcand]?.pct ?? 0) - (p.candidatos[b.sqcand]?.pct ?? 0),
+            (p.candidates[a.tse_candidate_id]?.pct ?? 0) - (p.candidates[b.tse_candidate_id]?.pct ?? 0),
           ]),
         },
       ];
     } else {
       series = cands.map((cd) => ({
         type: "line" as const,
-        name: `${cd.nome_urna} (${cd.numero})`,
+        name: `${cd.ballot_name} (${cd.ballot_number})`,
         showSymbol: false,
         smooth: 0.2,
-        lineStyle: { width: 2.5, color: corCand(cd.sqcand, cd.cor, cd.numero) },
-        itemStyle: { color: corCand(cd.sqcand, cd.cor, cd.numero) },
+        lineStyle: { width: 2.5, color: corCand(cd.tse_candidate_id, cd.color, cd.ballot_number) },
+        itemStyle: { color: corCand(cd.tse_candidate_id, cd.color, cd.ballot_number) },
         areaStyle: area ? { opacity: 0.12 } : undefined,
         emphasis: { focus: "series" as const },
-        data: s.pontos.map((p) => [
+        data: s.points.map((p) => [
           x(p),
-          metrica === "votos" ? (p.candidatos[cd.sqcand]?.votos ?? 0) : (p.candidatos[cd.sqcand]?.pct ?? 0),
+          metrica === "votos"
+            ? (p.candidates[cd.tse_candidate_id]?.votes ?? 0)
+            : (p.candidates[cd.tse_candidate_id]?.pct ?? 0),
         ]),
       }));
     }
 
     // marcadores de eventos
-    if (mostrarEventos && s.eventos.length && Array.isArray(series) && series.length) {
+    if (mostrarEventos && s.events.length && Array.isArray(series) && series.length) {
       const posX = (iso: string) => {
         if (eixoX === "t") return new Date(iso).getTime();
-        let v = s.pontos[0].pct_secoes;
-        for (const p of s.pontos) if (p.t <= iso) v = p.pct_secoes;
+        let v = s.points[0].pct_sections;
+        for (const p of s.points) if ((p.time ?? "") <= iso) v = p.pct_sections;
         return v;
       };
       (series[0] as { markLine?: unknown }).markLine = {
@@ -106,12 +113,12 @@ export function Evolucao({
         animation: false,
         label: { show: false },
         lineStyle: { type: "dashed", width: 1, opacity: 0.8 },
-        data: s.eventos.map((e) => ({
-          xAxis: posX(e.ocorrido_em),
-          name: e.titulo,
-          lineStyle: { color: COR_MANTINE[COR_EVENTO[e.tipo] ?? "blue"] ?? "#888" },
+        data: s.events.map((e) => ({
+          xAxis: posX(e.occurred_at ?? ""),
+          name: e.title,
+          lineStyle: { color: COR_MANTINE[COR_EVENTO[e.type] ?? "blue"] ?? "#888" },
           tooltip: {
-            formatter: `<b>${ROTULO_EVENTO[e.tipo] ?? e.tipo}</b><br/>${e.titulo}<br/>${brt(e.ocorrido_em).format("HH:mm")}`,
+            formatter: `<b>${ROTULO_EVENTO[e.type] ?? e.type}</b><br/>${e.title}<br/>${brt(e.occurred_at).format("HH:mm")}`,
           },
           label: { show: false },
         })),

@@ -2,19 +2,19 @@ import { Button, Group, Stack, Text, ThemeIcon } from "@mantine/core";
 import { IconMap2 } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 import { useEleicoes, useResultados } from "../../api/hooks";
-import type { Nivel, ResultadosComDados } from "../../api/types";
+import type { Level, ResultsWithDataDto } from "../../api/models";
 import { abrangenciaPadrao, infoCargo, NOME_CARGO } from "../../lib/cargos";
 import { useFiltroEfetivo } from "../../lib/filtro-efetivo";
 import { UFS } from "../../lib/recortes";
-import { topico } from "../../realtime/topicos";
+import { topic } from "../../realtime/topics";
 import { useLive } from "../../realtime/useLive";
 import { Carregando, ErroView, SemDados } from "../common/Estados";
 
 /** true quando o cargo é estadual e o recorte é o Brasil (não existe resultado único). */
-export function useCargoSemResultadoBr(cargo: number, nivel: Nivel): boolean {
+export function useCargoSemResultadoBr(cargo: number, nivel: Level): boolean {
   const el = useEleicoes();
-  const abr = infoCargo(el.data, cargo)?.abrangencia ?? abrangenciaPadrao(cargo);
-  return abr === "uf" && nivel === "br";
+  const abr = infoCargo(el.data, cargo)?.coverage ?? abrangenciaPadrao(cargo);
+  return abr === "uf" && nivel === "country";
 }
 
 export function EscolhaUf({ cargo, onUf }: { cargo: number; onUf?: (uf: string, nome: string) => void }) {
@@ -43,9 +43,9 @@ export function EscolhaUf({ cargo, onUf }: { cargo: number; onUf?: (uf: string, 
 }
 
 interface Props {
-  nivel?: Nivel;
+  nivel?: Level;
   id?: string;
-  children: (res: ResultadosComDados) => ReactNode;
+  children: (res: ResultsWithDataDto) => ReactNode;
   linhasSkeleton?: number;
   onUf?: (uf: string, nome: string) => void;
 }
@@ -57,10 +57,10 @@ export function ComResultados({ nivel, id, children, linhasSkeleton = 4, onUf }:
   const i = id ?? f.id;
   const semBr = useCargoSemResultadoBr(f.cargo, n);
   const q = useResultados({ turno: f.turno, cargo: f.cargo, nivel: n, id: i, t: f.t }, !semBr);
-  useLive([!semBr && topico.res(f.turno, f.cargo, n, i)]);
+  useLive([!semBr && topic.results(f.turno, f.cargo, n, i)]);
   if (semBr) return <EscolhaUf cargo={f.cargo} onUf={onUf} />;
   if (q.isLoading) return <Carregando linhas={linhasSkeleton} />;
   if (q.error) return <ErroView erro={q.error} onRetry={() => q.refetch()} />;
-  if (!q.data || q.data.sem_dados) return <SemDados />;
+  if (!q.data || q.data.no_data) return <SemDados />;
   return <>{children(q.data)}</>;
 }

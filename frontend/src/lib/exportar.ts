@@ -1,7 +1,7 @@
 import { toPng } from "html-to-image";
 import { notifications } from "@mantine/notifications";
-import { urlApi } from "../api/client";
-import type { Nivel } from "../api/types";
+import { BASE, qs } from "../api/client";
+import type { Level } from "../api/models";
 import { slug } from "./format";
 
 export function baixarUrl(url: string, nome?: string) {
@@ -18,18 +18,18 @@ export function baixarUrl(url: string, nome?: string) {
 export function exportarDados(
   recurso: "resultados" | "filhos",
   formato: "csv" | "json",
-  p: { turno: number; cargo: number; nivel: Nivel; id: string; t: string | null; filhos?: Nivel | null },
+  p: { turno: number; cargo: number; nivel: Level; id: string; t: string | null; filhos?: Level | null },
 ) {
-  const url = urlApi("/export", {
-    recurso,
-    formato,
-    turno: p.turno,
-    cargo: p.cargo,
-    nivel: p.nivel,
+  const url = `${BASE}/exports${qs({
+    resource: recurso === "resultados" ? "results" : "children",
+    format: formato,
+    round: p.turno,
+    office: p.cargo,
+    level: p.nivel,
     id: p.id,
-    t: p.t,
-    filhos: p.filhos ?? undefined,
-  });
+    at: p.t,
+    child_level: p.filhos ?? undefined,
+  })}`;
   baixarUrl(url, `${recurso}-${p.nivel}-${p.id}-c${p.cargo}.${formato}`);
 }
 

@@ -20,7 +20,7 @@ import { DateTimePicker } from "@mantine/dates";
 import { IconLock, IconLockOpen, IconPlus, IconTrash } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { useCandidatos } from "../api/hooks";
-import type { Nivel } from "../api/types";
+import type { Level } from "../api/models";
 import { CandidatoPicker, RecortePicker, lerRecorte, valorRecorte } from "../components/common/Pickers";
 import { OPCOES_CARGO } from "../lib/cargos";
 import { useFiltroEfetivo } from "../lib/filtro-efetivo";
@@ -48,8 +48,8 @@ function CampoCandidatos({
     <MultiSelect
       label="Candidatos (até 4)"
       data={(q.data ?? []).map((c) => ({
-        value: c.sqcand,
-        label: `${c.nome_urna} (${c.numero}) · ${c.partido_sigla}`,
+        value: c.tse_candidate_id,
+        label: `${c.ballot_name} (${c.ballot_number}) · ${c.party_abbreviation}`,
       }))}
       value={value}
       onChange={onChange}
@@ -168,11 +168,12 @@ function Campo({
       );
     case "local":
     case "secao": {
-      const v = typeof valor === "string" && valor ? valorRecorte(campo.tipo, valor) : null;
+      const nivelCampo = campo.tipo === "local" ? "polling_place" : "section";
+      const v = typeof valor === "string" && valor ? valorRecorte(nivelCampo, valor) : null;
       return (
         <RecortePicker
           label={campo.rotulo}
-          tipos={[campo.tipo]}
+          tipos={[nivelCampo]}
           incluirBrasil={false}
           incluirUfs={false}
           value={v}
@@ -264,7 +265,7 @@ export function GavetaConfig({ widget, onClose, onSalvar }: Props) {
     !rascunho.herda && filtros.nivel && filtros.recorte ? valorRecorte(filtros.nivel, filtros.recorte) : null;
   const ufCtx =
     !rascunho.herda && filtros.nivel && filtros.recorte
-      ? ufDoId(filtros.nivel as Nivel, filtros.recorte)
+      ? ufDoId(filtros.nivel as Level, filtros.recorte)
       : ufDoId(fe.nivel, fe.id);
   const tempoFixo = !rascunho.herda && filtros.tempo && filtros.tempo !== "agora";
 

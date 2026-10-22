@@ -1,66 +1,83 @@
-import type { Nivel } from "../api/types";
+import type { Level } from "../api/models";
 
-export const NIVEIS: Nivel[] = ["br", "uf", "municipio", "zona", "local", "secao"];
+export const NIVEIS: Level[] = ["country", "state", "municipality", "zone", "polling_place", "section"];
 
-export const NIVEL_ROTULO: Record<Nivel, string> = {
-  br: "Brasil",
-  uf: "UF",
-  municipio: "Município",
-  zona: "Zona",
-  local: "Local de votação",
-  secao: "Seção",
+export const NIVEL_ROTULO: Record<Level, string> = {
+  country: "Brasil",
+  state: "UF",
+  municipality: "Município",
+  zone: "Zona",
+  polling_place: "Local de votação",
+  section: "Seção",
 };
 
-export const NIVEL_PLURAL: Record<Nivel, string> = {
-  br: "Brasil",
-  uf: "UFs",
-  municipio: "Municípios",
-  zona: "Zonas",
-  local: "Locais",
-  secao: "Seções",
+export const NIVEL_PLURAL: Record<Level, string> = {
+  country: "Brasil",
+  state: "UFs",
+  municipality: "Municípios",
+  zone: "Zonas",
+  polling_place: "Locais",
+  section: "Seções",
 };
 
-export function nivelFilho(n: Nivel): Nivel | null {
+/** Segmento da URL (`/explorar/:nivel`) de cada nível: as telas mantêm os nomes em português. */
+const SEGMENTO_URL: Record<Level, string> = {
+  country: "br",
+  state: "uf",
+  municipality: "municipio",
+  zone: "zona",
+  polling_place: "local",
+  section: "secao",
+};
+
+export const segmentoDoNivel = (nivel: Level): string => SEGMENTO_URL[nivel];
+
+/** Texto de nível vindo de um DTO (a API o tipa como string): o valor é sempre um `Level`. */
+export const asLevel = (valor: string): Level => valor as Level;
+
+export function nivelDoSegmento(segmento: string | undefined): Level | null {
+  return NIVEIS.find((n) => SEGMENTO_URL[n] === segmento) ?? null;
+}
+
+export function nivelFilho(n: Level): Level | null {
   switch (n) {
-    case "br":
-      return "uf";
-    case "uf":
-      return "municipio";
-    case "municipio":
-      return "zona";
-    case "zona":
-      return "local";
-    case "local":
-      return "secao";
+    case "country":
+      return "state";
+    case "state":
+      return "municipality";
+    case "municipality":
+      return "zone";
+    case "zone":
+      return "polling_place";
+    case "polling_place":
+      return "section";
     default:
       return null;
   }
 }
 
-export const isNivel = (s: string | undefined | null): s is Nivel => !!s && (NIVEIS as string[]).includes(s);
-
 /** UF (minúscula) a partir de um id de recorte */
-export function ufDoId(nivel: Nivel, id: string): string | null {
-  if (nivel === "br") return null;
+export function ufDoId(nivel: Level, id: string): string | null {
+  if (nivel === "country") return null;
   return id.slice(0, 2).toLowerCase();
 }
 
 /** Município (id de recorte) a partir de um id de zona/local/seção */
-export function municipioDoId(nivel: Nivel, id: string): string | null {
-  if (nivel === "br" || nivel === "uf") return null;
+export function municipioDoId(nivel: Level, id: string): string | null {
+  if (nivel === "country" || nivel === "state") return null;
   return id.split("-")[0];
 }
 
-export function zonaDoId(nivel: Nivel, id: string): string | null {
-  if (nivel === "zona") return id;
-  if (nivel === "local" || nivel === "secao") return id.split("-").slice(0, 2).join("-");
+export function zonaDoId(nivel: Level, id: string): string | null {
+  if (nivel === "zone") return id;
+  if (nivel === "polling_place" || nivel === "section") return id.split("-").slice(0, 2).join("-");
   return null;
 }
 
-export function linkRecorte(nivel: Nivel, id: string): string {
-  if (nivel === "local") return `/locais/${encodeURIComponent(id)}`;
-  if (nivel === "secao") return `/secoes/${encodeURIComponent(id)}`;
-  return `/explorar/${nivel}/${encodeURIComponent(id)}`;
+export function linkRecorte(nivel: Level, id: string): string {
+  if (nivel === "polling_place") return `/locais/${encodeURIComponent(id)}`;
+  if (nivel === "section") return `/secoes/${encodeURIComponent(id)}`;
+  return `/explorar/${segmentoDoNivel(nivel)}/${encodeURIComponent(id)}`;
 }
 
 export const UFS: { uf: string; nome: string; regiao: string; capital: string }[] = [
@@ -98,10 +115,10 @@ export const UF_POR_SIGLA: Record<string, (typeof UFS)[number]> = Object.fromEnt
 );
 export const REGIOES = ["Norte", "Nordeste", "Centro-Oeste", "Sudeste", "Sul"];
 
-export function nomeRecortePadrao(nivel: Nivel, id: string): string {
-  if (nivel === "br") return "Brasil";
-  if (nivel === "uf") return id === "zz" ? "Exterior" : (UF_POR_SIGLA[id]?.nome ?? id.toUpperCase());
-  if (nivel === "zona") return `Zona ${Number(id.split("-z")[1] ?? "")}`;
-  if (nivel === "secao") return `Seção ${Number(id.split("-s")[1] ?? "")}`;
+export function nomeRecortePadrao(nivel: Level, id: string): string {
+  if (nivel === "country") return "Brasil";
+  if (nivel === "state") return id === "zz" ? "Exterior" : (UF_POR_SIGLA[id]?.nome ?? id.toUpperCase());
+  if (nivel === "zone") return `Zona ${Number(id.split("-z")[1] ?? "")}`;
+  if (nivel === "section") return `Seção ${Number(id.split("-s")[1] ?? "")}`;
   return id;
 }

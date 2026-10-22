@@ -1,3 +1,4 @@
+import type { FakeTseStateDto } from "../api/models";
 import {
   Alert,
   Badge,
@@ -100,8 +101,8 @@ function Metricas({ dados }: { dados: Record<string, unknown> }) {
 }
 
 export default function AdminPage() {
-  const usuario = useAuth((s) => s.usuario);
-  const admin = !!usuario?.is_admin;
+  const user = useAuth((s) => s.user);
+  const admin = !!user?.is_admin;
   const saude = useAdminSaude(admin);
   const fake = useAdminFake(admin);
   const status = useStatus();
@@ -133,10 +134,10 @@ export default function AdminPage() {
     }
   };
 
-  const pausado = status.data?.coletor.pausado;
-  const fakeDados = fake.data ?? {};
-  const fakePausado = fakeDados.pausado === true;
-  const ambienteFake = status.data?.ambiente === "fake";
+  const pausado = status.data?.collector.paused;
+  const fakeDados: Partial<FakeTseStateDto> = fake.data ?? {};
+  const fakePausado = fakeDados.paused === true;
+  const ambienteFake = status.data?.tse_environment === "fake";
 
   return (
     <Stack gap="md">
@@ -152,7 +153,8 @@ export default function AdminPage() {
           <Group justify="space-between" mb="sm">
             <Text fw={700}>Coletor do TSE</Text>
             <Badge color={pausado ? "yellow" : "teal"} variant="light">
-              {pausado ? "pausado" : "rodando"} · {fmtNum(status.data?.coletor.req_por_seg ?? 0, 1)} req/s
+              {pausado ? "pausado" : "rodando"} · {fmtNum(status.data?.collector.requests_per_second ?? 0, 1)}{" "}
+              req/s
             </Badge>
           </Group>
           <Group>
@@ -176,8 +178,8 @@ export default function AdminPage() {
             </Button>
           </Group>
           <Text size="xs" c="dimmed" mt="sm">
-            Última coleta: {fmtDataHora(status.data?.ultima_coleta)} · última totalização:{" "}
-            {fmtDataHora(status.data?.ultima_totalizacao)}
+            Última coleta: {fmtDataHora(status.data?.last_collection)} · última totalização:{" "}
+            {fmtDataHora(status.data?.last_tally)}
           </Text>
         </Card>
 
@@ -186,7 +188,7 @@ export default function AdminPage() {
             <Text fw={700}>Relógio do TSE simulado (tse-fake)</Text>
             {!ambienteFake && (
               <Badge color="gray" variant="light">
-                ambiente {status.data?.ambiente ?? "?"}
+                ambiente {status.data?.tse_environment ?? "?"}
               </Badge>
             )}
           </Group>
@@ -226,7 +228,7 @@ export default function AdminPage() {
                 />
                 <Button
                   size="xs"
-                  onClick={() => executar({ tipo: "fake", body: { velocidade: vel } }, `Velocidade ${vel}×`)}
+                  onClick={() => executar({ tipo: "fake", body: { speed: vel } }, `Velocidade ${vel}×`)}
                 >
                   Aplicar velocidade
                 </Button>
@@ -241,7 +243,7 @@ export default function AdminPage() {
                   }
                   onClick={() =>
                     executar(
-                      { tipo: "fake", body: { pausado: !fakePausado } },
+                      { tipo: "fake", body: { paused: !fakePausado } },
                       fakePausado ? "Relógio retomado" : "Relógio pausado",
                     )
                   }
@@ -262,7 +264,7 @@ export default function AdminPage() {
                       labels: { confirm: "Reiniciar", cancel: "Cancelar" },
                       confirmProps: { color: "red" },
                       onConfirm: () =>
-                        executar({ tipo: "fake", body: { reiniciar: true } }, "Simulação reiniciada"),
+                        executar({ tipo: "fake", body: { restart: true } }, "Simulação reiniciada"),
                     })
                   }
                 >
@@ -286,7 +288,7 @@ export default function AdminPage() {
                   onClick={() =>
                     irPara &&
                     executar(
-                      { tipo: "fake", body: { ir_para: dayjs(irPara).toISOString() } },
+                      { tipo: "fake", body: { go_to: dayjs(irPara).toISOString() } },
                       "Relógio reposicionado",
                     )
                   }

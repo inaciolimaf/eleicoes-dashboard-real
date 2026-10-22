@@ -18,7 +18,7 @@ import { notifications } from "@mantine/notifications";
 import { IconBell, IconBellRinging, IconTrash } from "@tabler/icons-react";
 import { useState } from "react";
 import { useAlertas, useApagarAlerta, useSalvarAlerta } from "../api/hooks";
-import type { Alerta, TipoAlerta } from "../api/types";
+import type { AlertDto, AlertType } from "../api/models";
 import { CandidatoPicker, RecortePicker, lerRecorte, valorRecorte } from "../components/common/Pickers";
 import { Carregando, ErroView, SemDados } from "../components/common/Estados";
 import { NOME_CARGO, OPCOES_CARGO } from "../lib/cargos";
@@ -28,38 +28,38 @@ import { useAuth } from "../store/auth";
 import { useFiltro } from "../store/filtro";
 import { usePrefs } from "../store/prefs";
 import { useUi } from "../store/ui";
-import type { Nivel } from "../api/types";
+import type { Level } from "../api/models";
 
-const TIPOS: { value: TipoAlerta; label: string }[] = [
-  { value: "pct_candidato", label: "Quando um candidato passar de X%" },
-  { value: "virada", label: "Quando houver virada em um recorte" },
-  { value: "apuracao", label: "Quando a apuração chegar a N%" },
-  { value: "eleito", label: "Quando o candidato for eleito" },
-  { value: "local_apurado", label: "Quando um local de votação for apurado" },
+const TIPOS: { value: AlertType; label: string }[] = [
+  { value: "candidate_pct", label: "Quando um candidato passar de X%" },
+  { value: "lead_change", label: "Quando houver virada em um recorte" },
+  { value: "tally_threshold", label: "Quando a apuração chegar a N%" },
+  { value: "elected", label: "Quando o candidato for eleito" },
+  { value: "polling_place_tallied", label: "Quando um local de votação for apurado" },
 ];
 
-function descrever(a: Alerta): string {
+function descrever(a: AlertDto): string {
   const p = a.params as Record<string, string | number | undefined>;
-  const onde = p.nivel && p.id ? nomeRecortePadrao(p.nivel as Nivel, String(p.id)) : "";
-  switch (a.tipo) {
-    case "pct_candidato":
-      return `Candidato ${p.sqcand} passar de ${p.limite}% (${NOME_CARGO[Number(p.cargo)] ?? ""}${onde ? ` · ${onde}` : ""})`;
-    case "virada":
-      return `Virada em ${onde || "—"} (${NOME_CARGO[Number(p.cargo)] ?? ""})`;
-    case "apuracao":
-      return `Apuração de ${onde || "—"} chegar a ${p.limite}%`;
-    case "eleito":
-      return `Candidato ${p.sqcand} ser eleito`;
-    case "local_apurado":
-      return `Local ${p.local_id} ser 100% apurado`;
+  const onde = p.level && p.geo_area_id ? nomeRecortePadrao(p.level as Level, String(p.geo_area_id)) : "";
+  switch (a.type) {
+    case "candidate_pct":
+      return `Candidato ${p.tse_candidate_id} passar de ${p.threshold}% (${NOME_CARGO[Number(p.office_code)] ?? ""}${onde ? ` · ${onde}` : ""})`;
+    case "lead_change":
+      return `Virada em ${onde || "—"} (${NOME_CARGO[Number(p.office_code)] ?? ""})`;
+    case "tally_threshold":
+      return `Apuração de ${onde || "—"} chegar a ${p.threshold}%`;
+    case "elected":
+      return `Candidato ${p.tse_candidate_id} ser eleito`;
+    case "polling_place_tallied":
+      return `Local ${p.polling_place_id} ser 100% apurado`;
   }
-  return a.tipo;
+  return a.type;
 }
 
 function NovoAlerta() {
   const f = useFiltro();
   const salvar = useSalvarAlerta();
-  const [tipo, setTipo] = useState<TipoAlerta>("pct_candidato");
+  const [tipo, setTipo] = useState<AlertType>("candidate_pct");
   const [cargo, setCargo] = useState(f.cargo);
   const [recorte, setRecorte] = useState<string | null>(valorRecorte(f.nivel, f.id));
   const [sq, setSq] = useState<string | null>(null);
@@ -67,26 +67,34 @@ function NovoAlerta() {
   const [local, setLocal] = useState<string | null>(null);
   const r = lerRecorte(recorte);
   const precisa = {
-    cargo: tipo === "pct_candidato" || tipo === "virada" || tipo === "eleito",
-    recorte: tipo === "pct_candidato" || tipo === "virada" || tipo === "apuracao",
-    candidato: tipo === "pct_candidato" || tipo === "eleito",
-    limite: tipo === "pct_candidato" || tipo === "apuracao",
-    local: tipo === "local_apurado",
+    cargo: tipo === "candidate_pct" || tipo === "lead_change" || tipo === "elected",
+    recorte: tipo === "candidate_pct" || tipo === "lead_change" || tipo === "tally_threshold",
+    candidato: tipo === "candidate_pct" || tipo === "elected",
+    limite: tipo === "candidate_pct" || tipo === "tally_threshold",
+    local: tipo === "polling_place_tallied",
   };
   const criar = async () => {
     const params: Record<string, unknown> = {};
-    if (tipo === "pct_candidato")
-      Object.assign(params, { cargo, nivel: r?.nivel, id: r?.id, sqcand: sq, limite });
-    if (tipo === "virada") Object.assign(params, { cargo, nivel: r?.nivel, id: r?.id });
-    if (tipo === "apuracao") Object.assign(params, { nivel: r?.nivel, id: r?.id, limite });
-    if (tipo === "eleito") Object.assign(params, { sqcand: sq });
-    if (tipo === "local_apurado") Object.assign(params, { local_id: lerRecorte(local)?.id });
+    if (tipo === "candidate_pct")
+      Object.assign(params, {
+        office_code: cargo,
+        level: r?.nivel,
+        geo_area_id: r?.id,
+        tse_candidate_id: sq,
+        threshold: limite,
+      });
+    if (tipo === "lead_change")
+      Object.assign(params, { office_code: cargo, level: r?.nivel, geo_area_id: r?.id });
+    if (tipo === "tally_threshold")
+      Object.assign(params, { level: r?.nivel, geo_area_id: r?.id, threshold: limite });
+    if (tipo === "elected") Object.assign(params, { tse_candidate_id: sq });
+    if (tipo === "polling_place_tallied") Object.assign(params, { polling_place_id: lerRecorte(local)?.id });
     if (Object.values(params).some((v) => v === undefined || v === null)) {
       notifications.show({ color: "red", message: "Preencha todos os campos do alerta." });
       return;
     }
     try {
-      await salvar.mutateAsync({ tipo, params, ativo: true });
+      await salvar.mutateAsync({ type: tipo, params, active: true });
       notifications.show({ color: "teal", message: "Alerta criado." });
     } catch (e) {
       notifications.show({ color: "red", title: "Falha ao criar alerta", message: (e as Error).message });
@@ -102,7 +110,7 @@ function NovoAlerta() {
           label="Regra"
           data={TIPOS}
           value={tipo}
-          onChange={(v) => v && setTipo(v as TipoAlerta)}
+          onChange={(v) => v && setTipo(v as AlertType)}
           allowDeselect={false}
         />
         <Group grow align="flex-start">
@@ -144,7 +152,7 @@ function NovoAlerta() {
         {precisa.local && (
           <RecortePicker
             label="Local de votação"
-            tipos={["local"]}
+            tipos={["polling_place"]}
             incluirBrasil={false}
             incluirUfs={false}
             value={local}
@@ -255,20 +263,20 @@ export default function AlertasPage() {
                       <Table.Td>
                         <Stack gap={2}>
                           <Badge size="xs" variant="light" w="fit-content">
-                            {TIPOS.find((t) => t.value === a.tipo)?.label ?? a.tipo}
+                            {TIPOS.find((t) => t.value === a.type)?.label ?? a.type}
                           </Badge>
                           <Text size="sm">{descrever(a)}</Text>
                         </Stack>
                       </Table.Td>
                       <Table.Td>
                         <Text size="sm" className="num">
-                          {a.disparado_em ? fmtDataCurta(a.disparado_em) : "—"}
+                          {a.triggered_at ? fmtDataCurta(a.triggered_at) : "—"}
                         </Text>
                       </Table.Td>
                       <Table.Td>
                         <Switch
-                          checked={a.ativo}
-                          onChange={(e) => salvar.mutate({ ...a, ativo: e.currentTarget.checked })}
+                          checked={a.active}
+                          onChange={(e) => salvar.mutate({ ...a, active: e.currentTarget.checked })}
                           aria-label="Ativo"
                         />
                       </Table.Td>

@@ -7,11 +7,11 @@ import { useUi } from "../../store/ui";
 import { iniciais } from "../../lib/format";
 
 export function UserMenu() {
-  const { usuario, sair } = useAuth();
+  const { user, sair } = useAuth();
   const setAuth = useUi((s) => s.setAuthAberto);
   const navigate = useNavigate();
   const qc = useQueryClient();
-  if (!usuario)
+  if (!user)
     return (
       <>
         <Button
@@ -46,15 +46,15 @@ export function UserMenu() {
           style={{ cursor: "pointer", border: 0 }}
           aria-label="Menu do usuário"
         >
-          {iniciais(usuario.nome || usuario.email)}
+          {iniciais(user.name || user.email)}
         </Avatar>
       </Menu.Target>
       <Menu.Dropdown>
         <Menu.Label>
           <Text size="sm" fw={700} c="var(--mantine-color-text)">
-            {usuario.nome}
+            {user.name}
           </Text>
-          <Text size="xs">{usuario.email}</Text>
+          <Text size="xs">{user.email}</Text>
         </Menu.Label>
         <Menu.Item leftSection={<IconSettings size={14} />} onClick={() => navigate("/conta")}>
           Conta e preferências
@@ -62,7 +62,7 @@ export function UserMenu() {
         <Menu.Item leftSection={<IconBell size={14} />} onClick={() => navigate("/alertas")}>
           Alertas
         </Menu.Item>
-        {usuario.is_admin && (
+        {user.is_admin && (
           <Menu.Item leftSection={<IconShieldLock size={14} />} onClick={() => navigate("/admin")}>
             Administração
           </Menu.Item>

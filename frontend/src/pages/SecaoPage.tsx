@@ -16,10 +16,10 @@ export default function SecaoPage() {
       ? `${params.uf}${params.mun}-z${params.zona.padStart(4, "0")}-s${params.secao.padStart(4, "0")}`
       : "";
   useEffect(() => {
-    if (id) useFiltro.getState().setRecorte("secao", id);
+    if (id) useFiltro.getState().setRecorte("section", id);
   }, [id]);
   return (
-    <FiltroProvider value={{ nivel: "secao", id }}>
+    <FiltroProvider value={{ nivel: "section", id }}>
       <Stack gap="md">
         <Stack gap={0}>
           <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
