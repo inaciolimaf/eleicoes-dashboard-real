@@ -37,7 +37,7 @@ export function WidgetFrame({
     () => ({ ...definition.defaults, ...widget.config }),
     [definition.defaults, widget.config],
   );
-  const title = (typeof config.title === "string" && config.title) || definition.name;
+  const title = (typeof config.titulo === "string" && config.titulo) || definition.name;
   const { ref, height } = useElementSize();
   const cardRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();

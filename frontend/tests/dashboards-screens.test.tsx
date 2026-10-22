@@ -255,6 +255,29 @@ describe("dashboard screen (one dashboard)", () => {
     expect(screen.getByText("Agora")).toBeInTheDocument();
   });
 
+  it("shows the title typed for a widget in its settings", async () => {
+    await seedLocal([
+      {
+        id: "a",
+        nome: "Minha eleição",
+        config: {
+          ...plainConfig("Minha eleição"),
+          widgets: [
+            {
+              id: "w1",
+              tipo: "relogio",
+              pos: { x: 0, y: 0, w: 4, h: 4 },
+              herda: true,
+              config: { modo: "relogio", rotulo: "Agora", titulo: "Hora da apuração" },
+            },
+          ],
+        },
+      },
+    ]);
+    await renderScreen("/paineis/a");
+    expect(await screen.findByText("Hora da apuração")).toBeInTheDocument();
+  });
+
   it("says when the dashboard does not exist", async () => {
     await renderScreen("/paineis/nao-existe");
     expect(await screen.findByText("Painel não encontrado")).toBeInTheDocument();
