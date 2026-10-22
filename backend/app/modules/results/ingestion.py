@@ -102,7 +102,7 @@ async def ingerir_catalogo(session: AsyncSession, catalogo: Catalogo, ambiente: 
                 )
             )
         vistos[cd] = eleicao_id  # type: ignore[assignment]
-    await session.commit()
+    await session.flush()
     res = await session.execute(select(Election).where(Election.tse_environment == ambiente))
     return list(res.scalars())
 
@@ -159,7 +159,7 @@ async def ingerir_municipios(session: AsyncSession, lista: list[MunicipioTSE], g
         )
     for i in range(0, len(zonas), 2000):
         await session.execute(insert(ElectoralZone).values(zonas[i : i + 2000]).on_conflict_do_nothing())
-    await session.commit()
+    await session.flush()
     return len(linhas)
 
 
@@ -185,7 +185,7 @@ async def ingerir_secoes(session: AsyncSession, lista: list[SecaoTSE]) -> int:
         await session.execute(insert(ElectoralZone).values(z[i : i + 2000]).on_conflict_do_nothing())
     for i in range(0, len(linhas), 3000):
         await session.execute(insert(PollingSection).values(linhas[i : i + 3000]).on_conflict_do_nothing())
-    await session.commit()
+    await session.flush()
     return len(linhas)
 
 
@@ -313,7 +313,7 @@ async def importar_locais(session: AsyncSession, linhas: Iterable[dict]) -> int:
                 },
             )
         )
-    await session.commit()
+    await session.flush()
     return len(lista)
 
 
@@ -335,7 +335,9 @@ class Contexto:
 
     @property
     def abrangencia_do_cargo(self) -> bool:
-        return (self.cd_cargo == 1 and self.nivel == "br") or (self.cd_cargo != 1 and self.nivel == "uf")
+        return (self.cd_cargo == 1 and self.nivel == "country") or (
+            self.cd_cargo != 1 and self.nivel == "state"
+        )
 
 
 def _linha_resultado(ctx: Contexto, res: ResultadoTSE, sistema: str) -> dict:
@@ -441,8 +443,8 @@ async def _upsert_candidatos(session: AsyncSession, ctx: Contexto, res: Resultad
                 "vice_and_substitutes": [
                     {"nome": v.nome, "tipo": "vice" if v.tipo == "v" else "suplente"} for v in c.vices
                 ],
-                "overall_status": sit.get(c.sqcand, situacao.EM_APURACAO),
-                "elected": sit.get(c.sqcand) in (situacao.ELEITO, situacao.MATEMATICAMENTE_ELEITO),
+                "overall_status": sit.get(c.sqcand, situacao.COUNTING),
+                "elected": sit.get(c.sqcand) in (situacao.ELECTED, situacao.MATHEMATICALLY_ELECTED),
             }
         )
     for i in range(0, len(linhas), 500):
@@ -498,7 +500,7 @@ async def ingerir_resultado(
         await _upsert_candidatos(session, ctx, res, vagas_eff or 0)
         _candidatos_conhecidos.update(c.sqcand for c in res.candidatos)
     anterior_dict = None
-    if ctx.nivel in ("br", "uf"):
+    if ctx.nivel in ("country", "state"):
         anterior = (
             await session.execute(
                 select(CurrentResult).where(
@@ -526,13 +528,13 @@ async def ingerir_resultado(
             ),
         )
     )
-    if ctx.nivel == "municipio" and ctx.cd_cargo == 1:
+    if ctx.nivel == "municipality" and ctx.cd_cargo == 1:
         await session.execute(
             update(Municipality)
             .where(Municipality.id == ctx.recorte_id)
             .values(electorate=linha["electorate"])
         )
-    await session.commit()
+    await session.flush()
     return anterior_dict, linha
 
 
@@ -553,11 +555,11 @@ async def ingerir_progresso(
     mudou: list[dict] = []
     for item in acomp.itens:
         if item.tipo == "br":
-            nivel, rid, uf = "br", "br", "br"
+            nivel, rid, uf = "country", "br", "br"
         elif item.tipo == "uf":
-            nivel, rid, uf = "uf", item.codigo, item.codigo
+            nivel, rid, uf = "state", item.codigo, item.codigo
         else:
-            nivel = "municipio"
+            nivel = "municipality"
             uf = uf_arquivo
             rid = item.codigo if item.codigo[:2].isalpha() else municipio_id(uf_arquivo, int(item.codigo))
         linha = {
@@ -594,7 +596,7 @@ async def ingerir_progresso(
             and atual.tallied_at == item.totalizado_em
         ):
             continue
-        if nivel != "municipio":
+        if nivel != "municipality":
             await session.execute(insert(ProgressSnapshot).values(**linha).on_conflict_do_nothing())
         stmt = insert(CurrentProgress).values(**linha)
         await session.execute(
@@ -607,7 +609,7 @@ async def ingerir_progresso(
         )
         linha["anterior_secoes"] = atual.sections_tallied if atual else 0
         mudou.append(linha)
-    await session.commit()
+    await session.flush()
     return mudou
 
 
@@ -728,7 +730,7 @@ async def ingerir_boletim(
         )
     )
     alterados = await recalcular_local(session, turno, lid, ctx.numeros)
-    await session.commit()
+    await session.flush()
     return alterados
 
 
@@ -780,9 +782,9 @@ async def recalcular_local(
         seg_pct = segundo[1] * 100.0 / validos if segundo and validos else 0.0
         apuradas = s["secoes"]
         status = (
-            "apurado"
+            "tallied"
             if total_secoes and apuradas >= total_secoes
-            else ("parcial" if apuradas else "nao_recebido")
+            else ("partial" if apuradas else "not_received")
         )
         linha = {
             "round": turno,

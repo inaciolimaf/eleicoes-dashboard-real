@@ -74,3 +74,56 @@ def test_0002_preserva_dados_e_converte_valores_nos_dois_sentidos():
     asyncio.run(_sql("DELETE FROM events WHERE geo_area_id = 'migracao'"))
     asyncio.run(_sql("DELETE FROM alerts WHERE user_id = :u", {"u": USUARIO}))
     asyncio.run(_sql("DELETE FROM users WHERE id = :u", {"u": USUARIO}))
+
+
+def test_0003_renomeia_chaves_de_alerta_e_preferencias():
+    cfg = alembic_config()
+    command.upgrade(cfg, "head")
+    asyncio.run(
+        _sql(
+            "INSERT INTO users (id, email, name, password_hash, is_admin, created_at, updated_at) "
+            "VALUES (:id, 'chaves@teste.local', 'Chaves', 'x', false, now(), now())",
+            {"id": USUARIO},
+        )
+    )
+    asyncio.run(
+        _sql(
+            "INSERT INTO alerts (id, user_id, type, params, active, created_at, updated_at) "
+            "VALUES (:id, :u, 'candidate_pct', CAST(:p AS jsonb), true, now(), now())",
+            {
+                "id": ALERTA,
+                "u": USUARIO,
+                "p": '{"cargo": 1, "nivel": "br", "id": "br", "sqcand": "10", "limite": 5}',
+            },
+        )
+    )
+    asyncio.run(
+        _sql(
+            "INSERT INTO preferences (user_id, data) VALUES (:u, CAST(:d AS jsonb))",
+            {"u": USUARIO, "d": '{"tema": "claro", "notificacoes": {"virada": true}}'},
+        )
+    )
+    try:
+        command.downgrade(cfg, "0002")
+        assert asyncio.run(_sql("SELECT params FROM alerts WHERE id = :i", {"i": ALERTA})) == [
+            ({"cargo": 1, "nivel": "br", "id": "br", "sqcand": "10", "limite": 5},)
+        ]
+        command.upgrade(cfg, "head")
+        assert asyncio.run(_sql("SELECT params FROM alerts WHERE id = :i", {"i": ALERTA})) == [
+            (
+                {
+                    "office_code": 1,
+                    "level": "country",
+                    "geo_area_id": "br",
+                    "tse_candidate_id": "10",
+                    "threshold": 5,
+                },
+            )
+        ]
+        assert asyncio.run(_sql("SELECT data FROM preferences WHERE user_id = :u", {"u": USUARIO})) == [
+            ({"theme": "claro", "notifications": {"lead_change": True}},)
+        ]
+    finally:
+        asyncio.run(_sql("DELETE FROM preferences WHERE user_id = :u", {"u": USUARIO}))
+        asyncio.run(_sql("DELETE FROM alerts WHERE user_id = :u", {"u": USUARIO}))
+        asyncio.run(_sql("DELETE FROM users WHERE id = :u", {"u": USUARIO}))

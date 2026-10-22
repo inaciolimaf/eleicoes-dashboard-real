@@ -1,4 +1,8 @@
-"""Avaliação das regras de alerta dos usuários."""
+"""Avaliação das regras de alerta dos usuários.
+
+Parâmetros de alerta (JSON guardado em `alerts.params`): `office_code`, `level`, `geo_area_id`,
+`tse_candidate_id`, `threshold`, `polling_place_id`.
+"""
 
 from __future__ import annotations
 
@@ -32,41 +36,41 @@ def invalidar_cache() -> None:
 
 def avaliar_resultado(alerta: Alert, linha: dict, eventos: list[dict]) -> tuple[str, str] | None:
     p = alerta.params or {}
-    if alerta.type == "pct_candidato":
+    if alerta.type == "candidate_pct":
         if (
-            int(p.get("cargo", 0)) != linha["office_code"]
-            or p.get("nivel") != linha["level"]
-            or p.get("id") != linha["geo_area_id"]
+            int(p.get("office_code", 0)) != linha["office_code"]
+            or p.get("level") != linha["level"]
+            or p.get("geo_area_id") != linha["geo_area_id"]
         ):
             return None
-        cand = next((c for c in linha.get("candidates", []) if c["sq"] == p.get("sqcand")), None)
-        if cand and cand.get("p", 0) >= float(p.get("limite", 0)):
+        cand = next((c for c in linha.get("candidates", []) if c["sq"] == p.get("tse_candidate_id")), None)
+        if cand and cand.get("p", 0) >= float(p.get("threshold", 0)):
             return (
                 "Alerta de percentual",
-                f"Candidato passou de {p.get('limite')}% em {linha['geo_area_id'].upper()}.",
+                f"Candidato passou de {p.get('threshold')}% em {linha['geo_area_id'].upper()}.",
             )
-    if alerta.type == "apuracao" and (
-        p.get("nivel") == linha["level"]
-        and p.get("id") == linha["geo_area_id"]
-        and (linha.get("pct_sections") or 0) >= float(p.get("limite", 100))
+    if alerta.type == "tally_threshold" and (
+        p.get("level") == linha["level"]
+        and p.get("geo_area_id") == linha["geo_area_id"]
+        and (linha.get("pct_sections") or 0) >= float(p.get("threshold", 100))
     ):
         return (
             "Alerta de apuração",
-            f"{linha['geo_area_id'].upper()} chegou a {p.get('limite')}% das seções apuradas.",
+            f"{linha['geo_area_id'].upper()} chegou a {p.get('threshold')}% das seções apuradas.",
         )
     for ev in eventos:
         if (
-            alerta.type == "virada"
-            and ev["type"] == "virada"
-            and int(p.get("cargo", 0)) == ev["office_code"]
-            and p.get("nivel") == ev["level"]
-            and p.get("id") == ev["geo_area_id"]
+            alerta.type == "lead_change"
+            and ev["type"] == "lead_change"
+            and int(p.get("office_code", 0)) == ev["office_code"]
+            and p.get("level") == ev["level"]
+            and p.get("geo_area_id") == ev["geo_area_id"]
         ):
             return ev["title"], ev["description"]
         if (
-            alerta.type == "eleito"
-            and ev["type"] in ("eleito", "matematicamente_definido")
-            and ev.get("payload", {}).get("sqcand") == p.get("sqcand")
+            alerta.type == "elected"
+            and ev["type"] in ("elected", "mathematically_decided")
+            and ev.get("payload", {}).get("tse_candidate_id") == p.get("tse_candidate_id")
         ):
             return ev["title"], ev["description"]
     return None
@@ -74,12 +78,15 @@ def avaliar_resultado(alerta: Alert, linha: dict, eventos: list[dict]) -> tuple[
 
 def avaliar_local(alerta: Alert, local_id: str, status: str) -> tuple[str, str] | None:
     p = alerta.params or {}
-    if alerta.type == "local_apurado" and p.get("local_id") == local_id and status == "apurado":
+    if (
+        alerta.type == "polling_place_tallied"
+        and p.get("polling_place_id") == local_id
+        and status == "tallied"
+    ):
         return "Local de votação apurado", "Todas as seções do local foram totalizadas."
     return None
 
 
 async def marcar_disparado(session: AsyncSession, alerta: Alert) -> None:
     await session.execute(update(Alert).where(Alert.id == alerta.id).values(triggered_at=datetime.now(UTC)))
-    await session.commit()
     invalidar_cache()

@@ -1,4 +1,8 @@
-"""Consultas de leitura: montam os payloads do contrato da API (docs/11-contrato-api.md)."""
+"""Consultas de leitura: montam os payloads da API (os DTOs em schemas.py descrevem cada um).
+
+Os nomes das chaves são os da API (inglês, glossário). Os valores de nível e de situação são os do
+banco (inglês); o texto do produto (títulos, `Válido`, nomes de cargo) continua em português.
+"""
 
 from __future__ import annotations
 
@@ -17,16 +21,20 @@ from app.modules.elections import colors as cores
 from app.modules.elections import status as situacao
 from app.modules.events import Event
 from app.modules.geography import (
-    FILHO,
+    CHILD_LEVEL,
     ElectoralZone,
+    GeoArea,
     Municipality,
     PollingPlace,
     PollingSection,
-    Recorte,
     State,
     parse,
 )
 from app.modules.results.models import CurrentProgress, CurrentResult, ProgressSnapshot, ResultSnapshot
+
+NOT_RECEIVED = "not_received"
+PARTIAL = "partial"
+TALLIED = "tallied"
 
 
 def iso(dt: datetime | None) -> str | None:
@@ -39,8 +47,8 @@ def pct(parte: float, todo: float) -> float:
 
 def status_por_pct(p: float | None, totalizadas: int | None = None) -> str:
     if not p and not totalizadas:
-        return "nao_recebido"
-    return "apurado" if (p or 0) >= 99.9999 else "parcial"
+        return NOT_RECEIVED
+    return TALLIED if (p or 0) >= 99.9999 else PARTIAL
 
 
 # ------------------------------------------------------------------ cargos e eleições
@@ -60,29 +68,29 @@ async def cargo_info(
     return (row[0], row[1]) if row else None
 
 
-def cargo_json(c: ElectionOffice | None, cd: int) -> dict:
+def cargo_json(c: ElectionOffice | None, cd: int) -> dict[str, Any]:
     if c is None:
-        return {"cd": cd, "nome": f"Cargo {cd}", "sistema": "majoritario", "vagas": 1}
-    return {"cd": c.office_code, "nome": c.name, "sistema": c.voting_system, "vagas": c.seats}
+        return {"office_code": cd, "name": f"Cargo {cd}", "voting_system": "majoritario", "seats": 1}
+    return {"office_code": c.office_code, "name": c.name, "voting_system": c.voting_system, "seats": c.seats}
 
 
-async def listar_eleicoes(session: AsyncSession) -> list[dict]:
+async def listar_eleicoes(session: AsyncSession) -> list[dict[str, Any]]:
     eleicoes = (await session.execute(select(Election).order_by(Election.round, Election.id))).scalars().all()
     return [
         {
             "id": e.id,
-            "turno": e.round,
-            "ciclo": e.cycle,
-            "tipo": e.jurisdiction,
-            "nome": e.name,
-            "cd_eleicao": e.election_code,
-            "cargos": [
+            "round": e.round,
+            "cycle": e.cycle,
+            "jurisdiction": e.jurisdiction,
+            "name": e.name,
+            "election_code": e.election_code,
+            "offices": [
                 {
-                    "cd": c.office_code,
-                    "nome": c.name,
-                    "sistema": c.voting_system,
-                    "abrangencia": c.coverage,
-                    "vagas": c.seats,
+                    "office_code": c.office_code,
+                    "name": c.name,
+                    "voting_system": c.voting_system,
+                    "coverage": c.coverage,
+                    "seats": c.seats,
                 }
                 for c in e.offices
             ],
@@ -94,36 +102,36 @@ async def listar_eleicoes(session: AsyncSession) -> list[dict]:
 # ------------------------------------------------------------------ nomes e breadcrumb
 
 
-async def nome_recorte(session: AsyncSession, r: Recorte) -> str:
-    if r.nivel == "br":
+async def nome_recorte(session: AsyncSession, r: GeoArea) -> str:
+    if r.level == "country":
         return "Brasil"
-    if r.nivel == "uf":
+    if r.level == "state":
         uf = await session.get(State, r.uf)
         return uf.name if uf else (r.uf or "").upper()
-    if r.nivel == "municipio":
+    if r.level == "municipality":
         m = await session.get(Municipality, r.id)
         return m.name if m else r.id
-    if r.nivel == "zona":
-        return f"Zona {r.zona}"
-    if r.nivel == "local":
+    if r.level == "zone":
+        return f"Zona {r.zone}"
+    if r.level == "polling_place":
         loc = await session.get(PollingPlace, r.id)
-        return loc.name if loc else f"Local {r.local}"
-    return f"Seção {r.secao}"
+        return loc.name if loc else f"Local {r.polling_place}"
+    return f"Seção {r.section}"
 
 
-async def info_recorte(session: AsyncSession, r: Recorte) -> dict:
-    cadeia: list[Recorte] = []
-    atual: Recorte | None = r
+async def info_recorte(session: AsyncSession, r: GeoArea) -> dict[str, Any]:
+    cadeia: list[GeoArea] = []
+    atual: GeoArea | None = r
     while atual is not None:
         cadeia.append(atual)
-        atual = atual.pai
+        atual = atual.parent
     cadeia.reverse()
-    if r.nivel == "secao":
+    if r.level == "section":
         sec = await session.get(PollingSection, r.id)
         if sec and sec.polling_place_id:
             cadeia.insert(len(cadeia) - 1, parse(sec.polling_place_id))
-    bread = [{"nivel": x.nivel, "id": x.id, "nome": await nome_recorte(session, x)} for x in cadeia]
-    return {"nivel": r.nivel, "id": r.id, "nome": bread[-1]["nome"], "uf": r.uf, "breadcrumb": bread}
+    bread = [{"level": x.level, "id": x.id, "name": await nome_recorte(session, x)} for x in cadeia]
+    return {"level": r.level, "id": r.id, "name": bread[-1]["name"], "state_code": r.uf, "breadcrumb": bread}
 
 
 # ------------------------------------------------------------------ linhas de resultado (TSE ou soma de BUs)
@@ -132,13 +140,13 @@ async def info_recorte(session: AsyncSession, r: Recorte) -> dict:
 COLS_LEVES = [c for c in ResultSnapshot.__table__.columns if c.key not in ("candidates", "alliances", "id")]
 
 
-def _row_dict(row: Row[Any]) -> dict:
+def _row_dict(row: Row[Any]) -> dict[str, Any]:
     return dict(row._mapping)
 
 
 async def linha_tse(
     session: AsyncSession, turno: int, cd: int, nivel: str, rid: str, t: datetime | None
-) -> dict | None:
+) -> dict[str, Any] | None:
     if t is None:
         obj = (
             await session.execute(
@@ -182,8 +190,8 @@ async def numeros_para_sq(session: AsyncSession, turno: int, cd: int, uf: str) -
 
 
 def soma_boletins(
-    votos_por_bu: list[dict], aptos_total: int, secoes_total: int, mapa: dict[int, str]
-) -> dict:
+    votos_por_bu: list[dict[str, Any]], aptos_total: int, secoes_total: int, mapa: dict[int, str]
+) -> dict[str, Any]:
     nom: dict[str, int] = {}
     leg: dict[str, int] = {}
     comp = b = n = 0
@@ -254,15 +262,17 @@ def soma_boletins(
     }
 
 
-async def linha_bu(session: AsyncSession, turno: int, cd: int, r: Recorte, t: datetime | None) -> dict | None:
+async def linha_bu(
+    session: AsyncSession, turno: int, cd: int, r: GeoArea, t: datetime | None
+) -> dict[str, Any] | None:
     """Resultado de zona/local/seção somando os boletins de urna coletados."""
     filtro = [BallotBoxReport.round == turno]
-    if r.nivel == "secao":
+    if r.level == "section":
         filtro.append(BallotBoxReport.polling_section_id == r.id)
         secoes_total = 1
         sec = await session.get(PollingSection, r.id)
         aptos = sec.eligible_voters if sec and sec.eligible_voters else 0
-    elif r.nivel == "local":
+    elif r.level == "polling_place":
         filtro.append(BallotBoxReport.polling_place_id == r.id)
         loc = await session.get(PollingPlace, r.id)
         secoes_total = loc.section_count if loc else 0
@@ -295,7 +305,7 @@ async def linha_bu(session: AsyncSession, turno: int, cd: int, r: Recorte, t: da
             ).where(*filtro)
         )
     ).all()
-    if not rows and r.nivel == "secao":
+    if not rows and r.level == "section":
         return None
     mapa = await numeros_para_sq(session, turno, cd, r.uf or "br")
     linha = soma_boletins(
@@ -311,14 +321,13 @@ async def linha_bu(session: AsyncSession, turno: int, cd: int, r: Recorte, t: da
 
 
 async def obter_linha(
-    session: AsyncSession, turno: int, cd: int, r: Recorte, t: datetime | None
-) -> dict | None:
-    if r.nivel in ("br", "uf", "municipio", "zona"):
-        rid = r.id
-        linha = await linha_tse(session, turno, cd, r.nivel, rid, t)
-        if linha is not None or r.nivel != "zona":
+    session: AsyncSession, turno: int, cd: int, r: GeoArea, t: datetime | None
+) -> dict[str, Any] | None:
+    if r.level in ("country", "state", "municipality", "zone"):
+        linha = await linha_tse(session, turno, cd, r.level, r.id, t)
+        if linha is not None or r.level != "zone":
             return linha
-    if r.nivel in ("zona", "local", "secao"):
+    if r.level in ("zone", "polling_place", "section"):
         return await linha_bu(session, turno, cd, r, t)
     return None
 
@@ -334,43 +343,44 @@ async def meta_candidatos(session: AsyncSession, sqs: list[str]) -> dict[str, Ca
     return {c.tse_candidate_id: c for c in res.scalars()}
 
 
-def cand_curto(c: Candidate | None, sq: str | None, votos: int = 0, p: float = 0.0) -> dict | None:
+def cand_curto(c: Candidate | None, sq: str | None, votos: int = 0, p: float = 0.0) -> dict[str, Any] | None:
     if sq is None:
         return None
     return {
-        "sqcand": sq,
-        "nome_urna": c.ballot_name if c else sq,
-        "cor": c.color if c else "#888888",
-        "numero": c.ballot_number if c else None,
-        "partido_sigla": c.party_abbreviation if c else "",
-        "votos": votos,
+        "tse_candidate_id": sq,
+        "ballot_name": c.ballot_name if c else sq,
+        "color": c.color if c else "#888888",
+        "ballot_number": c.ballot_number if c else None,
+        "party_abbreviation": c.party_abbreviation if c else "",
+        "votes": votos,
         "pct": round(p, 4),
     }
 
 
 def foto_url(sq: str) -> str:
-    return f"/api/v1/fotos/{sq}"
+    return f"/api/v1/candidates/{sq}/photo"
 
 
-# ------------------------------------------------------------------ /resultados
+def _vices(lista: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+    return [{"name": v.get("nome"), "kind": v.get("tipo")} for v in (lista or [])]
+
+
+# ------------------------------------------------------------------ /results
 
 
 async def montar_resultado(
-    session: AsyncSession, turno: int, cd: int, r: Recorte, t: datetime | None = None
-) -> dict:
+    session: AsyncSession, turno: int, cd: int, r: GeoArea, t: datetime | None = None
+) -> dict[str, Any]:
     info = await cargo_info(session, turno, cd)
     cargo_e = info[1] if info else None
     recorte = await info_recorte(session, r)
-    base = {"recorte": recorte, "cargo": cargo_json(cargo_e, cd)}
+    base = {"geo_area": recorte, "office": cargo_json(cargo_e, cd)}
     linha = await obter_linha(session, turno, cd, r, t)
-    if (
-        linha is None
-        or (linha.get("source") == "soma_bu" and linha["sections_tallied"] == 0 and r.nivel != "zona")
-    ) and linha is None:
-        return {"sem_dados": True, **base}
+    if linha is None:
+        return {"no_data": True, **base}
     sistema = cargo_e.voting_system if cargo_e else "majoritario"
     vagas = (cargo_e.seats or 1) if sistema == "majoritario" else 0
-    abrangencia = (cd == 1 and r.nivel == "br") or (cd != 1 and r.nivel == "uf")
+    abrangencia = (cd == 1 and r.level == "country") or (cd != 1 and r.level == "state")
     cands = linha.get("candidates") or []
     meta = await meta_candidatos(session, [c["sq"] for c in cands])
     sit = situacao.calcular(
@@ -385,23 +395,23 @@ async def montar_resultado(
         m = meta.get(c["sq"])
         candidatos.append(
             {
-                "sqcand": c["sq"],
-                "numero": m.ballot_number if m else c.get("num"),
-                "nome": m.name if m else c["sq"],
-                "nome_urna": m.ballot_name if m else str(c.get("num", c["sq"])),
-                "partido_sigla": m.party_abbreviation if m else "",
-                "partido_numero": m.party_number if m else None,
-                "agremiacao": m.alliance if m else "",
-                "cor": m.color if m else "#888888",
-                "foto_url": foto_url(c["sq"]),
-                "votos": int(c["v"]),
-                "pct_validos": float(c.get("p") or 0),
-                "posicao": pos,
-                "situacao": sit.get(c["sq"], situacao.EM_APURACAO),
-                "situacao_geral": m.overall_status if m else situacao.EM_APURACAO,
-                "eleito": bool(m.elected) if m else False,
-                "destinacao": c.get("d") or "Válido",
-                "vices": m.vice_and_substitutes if m else [],
+                "tse_candidate_id": c["sq"],
+                "ballot_number": m.ballot_number if m else c.get("num"),
+                "name": m.name if m else c["sq"],
+                "ballot_name": m.ballot_name if m else str(c.get("num", c["sq"])),
+                "party_abbreviation": m.party_abbreviation if m else "",
+                "party_number": m.party_number if m else None,
+                "alliance": m.alliance if m else "",
+                "color": m.color if m else "#888888",
+                "photo_url": foto_url(c["sq"]),
+                "votes": int(c["v"]),
+                "valid_pct": float(c.get("p") or 0),
+                "position": pos,
+                "status": sit.get(c["sq"], situacao.COUNTING),
+                "overall_status": m.overall_status if m else situacao.COUNTING,
+                "elected": bool(m.elected) if m else False,
+                "vote_destination": c.get("d") or "Válido",
+                "vice_and_substitutes": _vices(m.vice_and_substitutes if m else []),
             }
         )
     agrs = []
@@ -409,80 +419,80 @@ async def montar_resultado(
         for a in linha.get("alliances") or []:
             agrs.append(
                 {
-                    "nome": a["nome"],
-                    "partidos": a.get("partidos", []),
-                    "votos": a.get("v", 0),
-                    "vagas": a.get("vag"),
-                    "cor": cores.cor_texto(a["nome"]),
+                    "name": a["nome"],
+                    "parties": a.get("partidos", []),
+                    "votes": a.get("v", 0),
+                    "seats": a.get("vag"),
+                    "color": cores.cor_texto(a["nome"]),
                 }
             )
     lider = linha.get("leader_candidate_id")
     cobertura = None
     if linha.get("source") == "soma_bu":
         cobertura = {
-            "secoes_total": linha["sections_total"],
-            "secoes_coletadas": linha["sections_tallied"],
+            "total_sections": linha["sections_total"],
+            "collected_sections": linha["sections_tallied"],
         }
     return {
-        "sem_dados": False,
+        "no_data": False,
         **base,
-        "fonte": linha.get("source", "tse"),
-        "cobertura": cobertura,
-        "idg": str(linha.get("generation_id") or ""),
-        "totalizado_em": iso(linha.get("tallied_at")),
-        "capturado_em": iso(linha.get("captured_at")),
-        "jws_verificado": bool(linha.get("jws_verified")),
-        "totais": {
+        "source": linha.get("source", "tse"),
+        "coverage": cobertura,
+        "generation_id": str(linha.get("generation_id") or ""),
+        "tallied_at": iso(linha.get("tallied_at")),
+        "captured_at": iso(linha.get("captured_at")),
+        "jws_verified": bool(linha.get("jws_verified")),
+        "totals": {
             api: linha.get(interno, 0)
             for api, interno in (
-                ("eleitorado", "electorate"),
-                ("eleitorado_apurado", "tallied_electorate"),
-                ("secoes_total", "sections_total"),
-                ("secoes_totalizadas", "sections_tallied"),
-                ("pct_secoes", "pct_sections"),
-                ("comparecimento", "turnout"),
-                ("pct_comparecimento", "pct_turnout"),
-                ("abstencao", "abstention"),
-                ("pct_abstencao", "pct_abstention"),
-                ("votos_total", "total_votes"),
-                ("votos_validos", "valid_votes"),
-                ("pct_validos", "pct_valid"),
-                ("brancos", "blank_votes"),
-                ("pct_brancos", "pct_blank"),
-                ("nulos", "null_votes"),
-                ("pct_nulos", "pct_null"),
+                ("electorate", "electorate"),
+                ("tallied_electorate", "tallied_electorate"),
+                ("sections_total", "sections_total"),
+                ("sections_tallied", "sections_tallied"),
+                ("pct_sections", "pct_sections"),
+                ("turnout", "turnout"),
+                ("pct_turnout", "pct_turnout"),
+                ("abstention", "abstention"),
+                ("pct_abstention", "pct_abstention"),
+                ("total_votes", "total_votes"),
+                ("valid_votes", "valid_votes"),
+                ("pct_valid", "pct_valid"),
+                ("blank_votes", "blank_votes"),
+                ("pct_blank", "pct_blank"),
+                ("null_votes", "null_votes"),
+                ("pct_null", "pct_null"),
             )
         },
-        "matematicamente_definido": bool(linha.get("mathematically_decided")),
-        "totalizacao_final": bool(linha.get("final_tally")),
-        "lider": {
-            "sqcand": lider,
-            "margem_pp": linha.get("margin_pp", 0),
-            "margem_votos": int(linha.get("leader_votes", 0)) - int(linha.get("second_votes", 0)),
+        "mathematically_decided": bool(linha.get("mathematically_decided")),
+        "final_tally": bool(linha.get("final_tally")),
+        "leader": {
+            "tse_candidate_id": lider,
+            "margin_pp": linha.get("margin_pp", 0),
+            "margin_votes": int(linha.get("leader_votes", 0)) - int(linha.get("second_votes", 0)),
         }
         if lider
         else None,
-        "candidatos": candidatos,
-        "agremiacoes": agrs,
+        "candidates": candidatos,
+        "alliances": agrs,
     }
 
 
-# ------------------------------------------------------------------ /resultados/serie
+# ------------------------------------------------------------------ /results/series
 
 
 async def serie(
     session: AsyncSession,
     turno: int,
     cd: int,
-    r: Recorte,
+    r: GeoArea,
     de: datetime | None,
     ate: datetime | None,
     max_pontos: int = 300,
-) -> dict:
+) -> dict[str, Any]:
     filtro = [
         ResultSnapshot.round == turno,
         ResultSnapshot.office_code == cd,
-        ResultSnapshot.level == r.nivel,
+        ResultSnapshot.level == r.level,
         ResultSnapshot.geo_area_id == r.id,
     ]
     if de:
@@ -513,31 +523,31 @@ async def serie(
         mapa = {c["sq"]: c for c in cands}
         pontos.append(
             {
-                "t": iso(t),
-                "pct_secoes": p,
-                "votos_validos": vv,
-                "candidatos": {
-                    sq: {"votos": mapa[sq]["v"], "pct": mapa[sq]["p"]} for sq in top if sq in mapa
+                "time": iso(t),
+                "pct_sections": p,
+                "valid_votes": vv,
+                "candidates": {
+                    sq: {"votes": mapa[sq]["v"], "pct": mapa[sq]["p"]} for sq in top if sq in mapa
                 },
             }
         )
     candidatos = [
         {
-            "sqcand": sq,
-            "nome_urna": meta[sq].ballot_name if sq in meta else sq,
-            "cor": meta[sq].color if sq in meta else "#888",
-            "numero": meta[sq].ballot_number if sq in meta else None,
-            "partido_sigla": meta[sq].party_abbreviation if sq in meta else "",
+            "tse_candidate_id": sq,
+            "ballot_name": meta[sq].ballot_name if sq in meta else sq,
+            "color": meta[sq].color if sq in meta else "#888",
+            "ballot_number": meta[sq].ballot_number if sq in meta else None,
+            "party_abbreviation": meta[sq].party_abbreviation if sq in meta else "",
         }
         for sq in top
     ]
     eventos = await listar_eventos(
-        session, ConsultaEventos(turno=turno, limite=200, cargo=cd, nivel=r.nivel, recorte_id=r.id)
+        session, ConsultaEventos(turno=turno, limite=200, cargo=cd, nivel=r.level, recorte_id=r.id)
     )
-    return {"candidatos": candidatos, "pontos": pontos, "eventos": eventos}
+    return {"candidates": candidatos, "points": pontos, "events": eventos}
 
 
-# ------------------------------------------------------------------ /recortes/filhos
+# ------------------------------------------------------------------ /geo-areas/children
 
 
 async def _linhas_nivel(
@@ -548,7 +558,7 @@ async def _linhas_nivel(
     pai: str | None,
     t: datetime | None,
     com_candidatos: bool,
-) -> dict[str, dict]:
+) -> dict[str, dict[str, Any]]:
     tabela = CurrentResult if t is None else ResultSnapshot
     cols = [
         c
@@ -573,30 +583,30 @@ async def _linhas_nivel(
 
 def montar_item(
     nivel_f: str, d: dict, ln: dict | None, meta: dict, candidatos: list[str] | None = None
-) -> dict:
+) -> dict[str, Any]:
     item = {
-        "nivel": nivel_f,
+        "level": nivel_f,
         "id": d["id"],
-        "nome": d["nome"],
-        "uf": d.get("uf"),
-        "cd_ibge": d.get("cd_ibge"),
-        "regiao": d.get("regiao"),
-        "capital": d.get("capital", False),
+        "name": d["name"],
+        "state_code": d.get("state_code"),
+        "ibge_code": d.get("ibge_code"),
+        "region": d.get("region"),
+        "is_capital": d.get("is_capital", False),
         "lat": d.get("lat"),
         "lon": d.get("lon"),
-        "status": "nao_recebido",
-        "pct_secoes": 0.0,
-        "eleitorado": d.get("eleitorado") or 0,
-        "comparecimento": 0,
-        "pct_abstencao": 0.0,
-        "votos_validos": 0,
-        "brancos": 0,
-        "nulos": 0,
-        "lider": None,
-        "segundo": None,
-        "margem_pp": 0.0,
-        "partido_lider": None,
-        "valores": {},
+        "status": NOT_RECEIVED,
+        "pct_sections": 0.0,
+        "electorate": d.get("electorate") or 0,
+        "turnout": 0,
+        "pct_abstention": 0.0,
+        "valid_votes": 0,
+        "blank_votes": 0,
+        "null_votes": 0,
+        "leader": None,
+        "second": None,
+        "margin_pp": 0.0,
+        "leader_party": None,
+        "values": {},
     }
     if not ln:
         return item
@@ -604,206 +614,252 @@ def montar_item(
     item.update(
         {
             "status": status_por_pct(ln.get("pct_sections"), ln.get("sections_tallied")),
-            "pct_secoes": ln.get("pct_sections") or 0.0,
-            "eleitorado": ln.get("electorate") or item["eleitorado"],
-            "comparecimento": ln.get("turnout") or 0,
-            "pct_abstencao": ln.get("pct_abstention") or 0.0,
-            "votos_validos": ln.get("valid_votes") or 0,
-            "brancos": ln.get("blank_votes") or 0,
-            "nulos": ln.get("null_votes") or 0,
-            "lider": cand_curto(meta.get(lsq), lsq, ln.get("leader_votes") or 0, ln.get("leader_pct") or 0)
+            "pct_sections": ln.get("pct_sections") or 0.0,
+            "electorate": ln.get("electorate") or item["electorate"],
+            "turnout": ln.get("turnout") or 0,
+            "pct_abstention": ln.get("pct_abstention") or 0.0,
+            "valid_votes": ln.get("valid_votes") or 0,
+            "blank_votes": ln.get("blank_votes") or 0,
+            "null_votes": ln.get("null_votes") or 0,
+            "leader": cand_curto(meta.get(lsq), lsq, ln.get("leader_votes") or 0, ln.get("leader_pct") or 0)
             if lsq
             else None,
-            "segundo": cand_curto(meta.get(ssq), ssq, ln.get("second_votes") or 0, ln.get("second_pct") or 0)
+            "second": cand_curto(meta.get(ssq), ssq, ln.get("second_votes") or 0, ln.get("second_pct") or 0)
             if ssq
             else None,
-            "margem_pp": ln.get("margin_pp") or 0.0,
+            "margin_pp": ln.get("margin_pp") or 0.0,
         }
     )
     if ln.get("leader_party"):
-        item["partido_lider"] = {"sigla": ln["leader_party"], "cor": cores.cor_texto(ln["leader_party"])}
+        item["leader_party"] = {
+            "abbreviation": ln["leader_party"],
+            "color": cores.cor_texto(ln["leader_party"]),
+        }
     if candidatos and ln.get("candidates") is not None:
         mapa = {c["sq"]: c.get("p", 0) for c in ln["candidates"]}
-        item["valores"] = {sq: mapa.get(sq, 0.0) for sq in candidatos}
+        item["values"] = {sq: mapa.get(sq, 0.0) for sq in candidatos}
     return item
+
+
+async def _dimensao_uf(session: AsyncSession, turno: int, cd: int, t: datetime | None, com: bool) -> tuple:
+    ufs = (await session.execute(select(State).order_by(State.code))).scalars().all()
+    linhas = await _linhas_nivel(session, turno, cd, "state", None, t, com)
+    dim = [
+        {"id": u.code, "name": u.name, "state_code": u.code, "region": u.region}
+        for u in ufs
+        if u.code != "zz" or u.code in linhas
+    ]
+    return linhas, dim
+
+
+async def _dimensao_municipios(
+    session: AsyncSession, turno: int, cd: int, r: GeoArea, t: datetime | None, com: bool, regioes: dict
+) -> tuple:
+    q = select(Municipality)
+    if r.level == "state":
+        q = q.where(Municipality.state_code == r.uf)
+    muns = (await session.execute(q.order_by(Municipality.name))).scalars().all()
+    linhas = await _linhas_nivel(
+        session, turno, cd, "municipality", r.uf if r.level == "state" else None, t, com
+    )
+    dim = [
+        {
+            "id": m.id,
+            "name": m.name,
+            "state_code": m.state_code,
+            "ibge_code": m.ibge_code,
+            "is_capital": m.is_capital,
+            "lat": m.lat,
+            "lon": m.lon,
+            "region": regioes.get(m.state_code),
+            "electorate": m.electorate,
+        }
+        for m in muns
+    ]
+    return linhas, dim
+
+
+async def _dimensao_zonas(
+    session: AsyncSession, turno: int, cd: int, r: GeoArea, t: datetime | None, com: bool, regioes: dict
+) -> tuple:
+    zonas = (
+        (
+            await session.execute(
+                select(ElectoralZone)
+                .where(ElectoralZone.municipality_id == r.id)
+                .order_by(ElectoralZone.number)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    linhas = await _linhas_nivel(session, turno, cd, "zone", r.id, t, com)
+    for z in zonas:
+        if z.id not in linhas:
+            lb = await linha_bu(session, turno, cd, parse(z.id), t)
+            if lb and lb["sections_tallied"]:
+                linhas[z.id] = lb
+    dim = [
+        {
+            "id": z.id,
+            "name": f"Zona {z.number}",
+            "state_code": z.state_code,
+            "region": regioes.get(z.state_code),
+        }
+        for z in zonas
+    ]
+    return linhas, dim
+
+
+async def _dimensao_locais(
+    session: AsyncSession, turno: int, cd: int, r: GeoArea, t: datetime | None, regioes: dict
+) -> tuple:
+    locs = (
+        (
+            await session.execute(
+                select(PollingPlace)
+                .where(PollingPlace.electoral_zone_id == r.id)
+                .order_by(PollingPlace.number)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    linhas: dict[str, dict[str, Any]] = {}
+    for loc in locs:
+        lb = await linha_bu(session, turno, cd, parse(loc.id), t)
+        if lb and lb["sections_tallied"]:
+            linhas[loc.id] = lb
+    dim = [
+        {
+            "id": loc.id,
+            "name": loc.name,
+            "state_code": loc.state_code,
+            "lat": loc.lat,
+            "lon": loc.lon,
+            "region": regioes.get(loc.state_code),
+            "electorate": loc.eligible_voters,
+        }
+        for loc in locs
+    ]
+    return linhas, dim
+
+
+async def _dimensao_secoes(
+    session: AsyncSession, turno: int, cd: int, r: GeoArea, t: datetime | None, regioes: dict
+) -> tuple:
+    secs = (
+        (
+            await session.execute(
+                select(PollingSection)
+                .where(PollingSection.polling_place_id == r.id)
+                .order_by(PollingSection.number)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    linhas: dict[str, dict[str, Any]] = {}
+    for s in secs:
+        lb = await linha_bu(session, turno, cd, parse(s.id), t)
+        if lb:
+            linhas[s.id] = lb
+    dim = [
+        {
+            "id": s.id,
+            "name": f"Seção {s.number}",
+            "state_code": s.state_code,
+            "region": regioes.get(s.state_code),
+            "electorate": s.eligible_voters,
+        }
+        for s in secs
+    ]
+    return linhas, dim
 
 
 async def filhos(
     session: AsyncSession,
     turno: int,
     cd: int,
-    r: Recorte,
+    r: GeoArea,
     t: datetime | None,
     nivel_filhos: str | None = None,
     candidatos: list[str] | None = None,
-) -> dict:
-    nivel_f = nivel_filhos or FILHO.get(r.nivel)
+) -> dict[str, Any]:
+    nivel_f = nivel_filhos or CHILD_LEVEL.get(r.level)
     if nivel_f is None:
-        return {"nivel_filhos": None, "candidatos": [], "itens": []}
-    itens: list[dict] = []
-    linhas: dict[str, dict] = {}
-    dim: list[dict] = []
+        return {"child_level": None, "candidates": [], "items": []}
     regioes = {u.code: u.region for u in (await session.execute(select(State))).scalars()}
-    if nivel_f == "uf":
-        ufs = (await session.execute(select(State).order_by(State.code))).scalars().all()
-        linhas = await _linhas_nivel(session, turno, cd, "uf", None, t, bool(candidatos))
-        dim = [
-            {"id": u.code, "nome": u.name, "uf": u.code, "regiao": u.region}
-            for u in ufs
-            if u.code != "zz" or u.code in linhas
-        ]
-    elif nivel_f == "municipio":
-        q = select(Municipality)
-        if r.nivel == "uf":
-            q = q.where(Municipality.state_code == r.uf)
-        muns = (await session.execute(q.order_by(Municipality.name))).scalars().all()
-        linhas = await _linhas_nivel(
-            session, turno, cd, "municipio", r.uf if r.nivel == "uf" else None, t, bool(candidatos)
-        )
-        dim = [
-            {
-                "id": m.id,
-                "nome": m.name,
-                "uf": m.state_code,
-                "cd_ibge": m.ibge_code,
-                "capital": m.is_capital,
-                "lat": m.lat,
-                "lon": m.lon,
-                "regiao": regioes.get(m.state_code),
-                "eleitorado": m.electorate,
-            }
-            for m in muns
-        ]
-    elif nivel_f == "zona":
-        zonas = (
-            (
-                await session.execute(
-                    select(ElectoralZone)
-                    .where(ElectoralZone.municipality_id == r.id)
-                    .order_by(ElectoralZone.number)
-                )
-            )
-            .scalars()
-            .all()
-        )
-        linhas = await _linhas_nivel(session, turno, cd, "zona", r.id, t, bool(candidatos))
-        for z in zonas:
-            if z.id not in linhas:
-                lb = await linha_bu(session, turno, cd, parse(z.id), t)
-                if lb and lb["sections_tallied"]:
-                    linhas[z.id] = lb
-        dim = [
-            {"id": z.id, "nome": f"Zona {z.number}", "uf": z.state_code, "regiao": regioes.get(z.state_code)}
-            for z in zonas
-        ]
-    elif nivel_f == "local":
-        locs = (
-            (
-                await session.execute(
-                    select(PollingPlace)
-                    .where(PollingPlace.electoral_zone_id == r.id)
-                    .order_by(PollingPlace.number)
-                )
-            )
-            .scalars()
-            .all()
-        )
-        for loc in locs:
-            lb = await linha_bu(session, turno, cd, parse(loc.id), t)
-            if lb and lb["sections_tallied"]:
-                linhas[loc.id] = lb
-        dim = [
-            {
-                "id": loc.id,
-                "nome": loc.name,
-                "uf": loc.state_code,
-                "lat": loc.lat,
-                "lon": loc.lon,
-                "regiao": regioes.get(loc.state_code),
-                "eleitorado": loc.eligible_voters,
-            }
-            for loc in locs
-        ]
-    elif nivel_f == "secao":
-        secs = (
-            (
-                await session.execute(
-                    select(PollingSection)
-                    .where(PollingSection.polling_place_id == r.id)
-                    .order_by(PollingSection.number)
-                )
-            )
-            .scalars()
-            .all()
-        )
-        for s in secs:
-            lb = await linha_bu(session, turno, cd, parse(s.id), t)
-            if lb:
-                linhas[s.id] = lb
-        dim = [
-            {
-                "id": s.id,
-                "nome": f"Seção {s.number}",
-                "uf": s.state_code,
-                "regiao": regioes.get(s.state_code),
-                "eleitorado": s.eligible_voters,
-            }
-            for s in secs
-        ]
+    com = bool(candidatos)
+    if nivel_f == "state":
+        linhas, dim = await _dimensao_uf(session, turno, cd, t, com)
+    elif nivel_f == "municipality":
+        linhas, dim = await _dimensao_municipios(session, turno, cd, r, t, com, regioes)
+    elif nivel_f == "zone":
+        linhas, dim = await _dimensao_zonas(session, turno, cd, r, t, com, regioes)
+    elif nivel_f == "polling_place":
+        linhas, dim = await _dimensao_locais(session, turno, cd, r, t, regioes)
+    elif nivel_f == "section":
+        linhas, dim = await _dimensao_secoes(session, turno, cd, r, t, regioes)
+    else:
+        linhas, dim = {}, []
     sqs: list[str] = []
     for ln in linhas.values():
         sqs += [ln.get("leader_candidate_id"), ln.get("second_candidate_id")]
     sqs += candidatos or []
     meta = await meta_candidatos(session, [s for s in sqs if s])
     vitorias: dict[str, int] = {}
+    itens: list[dict[str, Any]] = []
     for d in dim:
         ln = linhas.get(d["id"])
         item = montar_item(nivel_f, d, ln, meta, candidatos)
-        if item["lider"]:
-            vitorias[item["lider"]["sqcand"]] = vitorias.get(item["lider"]["sqcand"], 0) + 1
+        if item["leader"]:
+            vitorias[item["leader"]["tse_candidate_id"]] = (
+                vitorias.get(item["leader"]["tse_candidate_id"], 0) + 1
+            )
         itens.append(item)
     lista_cands = []
     for sq in set(list(vitorias) + (candidatos or [])):
         m = meta.get(sq)
         lista_cands.append(
             {
-                "sqcand": sq,
-                "nome_urna": m.ballot_name if m else sq,
-                "cor": m.color if m else "#888",
-                "numero": m.ballot_number if m else None,
-                "partido_sigla": m.party_abbreviation if m else "",
-                "vitorias": vitorias.get(sq, 0),
+                "tse_candidate_id": sq,
+                "ballot_name": m.ballot_name if m else sq,
+                "color": m.color if m else "#888",
+                "ballot_number": m.ballot_number if m else None,
+                "party_abbreviation": m.party_abbreviation if m else "",
+                "wins": vitorias.get(sq, 0),
             }
         )
-    lista_cands.sort(key=lambda c: -c["vitorias"])
-    return {"nivel_filhos": nivel_f, "candidatos": lista_cands, "itens": itens}
+    lista_cands.sort(key=lambda c: -c["wins"])
+    return {"child_level": nivel_f, "candidates": lista_cands, "items": itens}
 
 
-async def item_filho(session: AsyncSession, turno: int, cd: int, linha: dict) -> dict:
-    """Item de /recortes/filhos para um único recorte (usado no tempo real)."""
+async def item_filho(session: AsyncSession, turno: int, cd: int, linha: dict) -> dict[str, Any]:
+    """Item de /geo-areas/children para um único recorte (usado no tempo real)."""
     nivel = linha["level"]
     rid = linha["geo_area_id"]
-    d: dict = {"id": rid, "nome": rid, "uf": linha.get("state_code")}
-    if nivel == "uf":
+    d: dict = {"id": rid, "name": rid, "state_code": linha.get("state_code")}
+    if nivel == "state":
         u = await session.get(State, rid)
-        d.update({"nome": u.name if u else rid.upper(), "regiao": u.region if u else None})
-    elif nivel == "municipio":
+        d.update({"name": u.name if u else rid.upper(), "region": u.region if u else None})
+    elif nivel == "municipality":
         m = await session.get(Municipality, rid)
         if m:
             u = await session.get(State, m.state_code)
             d.update(
                 {
-                    "nome": m.name,
-                    "cd_ibge": m.ibge_code,
-                    "capital": m.is_capital,
+                    "name": m.name,
+                    "ibge_code": m.ibge_code,
+                    "is_capital": m.is_capital,
                     "lat": m.lat,
                     "lon": m.lon,
-                    "regiao": u.region if u else None,
-                    "eleitorado": m.electorate,
+                    "region": u.region if u else None,
+                    "electorate": m.electorate,
                 }
             )
-    elif nivel == "zona":
-        d["nome"] = f"Zona {int(rid[-4:])}"
+    elif nivel == "zone":
+        d["name"] = f"Zona {int(rid[-4:])}"
     meta = await meta_candidatos(
         session,
         [x for x in (linha.get("leader_candidate_id"), linha.get("second_candidate_id")) if x],
@@ -811,16 +867,16 @@ async def item_filho(session: AsyncSession, turno: int, cd: int, linha: dict) ->
     return montar_item(nivel, d, linha, meta)
 
 
-# ------------------------------------------------------------------ /progresso
+# ------------------------------------------------------------------ /progress
 
 
-async def progresso(session: AsyncSession, turno: int, t: datetime | None) -> dict:
+async def progresso(session: AsyncSession, turno: int, t: datetime | None) -> dict[str, Any]:
     if t is None:
         rows = (
             (
                 await session.execute(
                     select(CurrentProgress).where(
-                        CurrentProgress.round == turno, CurrentProgress.level.in_(["br", "uf"])
+                        CurrentProgress.round == turno, CurrentProgress.level.in_(["country", "state"])
                     )
                 )
             )
@@ -834,7 +890,7 @@ async def progresso(session: AsyncSession, turno: int, t: datetime | None) -> di
                     select(ProgressSnapshot)
                     .where(
                         ProgressSnapshot.round == turno,
-                        ProgressSnapshot.level.in_(["br", "uf"]),
+                        ProgressSnapshot.level.in_(["country", "state"]),
                         ProgressSnapshot.tallied_at <= t,
                     )
                     .order_by(ProgressSnapshot.geo_area_id, ProgressSnapshot.tallied_at.desc())
@@ -852,32 +908,32 @@ async def progresso(session: AsyncSession, turno: int, t: datetime | None) -> di
             )
         ).all()
     )
-    br = next((x for x in rows if x.level == "br"), None)
+    br = next((x for x in rows if x.level == "country"), None)
     itens = [
         {
-            "uf": x.geo_area_id,
-            "nome": nomes.get(x.geo_area_id, x.geo_area_id.upper()),
-            "pct_secoes": x.pct_sections,
-            "secoes_total": x.sections_total,
-            "secoes_totalizadas": x.sections_tallied,
-            "municipios_total": total_mun.get(x.geo_area_id, 0),
-            "municipios_finalizados": x.municipalities_completed,
-            "municipios_parciais": x.municipalities_partial,
-            "municipios_nao_recebidos": x.municipalities_not_received,
-            "pct_comparecimento": x.pct_turnout,
-            "atualizado_em": iso(x.tallied_at),
+            "state_code": x.geo_area_id,
+            "name": nomes.get(x.geo_area_id, x.geo_area_id.upper()),
+            "pct_sections": x.pct_sections,
+            "sections_total": x.sections_total,
+            "sections_tallied": x.sections_tallied,
+            "municipalities_total": total_mun.get(x.geo_area_id, 0),
+            "municipalities_completed": x.municipalities_completed,
+            "municipalities_partial": x.municipalities_partial,
+            "municipalities_not_received": x.municipalities_not_received,
+            "pct_turnout": x.pct_turnout,
+            "tallied_at": iso(x.tallied_at),
         }
         for x in sorted(rows, key=lambda x: x.geo_area_id)
-        if x.level == "uf"
+        if x.level == "state"
     ]
     return {
-        "br": {
-            "pct_secoes": br.pct_sections if br else 0.0,
-            "secoes_total": br.sections_total if br else 0,
-            "secoes_totalizadas": br.sections_tallied if br else 0,
-            "atualizado_em": iso(br.tallied_at) if br else None,
+        "country": {
+            "pct_sections": br.pct_sections if br else 0.0,
+            "sections_total": br.sections_total if br else 0,
+            "sections_tallied": br.sections_tallied if br else 0,
+            "tallied_at": iso(br.tallied_at) if br else None,
         },
-        "itens": itens,
+        "items": itens,
     }
 
 
@@ -907,6 +963,84 @@ class ConsultaEventos:
     ate: datetime | None = None
 
 
+async def _resultados_locais(
+    session: AsyncSession, turno: int, cd: int, ids: list[str], t: datetime | None
+) -> dict[str, dict[str, Any]]:
+    res: dict[str, dict[str, Any]] = {}
+    if t is None:
+        for i in range(0, len(ids), 5000):
+            rows = (
+                await session.execute(
+                    select(PollingPlaceResult).where(
+                        PollingPlaceResult.round == turno,
+                        PollingPlaceResult.office_code == cd,
+                        PollingPlaceResult.polling_place_id.in_(ids[i : i + 5000]),
+                    )
+                )
+            ).scalars()
+            for x in rows:
+                res[x.polling_place_id] = {
+                    "sections_tallied": x.sections_tallied,
+                    "sections_total": x.sections_total,
+                    "leader": x.leader_candidate_id,
+                    "pct": x.leader_pct,
+                    "margin": x.margin_pp,
+                    "valid": x.valid_votes,
+                }
+        return res
+    mapas: dict[str, dict[int, str]] = {}
+    for i in range(0, len(ids), 5000):
+        rows = (
+            await session.execute(
+                select(
+                    BallotBoxReport.polling_place_id,
+                    BallotBoxReport.state_code,
+                    BallotBoxReport.votes[str(cd)],
+                ).where(
+                    BallotBoxReport.round == turno,
+                    BallotBoxReport.polling_place_id.in_(ids[i : i + 5000]),
+                    BallotBoxReport.tallied_at <= t,
+                )
+            )
+        ).all()
+        por_local: dict[str, list] = {}
+        ufs: dict[str, str] = {}
+        for lid, u, v in rows:
+            por_local.setdefault(lid, []).append(v)
+            ufs[lid] = u
+        for lid, votos in por_local.items():
+            u = ufs[lid]
+            if u not in mapas:
+                mapas[u] = await numeros_para_sq(session, turno, cd, u)
+            s = soma_boletins(votos, 0, 0, mapas[u])
+            res[lid] = {
+                "sections_tallied": s["sections_tallied"],
+                "sections_total": 0,
+                "leader": s["leader_candidate_id"],
+                "pct": s["leader_pct"],
+                "margin": s["margin_pp"],
+                "valid": s["valid_votes"],
+            }
+    return res
+
+
+def _filtro_mapa(filtro: ConsultaMapa) -> list:
+    filtro_sql: list = []
+    if filtro.uf:
+        filtro_sql.append(PollingPlace.state_code == filtro.uf)
+    if filtro.municipio:
+        filtro_sql.append(PollingPlace.municipality_id == filtro.municipio)
+    if filtro.bbox:
+        b = filtro.bbox
+        filtro_sql += [
+            PollingPlace.lon >= b[0],
+            PollingPlace.lat >= b[1],
+            PollingPlace.lon <= b[2],
+            PollingPlace.lat <= b[3],
+        ]
+    return filtro_sql
+
+
 async def locais_mapa(
     session: AsyncSession,
     turno: int,
@@ -914,22 +1048,8 @@ async def locais_mapa(
     filtro: ConsultaMapa,
     t: datetime | None,
     limite: int = 20000,
-) -> dict:
-    uf = filtro.uf
-    municipio = filtro.municipio
-    bbox = filtro.bbox
-    filtro_sql = []
-    if uf:
-        filtro_sql.append(PollingPlace.state_code == uf)
-    if municipio:
-        filtro_sql.append(PollingPlace.municipality_id == municipio)
-    if bbox:
-        filtro_sql += [
-            PollingPlace.lon >= bbox[0],
-            PollingPlace.lat >= bbox[1],
-            PollingPlace.lon <= bbox[2],
-            PollingPlace.lat <= bbox[3],
-        ]
+) -> dict[str, Any]:
+    filtro_sql = _filtro_mapa(filtro)
     total = (
         await session.execute(select(func.count()).select_from(PollingPlace).where(*filtro_sql))
     ).scalar_one()
@@ -949,98 +1069,42 @@ async def locais_mapa(
             .limit(limite)
         )
     ).all()
-    ids = [x.id for x in locs]
-    res: dict[str, dict] = {}
-    if t is None:
-        for i in range(0, len(ids), 5000):
-            rows = (
-                await session.execute(
-                    select(PollingPlaceResult).where(
-                        PollingPlaceResult.round == turno,
-                        PollingPlaceResult.office_code == cd,
-                        PollingPlaceResult.polling_place_id.in_(ids[i : i + 5000]),
-                    )
-                )
-            ).scalars()
-            for x in rows:
-                res[x.polling_place_id] = {
-                    "secoes_apuradas": x.sections_tallied,
-                    "secoes_total": x.sections_total,
-                    "lider": x.leader_candidate_id,
-                    "pct": x.leader_pct,
-                    "margem": x.margin_pp,
-                    "validos": x.valid_votes,
-                }
-    else:
-        mapas: dict[str, dict[int, str]] = {}
-        for i in range(0, len(ids), 5000):
-            rows = (
-                await session.execute(
-                    select(
-                        BallotBoxReport.polling_place_id,
-                        BallotBoxReport.state_code,
-                        BallotBoxReport.votes[str(cd)],
-                    ).where(
-                        BallotBoxReport.round == turno,
-                        BallotBoxReport.polling_place_id.in_(ids[i : i + 5000]),
-                        BallotBoxReport.tallied_at <= t,
-                    )
-                )
-            ).all()
-            por_local: dict[str, list] = {}
-            ufs: dict[str, str] = {}
-            for lid, u, v in rows:
-                por_local.setdefault(lid, []).append(v)
-                ufs[lid] = u
-            for lid, votos in por_local.items():
-                u = ufs[lid]
-                if u not in mapas:
-                    mapas[u] = await numeros_para_sq(session, turno, cd, u)
-                s = soma_boletins(votos, 0, 0, mapas[u])
-                res[lid] = {
-                    "secoes_apuradas": s["sections_tallied"],
-                    "secoes_total": 0,
-                    "lider": s["leader_candidate_id"],
-                    "pct": s["leader_pct"],
-                    "margem": s["margin_pp"],
-                    "validos": s["valid_votes"],
-                }
-    meta = await meta_candidatos(session, [v["lider"] for v in res.values() if v.get("lider")])
+    res = await _resultados_locais(session, turno, cd, [x.id for x in locs], t)
+    meta = await meta_candidatos(session, [v["leader"] for v in res.values() if v.get("leader")])
     itens = []
     for x in locs:
         r = res.get(x.id)
         total_sec = max(
-            x.section_count or 0, (r or {}).get("secoes_total") or 0, (r or {}).get("secoes_apuradas") or 0
+            x.section_count or 0, (r or {}).get("sections_total") or 0, (r or {}).get("sections_tallied") or 0
         )
-        apuradas = (r or {}).get("secoes_apuradas", 0)
-        status = "nao_recebido" if not apuradas else ("apurado" if apuradas >= total_sec else "parcial")
-        lsq = (r or {}).get("lider")
+        apuradas = (r or {}).get("sections_tallied", 0)
+        lsq = (r or {}).get("leader")
         itens.append(
             {
                 "id": x.id,
-                "nome": x.name,
-                "bairro": x.neighborhood,
+                "name": x.name,
+                "neighborhood": x.neighborhood,
                 "lat": x.lat,
                 "lon": x.lon,
-                "aproximado": x.is_approximate,
-                "status": status,
-                "secoes_total": total_sec,
-                "secoes_apuradas": apuradas,
-                "lider": cand_curto(meta.get(lsq), lsq, 0, (r or {}).get("pct", 0)) if lsq else None,
-                "margem_pp": (r or {}).get("margem", 0.0),
-                "votos_validos": (r or {}).get("validos", 0),
+                "approximate": x.is_approximate,
+                "status": _status_local(apuradas, total_sec),
+                "sections_total": total_sec,
+                "sections_tallied": apuradas,
+                "leader": cand_curto(meta.get(lsq), lsq, 0, (r or {}).get("pct", 0)) if lsq else None,
+                "margin_pp": (r or {}).get("margin", 0.0),
+                "valid_votes": (r or {}).get("valid", 0),
             }
         )
-    return {"total": total, "truncado": total > len(locs), "itens": itens}
+    return {"total": total, "truncated": total > len(locs), "items": itens}
 
 
 def _status_local(apuradas: int, total: int) -> str:
     if not apuradas:
-        return "nao_recebido"
-    return "apurado" if apuradas >= total else "parcial"
+        return NOT_RECEIVED
+    return TALLIED if apuradas >= total else PARTIAL
 
 
-async def item_local(session: AsyncSession, turno: int, cd: int, lid: str) -> dict | None:
+async def item_local(session: AsyncSession, turno: int, cd: int, lid: str) -> dict[str, Any] | None:
     loc = await session.get(PollingPlace, lid)
     if loc is None:
         return None
@@ -1059,21 +1123,21 @@ async def item_local(session: AsyncSession, turno: int, cd: int, lid: str) -> di
     total_sec = max(loc.section_count or 0, r.sections_total if r else 0)
     return {
         "id": loc.id,
-        "nome": loc.name,
-        "bairro": loc.neighborhood,
+        "name": loc.name,
+        "neighborhood": loc.neighborhood,
         "lat": loc.lat,
         "lon": loc.lon,
-        "aproximado": loc.is_approximate,
+        "approximate": loc.is_approximate,
         "status": _status_local(apuradas, total_sec),
-        "secoes_total": total_sec,
-        "secoes_apuradas": apuradas,
-        "lider": cand_curto(meta.get(lsq), lsq, 0, r.leader_pct) if r and lsq else None,
-        "margem_pp": r.margin_pp if r else 0.0,
-        "votos_validos": r.valid_votes if r else 0,
+        "sections_total": total_sec,
+        "sections_tallied": apuradas,
+        "leader": cand_curto(meta.get(lsq), lsq, 0, r.leader_pct) if r and lsq else None,
+        "margin_pp": r.margin_pp if r else 0.0,
+        "valid_votes": r.valid_votes if r else 0,
     }
 
 
-async def detalhe_local(session: AsyncSession, turno: int, lid: str) -> dict | None:
+async def detalhe_local(session: AsyncSession, turno: int, lid: str) -> dict[str, Any] | None:
     loc = await session.get(PollingPlace, lid)
     if loc is None:
         return None
@@ -1102,24 +1166,24 @@ async def detalhe_local(session: AsyncSession, turno: int, lid: str) -> dict | N
     }
     return {
         "id": loc.id,
-        "nome": loc.name,
-        "endereco": loc.address,
-        "bairro": loc.neighborhood,
-        "cep": loc.zip_code,
+        "name": loc.name,
+        "address": loc.address,
+        "neighborhood": loc.neighborhood,
+        "zip_code": loc.zip_code,
         "lat": loc.lat,
         "lon": loc.lon,
-        "aproximado": loc.is_approximate,
-        "eleitores_aptos": loc.eligible_voters,
-        "municipio": {"id": loc.municipality_id, "nome": mun.name if mun else loc.municipality_id},
-        "zona": {"id": loc.electoral_zone_id, "numero": z.number if z else None},
-        "secoes": [
+        "approximate": loc.is_approximate,
+        "eligible_voters": loc.eligible_voters,
+        "municipality": {"id": loc.municipality_id, "name": mun.name if mun else loc.municipality_id},
+        "zone": {"id": loc.electoral_zone_id, "number": z.number if z else None},
+        "sections": [
             {
                 "id": s.id,
-                "numero": s.number,
-                "eleitores_aptos": s.eligible_voters,
-                "status": "apurado" if s.id in bols else "nao_recebido",
-                "totalizado_em": iso(bols[s.id].tallied_at) if s.id in bols else None,
-                "comparecimento": bols[s.id].turnout if s.id in bols else None,
+                "number": s.number,
+                "eligible_voters": s.eligible_voters,
+                "status": TALLIED if s.id in bols else NOT_RECEIVED,
+                "tallied_at": iso(bols[s.id].tallied_at) if s.id in bols else None,
+                "turnout": bols[s.id].turnout if s.id in bols else None,
             }
             for s in secs
         ],
@@ -1136,8 +1200,67 @@ NOMES_CARGO = {
 }
 
 
-async def detalhe_secao(session: AsyncSession, turno: int, sid: str) -> dict | None:
-    r = parse(sid, "secao")
+def _votos_secao(v: dict, por_num: dict) -> list[dict[str, Any]]:
+    votos = []
+    for num, q in sorted((v.get("nom") or {}).items(), key=lambda kv: -kv[1]):
+        c = por_num.get(int(num))
+        votos.append(
+            {
+                "kind": "nominal",
+                "number": int(num),
+                "tse_candidate_id": c.tse_candidate_id if c else None,
+                "ballot_name": c.ballot_name if c else f"Nº {num}",
+                "party_abbreviation": c.party_abbreviation if c else "",
+                "color": c.color if c else "#888",
+                "votes": q,
+            }
+        )
+    for num, q in sorted((v.get("leg") or {}).items(), key=lambda kv: -kv[1]):
+        votos.append(
+            {
+                "kind": "legenda",
+                "number": int(num),
+                "tse_candidate_id": None,
+                "ballot_name": f"Legenda {num}",
+                "party_abbreviation": "",
+                "color": cores.cor_partido(int(num)),
+                "votes": q,
+            }
+        )
+    return votos
+
+
+async def _cargos_secao(
+    session: AsyncSession, turno: int, b: BallotBoxReport, uf: str
+) -> list[dict[str, Any]]:
+    cargos = []
+    for cd, v in sorted((b.votes or {}).items(), key=lambda kv: int(kv[0])):
+        cdi = int(cd)
+        res = await session.execute(
+            select(Candidate).where(
+                Candidate.round == turno,
+                Candidate.office_code == cdi,
+                Candidate.state_code == ("br" if cdi == 1 else uf),
+            )
+        )
+        por_num = {c.ballot_number: c for c in res.scalars()}
+        votos = _votos_secao(v, por_num)
+        cargos.append(
+            {
+                "office_code": cdi,
+                "name": NOMES_CARGO.get(cdi, str(cdi)),
+                "turnout": v.get("comp", 0),
+                "valid_votes": sum(x["votes"] for x in votos),
+                "blank_votes": v.get("b", 0),
+                "null_votes": v.get("n", 0),
+                "votes": votos,
+            }
+        )
+    return cargos
+
+
+async def detalhe_secao(session: AsyncSession, turno: int, sid: str) -> dict[str, Any] | None:
+    r = parse(sid, "section")
     sec = await session.get(PollingSection, sid)
     b = (
         await session.execute(
@@ -1148,100 +1271,53 @@ async def detalhe_secao(session: AsyncSession, turno: int, sid: str) -> dict | N
     ).scalar_one_or_none()
     if sec is None and b is None:
         return None
-    mun = await session.get(Municipality, r.municipio_id)
+    mun = await session.get(Municipality, r.municipality_id)
     local_id = (sec.polling_place_id if sec else None) or (b.polling_place_id if b else None)
     loc = await session.get(PollingPlace, local_id) if local_id else None
-    cargos = []
-    if b:
-        for cd, v in sorted((b.votes or {}).items(), key=lambda kv: int(kv[0])):
-            cdi = int(cd)
-            res = await session.execute(
-                select(Candidate).where(
-                    Candidate.round == turno,
-                    Candidate.office_code == cdi,
-                    Candidate.state_code == ("br" if cdi == 1 else r.uf),
-                )
-            )
-            por_num = {c.ballot_number: c for c in res.scalars()}
-            votos = []
-            for num, q in sorted((v.get("nom") or {}).items(), key=lambda kv: -kv[1]):
-                c = por_num.get(int(num))
-                votos.append(
-                    {
-                        "tipo": "nominal",
-                        "numero": int(num),
-                        "sqcand": c.tse_candidate_id if c else None,
-                        "nome_urna": c.ballot_name if c else f"Nº {num}",
-                        "partido_sigla": c.party_abbreviation if c else "",
-                        "cor": c.color if c else "#888",
-                        "votos": q,
-                    }
-                )
-            for num, q in sorted((v.get("leg") or {}).items(), key=lambda kv: -kv[1]):
-                votos.append(
-                    {
-                        "tipo": "legenda",
-                        "numero": int(num),
-                        "sqcand": None,
-                        "nome_urna": f"Legenda {num}",
-                        "partido_sigla": "",
-                        "cor": cores.cor_partido(int(num)),
-                        "votos": q,
-                    }
-                )
-            validos = sum(x["votos"] for x in votos)
-            cargos.append(
-                {
-                    "cd": cdi,
-                    "nome": NOMES_CARGO.get(cdi, str(cdi)),
-                    "comparecimento": v.get("comp", 0),
-                    "votos_validos": validos,
-                    "brancos": v.get("b", 0),
-                    "nulos": v.get("n", 0),
-                    "votos": votos,
-                }
-            )
+    cargos = await _cargos_secao(session, turno, b, r.uf) if b else []
     return {
         "id": sid,
-        "numero": r.secao,
-        "uf": r.uf,
-        "municipio": {"id": r.municipio_id, "nome": mun.name if mun else r.municipio_id},
-        "zona": {"id": r.zona_id, "numero": r.zona},
-        "local": {"id": local_id, "nome": loc.name if loc else None},
-        "status": "apurado" if b else "nao_recebido",
-        "totalizado_em": iso(b.tallied_at) if b else None,
-        "emitido_em": iso(b.issued_at) if b else None,
+        "number": r.section,
+        "state_code": r.uf,
+        "municipality": {"id": r.municipality_id, "name": mun.name if mun else r.municipality_id},
+        "zone": {"id": r.zone_id, "number": r.zone},
+        "polling_place": {"id": local_id, "name": loc.name if loc else None},
+        "status": TALLIED if b else NOT_RECEIVED,
+        "tallied_at": iso(b.tallied_at) if b else None,
+        "issued_at": iso(b.issued_at) if b else None,
         "hash": b.hash if b else None,
-        "assinatura_ok": b.signature_valid if b else None,
-        "url_bu": b.url if b else None,
-        "eleitores_aptos": (sec.eligible_voters if sec else None) or (b.eligible_voters if b else None),
-        "comparecimento": b.turnout if b else None,
-        "cargos": cargos,
+        "signature_valid": b.signature_valid if b else None,
+        "bu_url": b.url if b else None,
+        "eligible_voters": (sec.eligible_voters if sec else None) or (b.eligible_voters if b else None),
+        "turnout": b.turnout if b else None,
+        "offices": cargos,
     }
 
 
 # ------------------------------------------------------------------ candidatos
 
 
-def candidato_json(c: Candidate) -> dict:
+def candidato_json(c: Candidate) -> dict[str, Any]:
     return {
-        "sqcand": c.tse_candidate_id,
-        "numero": c.ballot_number,
-        "nome": c.name,
-        "nome_urna": c.ballot_name,
-        "partido_sigla": c.party_abbreviation,
-        "agremiacao": c.alliance,
-        "cor": c.color,
-        "foto_url": foto_url(c.tse_candidate_id),
-        "uf": None if c.state_code == "br" else c.state_code,
-        "cargo": c.office_code,
-        "situacao_geral": c.overall_status,
-        "eleito": c.elected,
-        "vices": c.vice_and_substitutes,
+        "tse_candidate_id": c.tse_candidate_id,
+        "ballot_number": c.ballot_number,
+        "name": c.name,
+        "ballot_name": c.ballot_name,
+        "party_abbreviation": c.party_abbreviation,
+        "alliance": c.alliance,
+        "color": c.color,
+        "photo_url": foto_url(c.tse_candidate_id),
+        "state_code": None if c.state_code == "br" else c.state_code,
+        "office_code": c.office_code,
+        "overall_status": c.overall_status,
+        "elected": c.elected,
+        "vice_and_substitutes": _vices(c.vice_and_substitutes),
     }
 
 
-async def listar_candidatos(session: AsyncSession, turno: int, cd: int | None, uf: str | None) -> list[dict]:
+async def listar_candidatos(
+    session: AsyncSession, turno: int, cd: int | None, uf: str | None
+) -> list[dict[str, Any]]:
     q = select(Candidate).where(Candidate.round == turno)
     if cd:
         q = q.where(Candidate.office_code == cd)
@@ -1257,22 +1333,24 @@ async def listar_candidatos(session: AsyncSession, turno: int, cd: int | None, u
     ]
 
 
-async def detalhe_candidato(session: AsyncSession, sq: str, turno: int, t: datetime | None) -> dict | None:
+async def detalhe_candidato(
+    session: AsyncSession, sq: str, turno: int, t: datetime | None
+) -> dict[str, Any] | None:
     c = await session.get(Candidate, sq)
     if c is None:
         return None
     info = await cargo_info(session, c.round, c.office_code)
-    r = Recorte("br", "br") if c.state_code == "br" else Recorte("uf", c.state_code, uf=c.state_code)
+    r = GeoArea("country", "br") if c.state_code == "br" else GeoArea("state", c.state_code, uf=c.state_code)
     res = await montar_resultado(session, c.round, c.office_code, r, t)
-    meu = next((x for x in res.get("candidatos", []) if x["sqcand"] == sq), None)
+    meu = next((x for x in res.get("candidates", []) if x["tse_candidate_id"] == sq), None)
     return {
         **candidato_json(c),
-        "cargo": cargo_json(info[1] if info else None, c.office_code),
-        "resultado": {
-            "votos": meu["votos"],
-            "pct_validos": meu["pct_validos"],
-            "posicao": meu["posicao"],
-            "situacao": meu["situacao"],
+        "office": cargo_json(info[1] if info else None, c.office_code),
+        "result": {
+            "votes": meu["votes"],
+            "valid_pct": meu["valid_pct"],
+            "position": meu["position"],
+            "status": meu["status"],
         }
         if meu
         else None,
@@ -1288,12 +1366,12 @@ def sem_acento(texto: str) -> str:
     ).lower()
 
 
-async def buscar(session: AsyncSession, q: str, limite: int = 20) -> dict:
+async def buscar(session: AsyncSession, q: str, limite: int = 20) -> dict[str, Any]:
     q = q.strip()
     if len(q) < 2:
-        return {"itens": []}
+        return {"items": []}
     termo = f"%{sem_acento(q)}%"
-    itens: list[dict] = []
+    itens: list[dict[str, Any]] = []
     ufs = (
         (
             await session.execute(
@@ -1309,7 +1387,7 @@ async def buscar(session: AsyncSession, q: str, limite: int = 20) -> dict:
         .all()
     )
     itens += [
-        {"tipo": "uf", "nivel": "uf", "id": u.code, "titulo": u.name, "subtitulo": u.code.upper()}
+        {"type": "state", "level": "state", "id": u.code, "title": u.name, "subtitle": u.code.upper()}
         for u in ufs
     ]
     muns = (
@@ -1330,11 +1408,11 @@ async def buscar(session: AsyncSession, q: str, limite: int = 20) -> dict:
     )
     itens += [
         {
-            "tipo": "municipio",
-            "nivel": "municipio",
+            "type": "municipality",
+            "level": "municipality",
             "id": m.id,
-            "titulo": m.name,
-            "subtitulo": f"{m.state_code.upper()}"
+            "title": m.name,
+            "subtitle": f"{m.state_code.upper()}"
             + (f" · {m.electorate:,} eleitores".replace(",", ".") if m.electorate else ""),
         }
         for m in muns
@@ -1357,13 +1435,13 @@ async def buscar(session: AsyncSession, q: str, limite: int = 20) -> dict:
     )
     itens += [
         {
-            "tipo": "candidato",
+            "type": "candidate",
             "id": c.tse_candidate_id,
-            "titulo": f"{c.ballot_name} ({c.ballot_number})",
-            "subtitulo": f"{NOMES_CARGO.get(c.office_code, c.office_code)} · {c.party_abbreviation}"
+            "title": f"{c.ballot_name} ({c.ballot_number})",
+            "subtitle": f"{NOMES_CARGO.get(c.office_code, c.office_code)} · {c.party_abbreviation}"
             + (f" · {c.state_code.upper()}" if c.state_code != "br" else ""),
-            "cargo": c.office_code,
-            "uf": None if c.state_code == "br" else c.state_code,
+            "office_code": c.office_code,
+            "state_code": None if c.state_code == "br" else c.state_code,
         }
         for c in cands
     ]
@@ -1383,11 +1461,11 @@ async def buscar(session: AsyncSession, q: str, limite: int = 20) -> dict:
     ).all()
     itens += [
         {
-            "tipo": "local",
-            "nivel": "local",
+            "type": "polling_place",
+            "level": "polling_place",
             "id": loc.id,
-            "titulo": loc.name,
-            "subtitulo": f"{(loc.neighborhood or '').title()} · {mn}/{loc.state_code.upper()}",
+            "title": loc.name,
+            "subtitle": f"{(loc.neighborhood or '').title()} · {mn}/{loc.state_code.upper()}",
         }
         for loc, mn in locs
     ]
@@ -1403,37 +1481,37 @@ async def buscar(session: AsyncSession, q: str, limite: int = 20) -> dict:
         if resto:
             stmt = stmt.where(func.unaccent(func.lower(Municipality.name)).ilike(f"%{resto}%"))
         for obj, mn in (await session.execute(stmt.limit(limite))).all():
-            nivel = "zona" if cls is ElectoralZone else "secao"
+            nivel = "zone" if cls is ElectoralZone else "section"
             itens.append(
                 {
-                    "tipo": nivel,
-                    "nivel": nivel,
+                    "type": nivel,
+                    "level": nivel,
                     "id": obj.id,
-                    "titulo": f"{'Zona' if nivel == 'zona' else 'Seção'} {obj.number}",
-                    "subtitulo": f"{mn}/{obj.state_code.upper()}",
+                    "title": f"{'Zona' if nivel == 'zone' else 'Seção'} {obj.number}",
+                    "subtitle": f"{mn}/{obj.state_code.upper()}",
                 }
             )
-    return {"itens": itens[: limite * 3]}
+    return {"items": itens[: limite * 3]}
 
 
 # ------------------------------------------------------------------ eventos, linha do tempo, status
 
 
-def evento_json(e: Event) -> dict:
+def evento_json(e: Event) -> dict[str, Any]:
     return {
         "id": e.id,
-        "tipo": e.type,
-        "ocorrido_em": iso(e.occurred_at),
-        "cargo": e.office_code,
-        "nivel": e.level,
-        "recorte_id": e.geo_area_id,
-        "titulo": e.title,
-        "descricao": e.description,
+        "type": e.type,
+        "occurred_at": iso(e.occurred_at),
+        "office_code": e.office_code,
+        "level": e.level,
+        "geo_area_id": e.geo_area_id,
+        "title": e.title,
+        "description": e.description,
         "payload": e.payload,
     }
 
 
-async def listar_eventos(session: AsyncSession, filtro: ConsultaEventos) -> list[dict]:
+async def listar_eventos(session: AsyncSession, filtro: ConsultaEventos) -> list[dict[str, Any]]:
     q = select(Event).where(Event.round == filtro.turno)
     if filtro.desde:
         q = q.where(Event.occurred_at > filtro.desde)
@@ -1447,7 +1525,7 @@ async def listar_eventos(session: AsyncSession, filtro: ConsultaEventos) -> list
         q = q.where(
             or_(
                 and_(Event.level == filtro.nivel, Event.geo_area_id == filtro.recorte_id),
-                Event.type == "inicio",
+                Event.type == "start",
             )
         )
     rows = (
@@ -1458,22 +1536,24 @@ async def listar_eventos(session: AsyncSession, filtro: ConsultaEventos) -> list
     return [evento_json(e) for e in rows]
 
 
-async def linha_do_tempo(session: AsyncSession, turno: int) -> dict:
+async def linha_do_tempo(session: AsyncSession, turno: int) -> dict[str, Any]:
     ini, fim = (
         await session.execute(
             select(func.min(ResultSnapshot.tallied_at), func.max(ResultSnapshot.tallied_at)).where(
-                ResultSnapshot.round == turno, ResultSnapshot.level.in_(["br", "uf"])
+                ResultSnapshot.round == turno, ResultSnapshot.level.in_(["country", "state"])
             )
         )
     ).one()
     eventos = await listar_eventos(session, ConsultaEventos(turno=turno, limite=300))
-    eventos = [e for e in eventos if e["nivel"] in ("br", "uf", None)]
-    return {"inicio": iso(ini), "fim": iso(fim), "agora": iso(fim), "eventos": eventos}
+    eventos = [e for e in eventos if e["level"] in ("country", "state", None)]
+    return {"start": iso(ini), "end": iso(fim), "now": iso(fim), "events": eventos}
 
 
 async def ultima_totalizacao(session: AsyncSession) -> datetime | None:
     return (
-        await session.execute(select(func.max(CurrentResult.tallied_at)).where(CurrentResult.level == "br"))
+        await session.execute(
+            select(func.max(CurrentResult.tallied_at)).where(CurrentResult.level == "country")
+        )
     ).scalar_one()
 
 
@@ -1481,7 +1561,7 @@ async def pct_br(session: AsyncSession, turno: int = 1) -> float:
     r = (
         await session.execute(
             select(CurrentProgress.pct_sections).where(
-                CurrentProgress.round == turno, CurrentProgress.level == "br"
+                CurrentProgress.round == turno, CurrentProgress.level == "country"
             )
         )
     ).scalar_one_or_none()

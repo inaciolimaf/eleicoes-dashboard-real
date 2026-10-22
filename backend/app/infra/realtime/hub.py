@@ -10,24 +10,24 @@ import orjson
 from fastapi import WebSocket
 from redis.asyncio import Redis
 
-from app.infra.realtime import topics as topicos
+from app.infra.realtime import topics
 
 log = logging.getLogger(__name__)
 
 
-class Conexao:
+class Connection:
     def __init__(self, ws: WebSocket) -> None:
         self.ws = ws
-        self.topicos: set[str] = set()
+        self.topics: set[str] = set()
         self.seq = 0
-        self.usuario_id: str | None = None
-        self.fila: asyncio.Queue[bytes] = asyncio.Queue(maxsize=2000)
+        self.user_id: str | None = None
+        self.queue: asyncio.Queue[bytes] = asyncio.Queue(maxsize=2000)
 
-    async def enviar(self, msg: dict) -> None:
+    async def send(self, msg: dict) -> None:
         self.seq += 1
         msg["seq"] = self.seq
         try:
-            self.fila.put_nowait(orjson.dumps(msg))
+            self.queue.put_nowait(orjson.dumps(msg))
         except asyncio.QueueFull:
             log.warning("fila de websocket cheia; descartando mensagem")
 
@@ -35,56 +35,56 @@ class Conexao:
 class Hub:
     def __init__(self, redis: Redis) -> None:
         self.redis = redis
-        self.conexoes: set[Conexao] = set()
-        self._tarefas: list[asyncio.Task] = []
+        self.connections: set[Connection] = set()
+        self._tasks: list[asyncio.Task] = []
 
-    def iniciar(self) -> None:
-        self._tarefas = [asyncio.create_task(self._escutar()), asyncio.create_task(self._heartbeat())]
+    def start(self) -> None:
+        self._tasks = [asyncio.create_task(self._listen()), asyncio.create_task(self._heartbeat())]
 
-    async def parar(self) -> None:
-        for t in self._tarefas:
+    async def stop(self) -> None:
+        for t in self._tasks:
             t.cancel()
-        for t in self._tarefas:
+        for t in self._tasks:
             with contextlib.suppress(asyncio.CancelledError, Exception):
                 await t
 
-    def topicos_ativos(self) -> set[str]:
+    def active_topics(self) -> set[str]:
         out: set[str] = set()
-        for c in self.conexoes:
-            out |= c.topicos
+        for c in self.connections:
+            out |= c.topics
         return out
 
     async def _heartbeat(self) -> None:
         while True:
             try:
-                await topicos.registrar_ativos(self.redis, list(self.topicos_ativos()))
+                await topics.register_active(self.redis, list(self.active_topics()))
             except Exception:  # pragma: no cover - redis fora do ar
                 log.exception("falha ao registrar tópicos ativos")
             await asyncio.sleep(15)
 
-    async def _escutar(self) -> None:
+    async def _listen(self) -> None:
         while True:
             try:
                 pubsub = self.redis.pubsub()
-                await pubsub.psubscribe(topicos.PREFIXO + "*")
+                await pubsub.psubscribe(topics.PREFIX + "*")
                 async for msg in pubsub.listen():
                     if msg.get("type") != "pmessage":
                         continue
                     canal = msg["channel"].decode() if isinstance(msg["channel"], bytes) else msg["channel"]
-                    topico = canal[len(topicos.PREFIXO) :]
-                    await self.despachar(topico, orjson.loads(msg["data"]))
+                    topic = canal[len(topics.PREFIX) :]
+                    await self.dispatch(topic, orjson.loads(msg["data"]))
             except asyncio.CancelledError:
                 raise
             except Exception:  # pragma: no cover
                 log.exception("listener do redis caiu; reconectando")
                 await asyncio.sleep(1)
 
-    async def despachar(self, topico: str, mensagem: dict) -> None:
-        for c in list(self.conexoes):
-            if topico in c.topicos or (c.usuario_id and topico == topicos.usuario(c.usuario_id)):
-                await c.enviar(dict(mensagem))
+    async def dispatch(self, topic: str, message: dict) -> None:
+        for c in list(self.connections):
+            if topic in c.topics or (c.user_id and topic == topics.user(c.user_id)):
+                await c.send(dict(message))
 
-    async def assinar(self, c: Conexao, lista: list[str]) -> None:
+    async def subscribe(self, c: Connection, lista: list[str]) -> None:
         novos = [t for t in lista if isinstance(t, str) and len(t) < 120][:200]
-        c.topicos |= set(novos)
-        await topicos.registrar_ativos(self.redis, novos)
+        c.topics |= set(novos)
+        await topics.register_active(self.redis, novos)

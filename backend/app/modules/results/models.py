@@ -14,7 +14,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, declared_attr, mapped_column
 
-from app.core.db import Base, NivelNoBanco
+from app.core.db import Base
 
 
 class ResultColumns:
@@ -23,7 +23,7 @@ class ResultColumns:
     election_id: Mapped[int] = mapped_column(Integer)
     round: Mapped[int] = mapped_column(SmallInteger)
     office_code: Mapped[int] = mapped_column(SmallInteger)
-    level: Mapped[str] = mapped_column(NivelNoBanco(16))  # br | uf | municipio | zona
+    level: Mapped[str] = mapped_column(String(16))  # country | state | municipality | zone
     geo_area_id: Mapped[str] = mapped_column(String(24))
     parent_id: Mapped[str] = mapped_column(String(24))
     state_code: Mapped[str] = mapped_column(String(2))
@@ -95,7 +95,7 @@ class CurrentResult(ResultColumns, Base):
 
     @declared_attr
     def level(cls) -> Mapped[str]:  # noqa: N805
-        return mapped_column(NivelNoBanco(16), primary_key=True)
+        return mapped_column(String(16), primary_key=True)
 
     @declared_attr
     def geo_area_id(cls) -> Mapped[str]:  # noqa: N805
@@ -104,7 +104,7 @@ class CurrentResult(ResultColumns, Base):
 
 class ProgressColumns:
     round: Mapped[int] = mapped_column(SmallInteger)
-    level: Mapped[str] = mapped_column(NivelNoBanco(16))  # br | uf | municipio
+    level: Mapped[str] = mapped_column(String(16))  # br | uf | municipio
     geo_area_id: Mapped[str] = mapped_column(String(24))
     state_code: Mapped[str] = mapped_column(String(2))
     generation_id: Mapped[int] = mapped_column(BigInteger)
@@ -141,7 +141,7 @@ class CurrentProgress(ProgressColumns, Base):
 
     @declared_attr
     def level(cls) -> Mapped[str]:  # noqa: N805
-        return mapped_column(NivelNoBanco(16), primary_key=True)
+        return mapped_column(String(16), primary_key=True)
 
     @declared_attr
     def geo_area_id(cls) -> Mapped[str]:  # noqa: N805

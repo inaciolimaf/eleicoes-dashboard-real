@@ -5,7 +5,7 @@ from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Uuid
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.db import Base, ModoCompartilhamentoNoBanco, Timestamps, TipoFavoritoNoBanco
+from app.core.db import Base, Timestamps
 
 
 class User(Timestamps, Base):
@@ -44,7 +44,7 @@ class Share(Base):
     dashboard_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("dashboards.id", ondelete="CASCADE"), index=True
     )
-    mode: Mapped[str] = mapped_column(ModoCompartilhamentoNoBanco(16))
+    mode: Mapped[str] = mapped_column(String(16))
     frozen_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
@@ -53,6 +53,6 @@ class Favorite(Base):
     __tablename__ = "favorites"
 
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
-    type: Mapped[str] = mapped_column(TipoFavoritoNoBanco(16), primary_key=True)
+    type: Mapped[str] = mapped_column(String(16), primary_key=True)
     ref: Mapped[str] = mapped_column(String(40), primary_key=True)
     label: Mapped[str] = mapped_column(String(160), default="")

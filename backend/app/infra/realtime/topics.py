@@ -1,6 +1,11 @@
 """Tópicos de tempo real e publicação via Redis pub/sub.
 
-O hub da API registra em `ws:topicos` (sorted set, score = expiração) os tópicos que têm alguém
+Formato dos tópicos (ver docs/refactoring-contract.md e `frontend/src/realtime/topics.ts`):
+`results:{round}:{office}:{level}:{id}`, `children:{round}:{office}:{level}:{id}[:{child_level}]`,
+`polling_places:{round}:{office}:{municipality}`, `events:{round}`, `progress:{round}`, `status`,
+`user:{id}`.
+
+O hub da API registra em `ws:topics` (sorted set, score = expiração) os tópicos que têm alguém
 assistindo. O worker só monta payloads caros para tópicos ativos. Também serve de sinal para o
 coletor priorizar recortes vigiados.
 """
@@ -12,55 +17,56 @@ import time
 import orjson
 from redis.asyncio import Redis
 
-CHAVE_ATIVOS = "ws:topicos"
-PREFIXO = "pub:"
-SEMPRE_ATIVOS = ("eventos:", "status", "progresso:", "usuario:")
+ACTIVE_KEY = "ws:topics"
+PREFIX = "pub:"
+ALWAYS_ACTIVE = ("events:", "status", "progress:", "user:")
 
 
-def res(turno: int, cd: int, nivel: str, rid: str) -> str:
-    return f"res:{turno}:{cd}:{nivel}:{rid}"
+def results(turno: int, cd: int, nivel: str, rid: str) -> str:
+    return f"results:{turno}:{cd}:{nivel}:{rid}"
 
 
-def filhos(turno: int, cd: int, nivel: str, rid: str, nivel_filhos: str | None = None) -> str:
-    base = f"filhos:{turno}:{cd}:{nivel}:{rid}"
-    return f"{base}:{nivel_filhos}" if nivel_filhos else base
+def children(turno: int, cd: int, nivel: str, rid: str, child_level: str | None = None) -> str:
+    base = f"children:{turno}:{cd}:{nivel}:{rid}"
+    return f"{base}:{child_level}" if child_level else base
 
 
-def locais(turno: int, cd: int, municipio: str) -> str:
-    return f"locais:{turno}:{cd}:{municipio}"
+def polling_places(turno: int, cd: int, municipio: str) -> str:
+    return f"polling_places:{turno}:{cd}:{municipio}"
 
 
-def eventos(turno: int) -> str:
-    return f"eventos:{turno}"
+def events(turno: int) -> str:
+    return f"events:{turno}"
 
 
-def progresso(turno: int) -> str:
-    return f"progresso:{turno}"
+def progress(turno: int) -> str:
+    return f"progress:{turno}"
 
 
-def usuario(uid: str) -> str:
-    return f"usuario:{uid}"
+def user(uid: str) -> str:
+    return f"user:{uid}"
 
 
-async def registrar_ativos(redis: Redis, topicos: list[str], ttl: float = 45.0) -> None:
-    if not topicos:
+async def register_active(redis: Redis, topics: list[str], ttl: float = 45.0) -> None:
+    if not topics:
         return
     expira = time.time() + ttl
-    await redis.zadd(CHAVE_ATIVOS, dict.fromkeys(topicos, expira))
+    await redis.zadd(ACTIVE_KEY, dict.fromkeys(topics, expira))
 
 
-async def ativos(redis: Redis) -> set[str]:
+async def active(redis: Redis) -> set[str]:
     agora = time.time()
-    await redis.zremrangebyscore(CHAVE_ATIVOS, 0, agora)
-    return {t.decode() if isinstance(t, bytes) else t for t in await redis.zrange(CHAVE_ATIVOS, 0, -1)}
+    await redis.zremrangebyscore(ACTIVE_KEY, 0, agora)
+    return {t.decode() if isinstance(t, bytes) else t for t in await redis.zrange(ACTIVE_KEY, 0, -1)}
 
 
-async def esta_ativo(redis: Redis, topico: str) -> bool:
-    if topico.startswith(SEMPRE_ATIVOS):
+async def is_active(redis: Redis, topic: str) -> bool:
+    if topic.startswith(ALWAYS_ACTIVE):
         return True
-    score = await redis.zscore(CHAVE_ATIVOS, topico)
+    score = await redis.zscore(ACTIVE_KEY, topic)
     return score is not None and score > time.time()
 
 
-async def publicar(redis: Redis, topico: str, tipo: str, dados: object) -> None:
-    await redis.publish(PREFIXO + topico, orjson.dumps({"tipo": tipo, "topico": topico, "dados": dados}))
+async def publish(redis: Redis, topic: str, type_: str, data: object) -> None:
+    """Mensagem para o hub: `{"type", "topic", "data"}` (o `seq` é por conexão, o hub acrescenta)."""
+    await redis.publish(PREFIX + topic, orjson.dumps({"type": type_, "topic": topic, "data": data}))

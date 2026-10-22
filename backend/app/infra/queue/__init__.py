@@ -1,4 +1,7 @@
-"""Fila simples sobre Redis (lista) entre coletor e worker."""
+"""Fila simples sobre Redis (lista) entre coletor e worker.
+
+Mensagem: `{"type": "result"|"tracking"|"ballot", "body": <base64>, "context": {...}}`.
+"""
 
 from __future__ import annotations
 
@@ -7,21 +10,24 @@ import base64
 import orjson
 from redis.asyncio import Redis
 
-FILA = "fila:arquivos"
+QUEUE = "queue:files"
+TYPE_RESULT = "result"
+TYPE_TRACKING = "tracking"
+TYPE_BALLOT = "ballot"
 
 
-def mensagem(tipo: str, corpo: bytes, **ctx: object) -> bytes:
-    return orjson.dumps({"tipo": tipo, "corpo": base64.b64encode(corpo).decode(), "ctx": ctx})
+def message(type_: str, body: bytes, **context: object) -> bytes:
+    return orjson.dumps({"type": type_, "body": base64.b64encode(body).decode(), "context": context})
 
 
-def ler(bruto: bytes) -> tuple[str, bytes, dict]:
-    d = orjson.loads(bruto)
-    return d["tipo"], base64.b64decode(d["corpo"]), d.get("ctx") or {}
+def read(raw: bytes) -> tuple[str, bytes, dict]:
+    d = orjson.loads(raw)
+    return d["type"], base64.b64decode(d["body"]), d.get("context") or {}
 
 
-async def enfileirar(redis: Redis, tipo: str, corpo: bytes, **ctx: object) -> None:
-    await redis.lpush(FILA, mensagem(tipo, corpo, **ctx))
+async def enqueue(redis: Redis, type_: str, body: bytes, **context: object) -> None:
+    await redis.lpush(QUEUE, message(type_, body, **context))
 
 
-async def tamanho(redis: Redis) -> int:
-    return int(await redis.llen(FILA))
+async def size(redis: Redis) -> int:
+    return int(await redis.llen(QUEUE))

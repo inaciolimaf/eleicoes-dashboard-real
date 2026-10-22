@@ -14,7 +14,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.core.db import Base, SituacaoNoBanco
+from app.core.db import Base
 
 
 class Election(Base):
@@ -71,7 +71,7 @@ class Candidate(Base):
     alliance: Mapped[str] = mapped_column(String(160))
     color: Mapped[str] = mapped_column(String(9))
     vice_and_substitutes: Mapped[list] = mapped_column(JSONB, default=list)
-    overall_status: Mapped[str] = mapped_column(SituacaoNoBanco(32), default="EM_APURACAO")
+    overall_status: Mapped[str] = mapped_column(String(32), default="COUNTING")
     elected: Mapped[bool] = mapped_column(Boolean, default=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

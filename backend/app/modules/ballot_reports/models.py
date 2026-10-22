@@ -14,7 +14,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.db import ApuracaoLocalNoBanco, Base
+from app.core.db import Base
 
 
 class BallotBoxReport(Base):
@@ -62,7 +62,7 @@ class PollingPlaceResult(Base):
     state_code: Mapped[str] = mapped_column(String(2))
     sections_total: Mapped[int] = mapped_column(Integer, default=0)
     sections_tallied: Mapped[int] = mapped_column(Integer, default=0)
-    status: Mapped[str] = mapped_column(ApuracaoLocalNoBanco(16), default="nao_recebido")
+    status: Mapped[str] = mapped_column(String(16), default="not_received")
     turnout: Mapped[int] = mapped_column(Integer, default=0)
     valid_votes: Mapped[int] = mapped_column(Integer, default=0)
     blank_votes: Mapped[int] = mapped_column(Integer, default=0)

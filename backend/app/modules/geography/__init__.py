@@ -1,10 +1,10 @@
 """Geography: states, municipalities, zones, polling places, sections and geo areas."""
 
-from app.modules.geography.deps import RecorteDep
+from app.modules.geography.deps import GeoAreaDep
 from app.modules.geography.geo_area import (
-    FILHO,
-    Recorte,
-    RecorteInvalido,
+    CHILD_LEVEL,
+    GeoArea,
+    GeoAreaInvalid,
     local_id,
     municipio_id,
     parse,
@@ -14,14 +14,14 @@ from app.modules.geography.geo_area import (
 from app.modules.geography.models import ElectoralZone, Municipality, PollingPlace, PollingSection, State
 
 __all__ = [
-    "FILHO",
+    "CHILD_LEVEL",
     "ElectoralZone",
+    "GeoArea",
+    "GeoAreaDep",
+    "GeoAreaInvalid",
     "Municipality",
     "PollingPlace",
     "PollingSection",
-    "Recorte",
-    "RecorteDep",
-    "RecorteInvalido",
     "State",
     "local_id",
     "municipio_id",

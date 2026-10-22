@@ -1,15 +1,19 @@
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, Query
+from fastapi import Depends, Query
 
-from app.modules.geography.geo_area import Recorte, RecorteInvalido, parse
+from app.core.errors import AppError
+from app.modules.geography.geo_area import GeoArea, GeoAreaInvalid, parse
 
 
-def recorte(nivel: str = Query("br"), id_: str = Query("br", alias="id")) -> Recorte:
+def geo_area(
+    level: str = Query("country", description="country, state, municipality, zone, polling_place ou section"),
+    id: str = Query("br", description="Id da área: br, sp, sp71072, sp71072-z0001..."),  # noqa: A002
+) -> GeoArea:
     try:
-        return parse(id_, nivel)
-    except RecorteInvalido as exc:
-        raise HTTPException(422, f"recorte inválido: {exc}") from exc
+        return parse(id, level)
+    except GeoAreaInvalid as exc:
+        raise AppError(422, "Parâmetro inválido", f"recorte inválido: {exc}", "geo_area/invalid") from exc
 
 
-RecorteDep = Annotated[Recorte, Depends(recorte)]
+GeoAreaDep = Annotated[GeoArea, Depends(geo_area)]

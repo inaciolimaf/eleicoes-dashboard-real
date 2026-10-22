@@ -3,11 +3,11 @@ from typing import Annotated
 
 from fastapi import Depends, Query
 
-from app.core.deps import parse_t
+from app.core.deps import parse_time
 
 
-def tempo(t: str | None = Query(None, description="Instante ISO 8601; vazio = ao vivo")) -> datetime | None:
-    return parse_t(t)
+def tempo(at: str | None = Query(None, description="Instante ISO 8601; vazio = ao vivo")) -> datetime | None:
+    return parse_time(at, "at")
 
 
 TempoDep = Annotated[datetime | None, Depends(tempo)]

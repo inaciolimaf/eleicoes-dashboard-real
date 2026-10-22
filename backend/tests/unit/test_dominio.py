@@ -7,49 +7,50 @@ import pytest
 from app.modules.elections import colors as cores
 from app.modules.elections import status as situacao
 from app.modules.events import detection as eventos
-from app.modules.geography import FILHO, RecorteInvalido, parse
+from app.modules.geography import CHILD_LEVEL, GeoAreaInvalid, parse
 
 
 @pytest.mark.parametrize(
     ("rid", "nivel"),
     [
-        ("br", "br"),
-        ("sp", "uf"),
-        ("sp71072", "municipio"),
-        ("sp71072-z0001", "zona"),
-        ("sp71072-z0001-l1015", "local"),
-        ("sp71072-z0001-s0120", "secao"),
+        ("br", "country"),
+        ("sp", "state"),
+        ("sp71072", "municipality"),
+        ("sp71072-z0001", "zone"),
+        ("sp71072-z0001-l1015", "polling_place"),
+        ("sp71072-z0001-s0120", "section"),
     ],
 )
 def test_recortes(rid, nivel):
     r = parse(rid)
-    assert r.nivel == nivel and r.id == rid
-    if nivel != "br":
-        assert r.pai is not None
+    assert r.level == nivel and r.id == rid
+    if nivel != "country":
+        assert r.parent is not None
 
 
 def test_recorte_detalhes_e_invalidos():
     r = parse("SP71072-Z0001-S0120")
-    assert (r.uf, r.municipio, r.zona, r.secao) == ("sp", 71072, 1, 120)
-    assert r.pai.id == "sp71072-z0001" and r.pai.pai.id == "sp71072" and r.pai.pai.pai.id == "sp"
-    assert FILHO["zona"] == "local"
+    assert (r.uf, r.municipality, r.zone, r.section) == ("sp", 71072, 1, 120)
+    assert r.parent.id == "sp71072-z0001" and r.parent.parent.id == "sp71072"
+    assert r.parent.parent.parent.id == "sp"
+    assert CHILD_LEVEL["zone"] == "polling_place"
     for ruim in ("", "s", "sp7107", "sp71072-x0001", "123"):
-        with pytest.raises(RecorteInvalido):
+        with pytest.raises(GeoAreaInvalid):
             parse(ruim)
-    with pytest.raises(RecorteInvalido):
-        parse("sp", "municipio")
+    with pytest.raises(GeoAreaInvalid):
+        parse("sp", "municipality")
 
 
 @pytest.mark.parametrize(
     ("e", "st", "dvt", "final", "esperado"),
     [
-        (True, "Eleito", "Válido", True, situacao.ELEITO),
-        (True, "Eleito", "Válido", False, situacao.MATEMATICAMENTE_ELEITO),
-        (False, "Eleito por QP", "Válido", True, situacao.ELEITO),
-        (False, "Eleito por média", "Válido", True, situacao.ELEITO),
-        (False, "2º turno", "Válido", True, situacao.SEGUNDO_TURNO),
-        (False, "Suplente", "Válido", True, situacao.SUPLENTE),
-        (False, "Não eleito", "Válido", True, situacao.NAO_ELEITO),
+        (True, "Eleito", "Válido", True, situacao.ELECTED),
+        (True, "Eleito", "Válido", False, situacao.MATHEMATICALLY_ELECTED),
+        (False, "Eleito por QP", "Válido", True, situacao.ELECTED),
+        (False, "Eleito por média", "Válido", True, situacao.ELECTED),
+        (False, "2º turno", "Válido", True, situacao.RUNOFF),
+        (False, "Suplente", "Válido", True, situacao.SUBSTITUTE),
+        (False, "Não eleito", "Válido", True, situacao.NOT_ELECTED),
         (False, "", "Anulado sub judice", False, situacao.SUB_JUDICE),
         (False, "", "Válido", False, None),
     ],
@@ -61,25 +62,25 @@ def test_situacao_vem_do_tse(e, st, dvt, final, esperado):
 def test_liderando_e_calculado_so_quando_tse_nao_definiu():
     cands = [{"sq": "a", "v": 100}, {"sq": "b", "v": 90}, {"sq": "c", "v": 0}]
     assert situacao.calcular(cands, 1, False, False, True) == {
-        "a": "LIDERANDO",
-        "b": "EM_APURACAO",
-        "c": "EM_APURACAO",
+        "a": "LEADING",
+        "b": "COUNTING",
+        "c": "COUNTING",
     }
     # senado 2026: duas vagas
-    assert situacao.calcular(cands, 2, False, False, True)["b"] == "LIDERANDO"
+    assert situacao.calcular(cands, 2, False, False, True)["b"] == "LEADING"
     # proporcional: ninguém "liderando"
-    assert set(situacao.calcular(cands, 0, False, False, True).values()) == {"EM_APURACAO"}
+    assert set(situacao.calcular(cands, 0, False, False, True).values()) == {"COUNTING"}
     # abaixo da abrangência do cargo, a situação local ignora o "eleito" do TSE
     cands[0].update(e=True, st="Eleito")
-    assert situacao.calcular(cands, 1, True, False, False)["a"] == "LIDERANDO"
-    assert situacao.calcular(cands, 1, True, False, True)["a"] == "ELEITO"
+    assert situacao.calcular(cands, 1, True, False, False)["a"] == "LEADING"
+    assert situacao.calcular(cands, 1, True, False, True)["a"] == "ELECTED"
 
 
-def _linha(pct, lider, segundo="x", nivel="br", cd=1):
+def _linha(pct, lider, segundo="x", nivel="country", cd=1):
     return {
         "level": nivel,
         "office_code": cd,
-        "geo_area_id": "br" if nivel == "br" else "mg",
+        "geo_area_id": "br" if nivel == "country" else "mg",
         "round": 1,
         "tallied_at": datetime(2026, 10, 4, 22, tzinfo=UTC),
         "pct_sections": pct,
@@ -94,35 +95,35 @@ def test_eventos_inicio_marcos_e_virada():
     nomes = {"a": "ANA", "b": "BIA"}
     evs = eventos.detectar(_linha(0, None), _linha(26, "a"), nomes, "Brasil", "majoritario")
     tipos = [e["type"] for e in evs]
-    assert tipos.count("marco") == 2 and "inicio" in tipos
+    assert tipos.count("milestone") == 2 and "start" in tipos
     evs = eventos.detectar(_linha(60, "a", "b"), _linha(61, "b", "a"), nomes, "Brasil", "majoritario")
-    virada = next(e for e in evs if e["type"] == "virada")
+    virada = next(e for e in evs if e["type"] == "lead_change")
     assert "BIA passou ANA" in virada["description"]
     assert eventos.detectar(_linha(60, "a"), _linha(61, "b"), nomes, "Brasil", "proporcional") == []
-    assert eventos.detectar(None, _linha(50, "a", nivel="municipio"), nomes, "X", "majoritario") == []
+    assert eventos.detectar(None, _linha(50, "a", nivel="municipality"), nomes, "X", "majoritario") == []
 
 
-def test_eventos_eleito_e_segundo_turno():
+def test_eventos_elected_e_runoff():
     evs = eventos.detectar(
         _linha(99, "a"),
         _linha(100, "a"),
         {"a": "ANA", "b": "BIA"},
         "Brasil",
         "majoritario",
-        {"a": "LIDERANDO", "b": "EM_APURACAO"},
-        {"a": "SEGUNDO_TURNO", "b": "SEGUNDO_TURNO"},
+        {"a": "LEADING", "b": "COUNTING"},
+        {"a": "RUNOFF", "b": "RUNOFF"},
     )
-    assert [e["type"] for e in evs].count("segundo_turno") == 2
+    assert [e["type"] for e in evs].count("runoff") == 2
     evs = eventos.detectar(
         _linha(80, "a"),
         _linha(81, "a"),
         {"a": "ANA"},
         "Minas Gerais",
         "majoritario",
-        {"a": "LIDERANDO"},
-        {"a": "MATEMATICAMENTE_ELEITO"},
+        {"a": "LEADING"},
+        {"a": "MATHEMATICALLY_ELECTED"},
     )
-    assert evs[-1]["type"] == "matematicamente_definido"
+    assert evs[-1]["type"] == "mathematically_decided"
 
 
 def test_cores_estaveis():

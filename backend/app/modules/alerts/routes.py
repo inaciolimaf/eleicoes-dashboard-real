@@ -1,81 +1,31 @@
-"""Alertas do usuario: CRUD. O disparo e feito pelo worker (evaluation)."""
+"""Rotas de alertas do usuário (só HTTP)."""
 
-import uuid
-from typing import Any
+from fastapi import APIRouter, Response
 
-from fastapi import APIRouter, HTTPException, Response
-from pydantic import BaseModel, Field
-from sqlalchemy import select
-
-import app.modules.alerts.evaluation as alertas_srv
-from app.core.deps import SessaoDep
-from app.modules.accounts import User, UsuarioDep
-from app.modules.alerts.models import Alert
+from app.core.deps import DbSession
+from app.modules.accounts import UsuarioDep
+from app.modules.alerts import crud
+from app.modules.alerts.schemas import AlertCreate, AlertDto, AlertUpdate
 
 router = APIRouter()
 
 
-# ------------------------------------------------------------------ alertas
+@router.get("/alerts", response_model=list[AlertDto], tags=["alerts"])
+async def list_alerts(session: DbSession, u: UsuarioDep) -> list[AlertDto]:
+    return await crud.list_alerts(session, u)
 
 
-class AlertaEntrada(BaseModel):
-    tipo: str = Field(pattern="^(pct_candidato|virada|apuracao|eleito|local_apurado)$")
-    params: dict[str, Any] = {}
-    ativo: bool = True
+@router.post("/alerts", status_code=201, response_model=AlertDto, tags=["alerts"])
+async def create_alert(session: DbSession, u: UsuarioDep, dados: AlertCreate) -> AlertDto:
+    return await crud.create_alert(session, u, dados)
 
 
-def alerta_json(a: Alert) -> dict:
-    return {
-        "id": str(a.id),
-        "tipo": a.type,
-        "params": a.params,
-        "ativo": a.active,
-        "disparado_em": a.triggered_at.isoformat() if a.triggered_at else None,
-    }
+@router.put("/alerts/{alert_id}", response_model=AlertDto, tags=["alerts"])
+async def update_alert(session: DbSession, u: UsuarioDep, alert_id: str, dados: AlertUpdate) -> AlertDto:
+    return await crud.update_alert(session, u, alert_id, dados)
 
 
-async def _meu_alerta(session: SessaoDep, u: User, aid: str) -> Alert:
-    try:
-        a = await session.get(Alert, uuid.UUID(aid))
-    except ValueError as exc:
-        raise HTTPException(404) from exc
-    if a is None or a.user_id != u.id:
-        raise HTTPException(404, "alerta não encontrado")
-    return a
-
-
-@router.get("/alertas")
-async def listar_alertas(session: SessaoDep, u: UsuarioDep) -> list[dict]:
-    rows = (
-        await session.execute(select(Alert).where(Alert.user_id == u.id).order_by(Alert.created_at))
-    ).scalars()
-    return [alerta_json(a) for a in rows]
-
-
-@router.post("/alertas", status_code=201)
-async def criar_alerta(session: SessaoDep, u: UsuarioDep, dados: AlertaEntrada) -> dict:
-    a = Alert(user_id=u.id, type=dados.tipo, params=dados.params, active=dados.ativo)
-    session.add(a)
-    await session.commit()
-    await session.refresh(a)
-    alertas_srv.invalidar_cache()
-    return alerta_json(a)
-
-
-@router.put("/alertas/{aid}")
-async def atualizar_alerta(session: SessaoDep, u: UsuarioDep, aid: str, dados: AlertaEntrada) -> dict:
-    a = await _meu_alerta(session, u, aid)
-    a.type, a.params, a.active, a.triggered_at = dados.tipo, dados.params, dados.ativo, None
-    await session.commit()
-    await session.refresh(a)
-    alertas_srv.invalidar_cache()
-    return alerta_json(a)
-
-
-@router.delete("/alertas/{aid}", status_code=204)
-async def apagar_alerta(session: SessaoDep, u: UsuarioDep, aid: str) -> Response:
-    a = await _meu_alerta(session, u, aid)
-    await session.delete(a)
-    await session.commit()
-    alertas_srv.invalidar_cache()
+@router.delete("/alerts/{alert_id}", status_code=204, tags=["alerts"])
+async def delete_alert(session: DbSession, u: UsuarioDep, alert_id: str) -> Response:
+    await crud.delete_alert(session, u, alert_id)
     return Response(status_code=204)

@@ -1,4 +1,9 @@
-"""WebSocket /api/v1/ws (protocolo em docs/11-contrato-api.md)."""
+"""WebSocket /api/v1/ws (protocolo em docs/refactoring-contract.md e frontend/src/realtime/socket.ts).
+
+Cliente -> servidor: `{"op": "subscribe"|"unsubscribe", "topics": [...]}`, `{"op": "auth", "token"}`,
+`{"op": "ping"}`, `{"op": "resume"}`. Servidor -> cliente: `{"type", "topic", "seq", "data"}`, ou
+`{"type": "auth", "ok"}`, `{"type": "pong"}`, `{"type": "resync"}`, `{"type": "error", "message"}`.
+"""
 
 import asyncio
 import contextlib
@@ -7,7 +12,7 @@ import orjson
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from app.core.security import ler_token
-from app.infra.realtime.hub import Conexao
+from app.infra.realtime.hub import Connection
 
 router = APIRouter()
 
@@ -16,41 +21,41 @@ router = APIRouter()
 async def websocket(ws: WebSocket) -> None:
     hub = ws.app.state.hub
     await ws.accept()
-    c = Conexao(ws)
-    hub.conexoes.add(c)
+    c = Connection(ws)
+    hub.connections.add(c)
 
-    async def emissor() -> None:
+    async def emitter() -> None:
         while True:
-            dados = await c.fila.get()
-            await ws.send_text(dados.decode())
+            data = await c.queue.get()
+            await ws.send_text(data.decode())
 
-    tarefa = asyncio.create_task(emissor())
+    task = asyncio.create_task(emitter())
     try:
         while True:
             texto = await ws.receive_text()
             try:
                 msg = orjson.loads(texto)
             except orjson.JSONDecodeError:
-                await c.enviar({"tipo": "erro", "mensagem": "JSON inválido"})
+                await c.send({"type": "error", "message": "JSON inválido"})
                 continue
             op = msg.get("op")
-            if op == "sub":
-                await hub.assinar(c, list(msg.get("topicos") or []))
-            elif op == "unsub":
-                c.topicos -= set(msg.get("topicos") or [])
+            if op == "subscribe":
+                await hub.subscribe(c, list(msg.get("topics") or []))
+            elif op == "unsubscribe":
+                c.topics -= set(msg.get("topics") or [])
             elif op == "auth":
-                c.usuario_id = ler_token(str(msg.get("token") or ""))
-                await c.enviar({"tipo": "auth", "ok": c.usuario_id is not None})
+                c.user_id = ler_token(str(msg.get("token") or ""))
+                await c.send({"type": "auth", "ok": c.user_id is not None})
             elif op == "ping":
-                await c.enviar({"tipo": "pong"})
+                await c.send({"type": "pong"})
             elif op == "resume":
-                await c.enviar({"tipo": "resync"})
+                await c.send({"type": "resync"})
             else:
-                await c.enviar({"tipo": "erro", "mensagem": f"op desconhecida: {op}"})
+                await c.send({"type": "error", "message": f"op desconhecida: {op}"})
     except WebSocketDisconnect:
         pass
     finally:
-        hub.conexoes.discard(c)
-        tarefa.cancel()
+        hub.connections.discard(c)
+        task.cancel()
         with contextlib.suppress(asyncio.CancelledError, Exception):
-            await tarefa
+            await task

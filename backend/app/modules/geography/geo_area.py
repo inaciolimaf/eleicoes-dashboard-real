@@ -1,4 +1,4 @@
-"""Identificadores de recorte geográfico.
+"""Identificadores de área geográfica (geo area).
 
 br | sp | sp71072 | sp71072-z0001 | sp71072-z0001-l1015 | sp71072-z0001-s0120
 """
@@ -6,8 +6,14 @@ br | sp | sp71072 | sp71072-z0001 | sp71072-z0001-l1015 | sp71072-z0001-s0120
 import re
 from dataclasses import dataclass
 
-NIVEIS = ("br", "uf", "municipio", "zona", "local", "secao")
-FILHO = {"br": "uf", "uf": "municipio", "municipio": "zona", "zona": "local", "local": "secao"}
+LEVELS = ("country", "state", "municipality", "zone", "polling_place", "section")
+CHILD_LEVEL = {
+    "country": "state",
+    "state": "municipality",
+    "municipality": "zone",
+    "zone": "polling_place",
+    "polling_place": "section",
+}
 
 _RE = re.compile(
     r"^(?P<uf>[a-z]{2})(?:(?P<mun>\d{5})(?:-z(?P<zona>\d{4})(?:-(?P<tipo>[ls])(?P<num>\d{4}))?)?)?$"
@@ -15,67 +21,72 @@ _RE = re.compile(
 
 
 @dataclass(frozen=True)
-class Recorte:
-    nivel: str
+class GeoArea:
+    level: str
     id: str
     uf: str | None = None
-    municipio: int | None = None
-    zona: int | None = None
-    local: int | None = None
-    secao: int | None = None
+    municipality: int | None = None
+    zone: int | None = None
+    polling_place: int | None = None
+    section: int | None = None
 
     @property
-    def municipio_id(self) -> str | None:
-        return f"{self.uf}{self.municipio:05d}" if self.municipio is not None else None
+    def municipality_id(self) -> str | None:
+        return f"{self.uf}{self.municipality:05d}" if self.municipality is not None else None
 
     @property
-    def zona_id(self) -> str | None:
-        return f"{self.municipio_id}-z{self.zona:04d}" if self.zona is not None else None
+    def zone_id(self) -> str | None:
+        return f"{self.municipality_id}-z{self.zone:04d}" if self.zone is not None else None
 
     @property
-    def pai(self) -> "Recorte | None":
-        if self.nivel == "br":
+    def parent(self) -> "GeoArea | None":
+        if self.level == "country":
             return None
-        if self.nivel == "uf":
-            return Recorte("br", "br")
-        if self.nivel == "municipio":
-            return Recorte("uf", self.uf or "", uf=self.uf)
-        if self.nivel == "zona":
-            return parse(self.municipio_id or "")
-        if self.nivel in ("local", "secao"):
-            return parse(self.zona_id or "")
+        if self.level == "state":
+            return GeoArea("country", "br")
+        if self.level == "municipality":
+            return GeoArea("state", self.uf or "", uf=self.uf)
+        if self.level == "zone":
+            return parse(self.municipality_id or "")
+        if self.level in ("polling_place", "section"):
+            return parse(self.zone_id or "")
         return None
 
 
-class RecorteInvalido(ValueError):
+class GeoAreaInvalid(ValueError):
     pass
 
 
-def parse(id_: str, nivel: str | None = None) -> Recorte:
+def parse(id_: str, level: str | None = None) -> GeoArea:
     id_ = (id_ or "").strip().lower()
     if id_ == "br":
-        r = Recorte("br", "br")
+        r = GeoArea("country", "br")
     else:
         m = _RE.match(id_)
         if not m:
-            raise RecorteInvalido(id_)
+            raise GeoAreaInvalid(id_)
         uf = m["uf"]
         if m["mun"] is None:
-            r = Recorte("uf", id_, uf=uf)
+            r = GeoArea("state", id_, uf=uf)
         elif m["zona"] is None:
-            r = Recorte("municipio", id_, uf=uf, municipio=int(m["mun"]))
+            r = GeoArea("municipality", id_, uf=uf, municipality=int(m["mun"]))
         elif m["tipo"] is None:
-            r = Recorte("zona", id_, uf=uf, municipio=int(m["mun"]), zona=int(m["zona"]))
+            r = GeoArea("zone", id_, uf=uf, municipality=int(m["mun"]), zone=int(m["zona"]))
         elif m["tipo"] == "l":
-            r = Recorte(
-                "local", id_, uf=uf, municipio=int(m["mun"]), zona=int(m["zona"]), local=int(m["num"])
+            r = GeoArea(
+                "polling_place",
+                id_,
+                uf=uf,
+                municipality=int(m["mun"]),
+                zone=int(m["zona"]),
+                polling_place=int(m["num"]),
             )
         else:
-            r = Recorte(
-                "secao", id_, uf=uf, municipio=int(m["mun"]), zona=int(m["zona"]), secao=int(m["num"])
+            r = GeoArea(
+                "section", id_, uf=uf, municipality=int(m["mun"]), zone=int(m["zona"]), section=int(m["num"])
             )
-    if nivel and nivel != r.nivel:
-        raise RecorteInvalido(f"{id_} não é do nível {nivel}")
+    if level and level != r.level:
+        raise GeoAreaInvalid(f"{id_} não é do nível {level}")
     return r
 
 

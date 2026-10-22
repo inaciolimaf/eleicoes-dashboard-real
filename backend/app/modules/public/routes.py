@@ -1,326 +1,216 @@
-"""Rotas públicas de leitura (resultados, mapas, locais, seções, busca, eventos)."""
+"""Rotas públicas de leitura: resultados, mapas, locais, seções, candidatos, busca, eventos (só HTTP)."""
 
-import csv
-import io
-import logging
-import mimetypes
-from datetime import datetime
-from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
-import httpx
-import orjson
-from fastapi import APIRouter, HTTPException, Query, Response
+from fastapi import APIRouter, Query, Response
 
-from app.core.config import get_settings
-from app.core.deps import SessaoDep, parse_t
-from app.core.redis import get_redis
-from app.infra.tse.urls import MontadorUrls
-from app.modules.ballot_reports import demand as demanda
-from app.modules.elections import Candidate, Election
-from app.modules.geography import RecorteDep, RecorteInvalido, parse
+from app.core.deps import DbSession, parse_time
+from app.core.errors import AppError
+from app.modules.geography import GeoAreaDep, GeoAreaInvalid
+from app.modules.public import service
 from app.modules.public.deps import TempoDep
-from app.modules.public.schemas import FiltroEleicao, FiltroEventos, FiltroExport
+from app.modules.public.schemas import (
+    CandidateDetailDto,
+    CandidateDto,
+    ChildrenDto,
+    ElectionDto,
+    EventDto,
+    FiltroEleicao,
+    FiltroEventos,
+    FiltroExport,
+    MapPollingPlacesDto,
+    PollingPlaceDto,
+    PollingSectionDto,
+    ProgressDto,
+    ResultsDto,
+    SearchDto,
+    SeriesDto,
+    StatusDto,
+    TimelineDto,
+)
 from app.modules.results import queries as resultados
 
 router = APIRouter()
-log = logging.getLogger(__name__)
 
 
-async def _pedir_secoes(turno: int, nivel: str, rid: str) -> None:
-    """Abriu um local ou seção: avisa o coletor para baixar esses boletins (modo sob demanda)."""
-    try:
-        await demanda.registrar(get_redis(), turno, nivel, rid)
-    except Exception:
-        # O pedido é só um sinal para o coletor: nunca derruba a leitura.
-        log.warning("não foi possível registrar a demanda por seções: %s", rid, exc_info=True)
+@router.get("/status", response_model=StatusDto, tags=["status"])
+async def status(session: DbSession) -> StatusDto:
+    return await service.status(session)
 
 
-@router.get("/status")
-async def status(session: SessaoDep) -> dict:
-    s = get_settings()
-    redis = get_redis()
-    metricas = await redis.get("coletor:metricas")
-    m = orjson.loads(metricas) if metricas else {}
-    ultima_coleta = await redis.get("coletor:ultima_coleta")
-    ult = await resultados.ultima_totalizacao(session)
-    eleicoes = await resultados.listar_eleicoes(session)
-    inicio = None
-    if eleicoes:
-        e = await session.get(Election, eleicoes[0]["id"])
-        if e and e.date:
-            d, mth, a = e.date.split("/")
-            inicio = f"{a}-{mth}-{d}T20:00:00+00:00"
-    ao_vivo = bool(m) and not m.get("pausado")
-    return {
-        "ambiente": s.tse_ambiente,
-        "ao_vivo": ao_vivo,
-        "agora": datetime.now().astimezone().isoformat(),
-        "ultima_totalizacao": resultados.iso(ult),
-        "ultima_coleta": ultima_coleta.decode() if ultima_coleta else None,
-        "inicio_divulgacao": inicio,
-        "pct_secoes_br": await resultados.pct_br(session),
-        "coletor": {"pausado": bool(m.get("pausado")), "req_por_seg": m.get("req_por_seg", 0.0)},
-    }
-
-
-@router.get("/eleicoes")
-async def eleicoes(session: SessaoDep) -> list[dict]:
+@router.get("/elections", response_model=list[ElectionDto], tags=["elections"])
+async def elections(session: DbSession) -> list[dict[str, Any]]:
     return await resultados.listar_eleicoes(session)
 
 
-@router.get("/resultados")
-async def obter_resultados(
-    session: SessaoDep, r: RecorteDep, t: TempoDep, cargo: int = 1, turno: int = 1
-) -> dict:
-    await _pedir_secoes(turno, r.nivel, r.id)
-    return await resultados.montar_resultado(session, turno, cargo, r, t)
+@router.get("/results", response_model=ResultsDto, tags=["results"])
+async def results(
+    session: DbSession,
+    geo_area: GeoAreaDep,
+    at: TempoDep,
+    office: int = 1,
+    turno: int = Query(1, alias="round"),
+) -> dict[str, Any]:
+    await service.pedir_secoes(turno, geo_area.level, geo_area.id)
+    return await resultados.montar_resultado(session, turno, office, geo_area, at)
 
 
-@router.get("/resultados/serie")
-async def serie(
-    session: SessaoDep,
-    r: RecorteDep,
-    cargo: int = 1,
-    turno: int = 1,
-    de: str | None = None,
-    ate: str | None = None,
-    max_pontos: int = Query(300, ge=10, le=2000),
-) -> dict:
-    return await resultados.serie(session, turno, cargo, r, parse_t(de), parse_t(ate), max_pontos)
+@router.get("/results/series", response_model=SeriesDto, tags=["results"])
+async def results_series(
+    session: DbSession,
+    geo_area: GeoAreaDep,
+    office: int = 1,
+    turno: int = Query(1, alias="round"),
+    from_: Annotated[str | None, Query(alias="from")] = None,
+    to: str | None = None,
+    max_points: int = Query(300, ge=10, le=2000),
+) -> dict[str, Any]:
+    return await resultados.serie(
+        session, turno, office, geo_area, parse_time(from_, "from"), parse_time(to, "to"), max_points
+    )
 
 
-@router.get("/recortes/filhos")
-async def filhos(
-    session: SessaoDep,
-    r: RecorteDep,
-    t: TempoDep,
-    cargo: int = 1,
-    turno: int = 1,
-    filhos: str | None = None,
-    candidatos: str | None = None,
-) -> dict:
-    lista = [c for c in (candidatos or "").split(",") if c]
-    if filhos and filhos not in ("uf", "municipio", "zona", "local", "secao"):
-        raise HTTPException(422, "filhos inválido")
-    await _pedir_secoes(turno, r.nivel, r.id)
-    return await resultados.filhos(session, turno, cargo, r, t, filhos, lista or None)
+@router.get("/geo-areas/children", response_model=ChildrenDto, tags=["geo-areas"])
+async def geo_area_children(
+    session: DbSession,
+    geo_area: GeoAreaDep,
+    at: TempoDep,
+    office: int = 1,
+    turno: int = Query(1, alias="round"),
+    child_level: str | None = None,
+    candidates: str | None = None,
+) -> dict[str, Any]:
+    if child_level and child_level not in ("state", "municipality", "zone", "polling_place", "section"):
+        raise AppError(422, "Parâmetro inválido", "child_level inválido", "geo_area/invalid_child_level")
+    lista = [c for c in (candidates or "").split(",") if c]
+    await service.pedir_secoes(turno, geo_area.level, geo_area.id)
+    return await resultados.filhos(session, turno, office, geo_area, at, child_level, lista or None)
 
 
-@router.get("/progresso")
-async def progresso(session: SessaoDep, t: TempoDep, turno: int = 1) -> dict:
-    return await resultados.progresso(session, turno, t)
+@router.get("/progress", response_model=ProgressDto, tags=["progress"])
+async def progress(session: DbSession, at: TempoDep, turno: int = Query(1, alias="round")) -> dict[str, Any]:
+    return await resultados.progresso(session, turno, at)
 
 
-@router.get("/mapas/locais")
-async def mapa_locais(
-    session: SessaoDep,
-    t: TempoDep,
+@router.get("/maps/polling-places", response_model=MapPollingPlacesDto, tags=["maps"])
+async def map_polling_places(
+    session: DbSession,
+    at: TempoDep,
     f: Annotated[FiltroEleicao, Query()],
-    uf: str | None = None,
-    municipio: str | None = None,
+    state_code: str | None = None,
+    municipality: str | None = None,
     bbox: str | None = None,
-    limite: int = Query(20000, ge=1, le=100000),
-) -> dict:
+    limit: int = Query(20000, ge=1, le=100000),
+) -> dict[str, Any]:
     caixa = None
     if bbox:
         try:
             a, b, c, d = (float(x) for x in bbox.split(","))
             caixa = (a, b, c, d)
         except ValueError as exc:
-            raise HTTPException(422, "bbox inválido") from exc
-    return await resultados.locais_mapa(
-        session,
-        f.turno,
-        f.cargo,
-        resultados.ConsultaMapa(
-            uf=uf.lower() if uf else None,
-            municipio=municipio,
-            bbox=caixa,
-        ),
-        t,
-        limite,
+            raise AppError(422, "Parâmetro inválido", "bbox inválido", "map/invalid_bbox") from exc
+    filtro = resultados.ConsultaMapa(
+        uf=state_code.lower() if state_code else None, municipio=municipality, bbox=caixa
+    )
+    return await resultados.locais_mapa(session, f.round, f.office, filtro, at, limit)
+
+
+@router.get("/polling-places/{polling_place_id}", response_model=PollingPlaceDto, tags=["polling-places"])
+async def polling_place(
+    session: DbSession, polling_place_id: str, turno: int = Query(1, alias="round")
+) -> dict[str, Any]:
+    await service.pedir_secoes(turno, "polling_place", polling_place_id.strip().lower())
+    d = await resultados.detalhe_local(session, turno, polling_place_id)
+    if d is None:
+        raise AppError(404, "Não encontrado", "local não encontrado", "polling_places/not_found")
+    return d
+
+
+@router.get(
+    "/polling-sections/{polling_section_id}", response_model=PollingSectionDto, tags=["polling-sections"]
+)
+async def polling_section(
+    session: DbSession,
+    polling_section_id: str,
+    turno: int = Query(1, alias="round"),
+) -> dict[str, Any]:
+    await service.pedir_secoes(turno, "section", polling_section_id.strip().lower())
+    try:
+        d = await resultados.detalhe_secao(session, turno, polling_section_id)
+    except GeoAreaInvalid as exc:
+        raise AppError(
+            422, "Parâmetro inválido", "id de seção inválido", "polling_sections/invalid_id"
+        ) from exc
+    if d is None:
+        raise AppError(404, "Não encontrado", "seção não encontrada", "polling_sections/not_found")
+    return d
+
+
+@router.get("/candidates", response_model=list[CandidateDto], tags=["candidates"])
+async def candidates(
+    session: DbSession,
+    turno: int = Query(1, alias="round"),
+    office: int | None = None,
+    state_code: str | None = None,
+) -> list[dict[str, Any]]:
+    return await resultados.listar_candidatos(
+        session, turno, office, state_code.lower() if state_code else None
     )
 
 
-@router.get("/locais/{local_id}")
-async def local(session: SessaoDep, local_id: str, turno: int = 1) -> dict:
-    await _pedir_secoes(turno, "local", local_id.strip().lower())
-    d = await resultados.detalhe_local(session, turno, local_id)
+@router.get("/candidates/{tse_candidate_id}", response_model=CandidateDetailDto, tags=["candidates"])
+async def candidate(
+    session: DbSession,
+    tse_candidate_id: str,
+    at: TempoDep,
+    turno: int = Query(1, alias="round"),
+) -> dict[str, Any]:
+    d = await resultados.detalhe_candidato(session, tse_candidate_id, turno, at)
     if d is None:
-        raise HTTPException(404, "local não encontrado")
+        raise AppError(404, "Não encontrado", "candidato não encontrado", "candidates/not_found")
     return d
 
 
-@router.get("/secoes/{secao_id}")
-async def secao(session: SessaoDep, secao_id: str, turno: int = 1) -> dict:
-    await _pedir_secoes(turno, "secao", secao_id.strip().lower())
-    try:
-        d = await resultados.detalhe_secao(session, turno, secao_id)
-    except RecorteInvalido as exc:
-        raise HTTPException(422, "id de seção inválido") from exc
-    if d is None:
-        raise HTTPException(404, "seção não encontrada")
-    return d
+@router.get(
+    "/candidates/{tse_candidate_id}/photo", tags=["candidates"], responses={200: {"content": {"image/*": {}}}}
+)
+async def candidate_photo(session: DbSession, tse_candidate_id: str) -> Response:
+    return await service.photo(session, tse_candidate_id)
 
 
-@router.get("/candidatos")
-async def candidatos(
-    session: SessaoDep, turno: int = 1, cargo: int | None = None, uf: str | None = None
-) -> list[dict]:
-    return await resultados.listar_candidatos(session, turno, cargo, uf.lower() if uf else None)
+@router.get("/search", response_model=SearchDto, tags=["search"])
+async def search(
+    session: DbSession,
+    q: str = Query("", max_length=80),
+    limit: int = Query(20, ge=1, le=50),
+) -> dict[str, Any]:
+    return await resultados.buscar(session, q, limit)
 
 
-@router.get("/candidatos/{sqcand}")
-async def candidato(session: SessaoDep, sqcand: str, t: TempoDep, turno: int = 1) -> dict:
-    d = await resultados.detalhe_candidato(session, sqcand, turno, t)
-    if d is None:
-        raise HTTPException(404, "candidato não encontrado")
-    return d
-
-
-@router.get("/fotos/{sqcand}")
-async def foto(session: SessaoDep, sqcand: str) -> Response:
-    s = get_settings()
-    if not sqcand.isdigit():
-        raise HTTPException(404)
-    cache = Path(s.dir_cache_fotos) / sqcand
-    if cache.exists():
-        tipo = cache.with_suffix(".tipo").read_text() if cache.with_suffix(".tipo").exists() else "image/jpeg"
-        return Response(
-            cache.read_bytes(), media_type=tipo, headers={"Cache-Control": "public, max-age=86400"}
-        )
-    c = await session.get(Candidate, sqcand)
-    if c is None:
-        raise HTTPException(404)
-    e = await session.get(Election, c.election_id)
-    if e is None:
-        raise HTTPException(404)
-    url = MontadorUrls(s.tse_base_url, {}, e.cycle, e.election_event_code).foto(
-        e.election_code, c.state_code, sqcand
-    )
-    try:
-        async with httpx.AsyncClient(timeout=10) as cli:
-            r = await cli.get(url)
-    except httpx.HTTPError as exc:
-        raise HTTPException(404) from exc
-    if r.status_code != 200:
-        raise HTTPException(404)
-    tipo = r.headers.get("content-type", mimetypes.guess_type(url)[0] or "image/jpeg")
-    try:
-        cache.parent.mkdir(parents=True, exist_ok=True)
-        cache.write_bytes(r.content)
-        cache.with_suffix(".tipo").write_text(tipo)
-    except OSError:
-        pass
-    return Response(r.content, media_type=tipo, headers={"Cache-Control": "public, max-age=86400"})
-
-
-@router.get("/busca")
-async def busca(
-    session: SessaoDep, q: str = Query("", max_length=80), limite: int = Query(20, ge=1, le=50)
-) -> dict:
-    return await resultados.buscar(session, q, limite)
-
-
-@router.get("/eventos")
-async def eventos(session: SessaoDep, f: Annotated[FiltroEventos, Query()]) -> list[dict]:
+@router.get("/events", response_model=list[EventDto], tags=["events"])
+async def events(session: DbSession, f: Annotated[FiltroEventos, Query()]) -> list[dict[str, Any]]:
     return await resultados.listar_eventos(
         session,
         resultados.ConsultaEventos(
-            turno=f.turno,
-            desde=parse_t(f.desde),
-            limite=f.limite,
-            tipos=[x for x in (f.tipos or "").split(",") if x] or None,
-            cargo=f.cargo,
-            nivel=f.nivel,
-            recorte_id=f.id_,
-            ate=parse_t(f.ate),
+            turno=f.round,
+            desde=parse_time(f.since, "since"),
+            limite=f.limit,
+            tipos=[x for x in (f.types or "").split(",") if x] or None,
+            cargo=f.office,
+            nivel=f.level,
+            recorte_id=f.geo_area_id,
+            ate=parse_time(f.until, "until"),
         ),
     )
 
 
-@router.get("/linha-do-tempo")
-async def linha_do_tempo(session: SessaoDep, turno: int = 1) -> dict:
+@router.get("/timeline", response_model=TimelineDto, tags=["timeline"])
+async def timeline(session: DbSession, turno: int = Query(1, alias="round")) -> dict[str, Any]:
     return await resultados.linha_do_tempo(session, turno)
 
 
-def _csv(linhas: list[dict], colunas: list[str]) -> str:
-    buf = io.StringIO()
-    w = csv.DictWriter(buf, fieldnames=colunas, extrasaction="ignore", delimiter=";")
-    w.writeheader()
-    for ln in linhas:
-        w.writerow(ln)
-    return buf.getvalue()
-
-
-def _linhas_resultados(dados: dict, recorte_id: str) -> tuple[list[dict], list[str]]:
-    linhas = [{**c, "recorte": recorte_id} for c in dados.get("candidatos", [])]
-    colunas = [
-        "recorte",
-        "posicao",
-        "numero",
-        "nome_urna",
-        "partido_sigla",
-        "votos",
-        "pct_validos",
-        "situacao",
-        "situacao_geral",
-    ]
-    return linhas, colunas
-
-
-def _linhas_filhos(dados: dict) -> tuple[list[dict], list[str]]:
-    linhas = [
-        {
-            **i,
-            "lider_nome": (i.get("lider") or {}).get("nome_urna"),
-            "lider_pct": (i.get("lider") or {}).get("pct"),
-        }
-        for i in dados["itens"]
-    ]
-    colunas = [
-        "nivel",
-        "id",
-        "nome",
-        "uf",
-        "status",
-        "pct_secoes",
-        "eleitorado",
-        "comparecimento",
-        "votos_validos",
-        "brancos",
-        "nulos",
-        "lider_nome",
-        "lider_pct",
-        "margem_pp",
-    ]
-    return linhas, colunas
-
-
-@router.get("/export")
-async def exportar(session: SessaoDep, t: TempoDep, f: Annotated[FiltroExport, Query()]) -> Response:
-    try:
-        r = parse(f.id_, f.nivel)
-    except RecorteInvalido as exc:
-        raise HTTPException(422, "recorte inválido") from exc
-    if f.recurso == "resultados":
-        dados = await resultados.montar_resultado(session, f.turno, f.cargo, r, t)
-        linhas, colunas = _linhas_resultados(dados, r.id)
-    elif f.recurso == "filhos":
-        dados = await resultados.filhos(session, f.turno, f.cargo, r, t, f.filhos)
-        linhas, colunas = _linhas_filhos(dados)
-    else:
-        raise HTTPException(422, "recurso inválido")
-    nome = f"{f.recurso}-{f.cargo}-{r.id}"
-    if f.formato == "json":
-        return Response(
-            orjson.dumps(dados),
-            media_type="application/json",
-            headers={"Content-Disposition": f'attachment; filename="{nome}.json"'},
-        )
-    return Response(
-        _csv(linhas, colunas).encode("utf-8-sig"),
-        media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": f'attachment; filename="{nome}.csv"'},
-    )
+@router.get(
+    "/exports", tags=["exports"], responses={200: {"content": {"text/csv": {}, "application/json": {}}}}
+)
+async def export(session: DbSession, at: TempoDep, f: Annotated[FiltroExport, Query()]) -> Response:
+    return await service.export(session, at, f)

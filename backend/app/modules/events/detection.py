@@ -1,4 +1,4 @@
-"""Detecção de eventos da apuração (virada, marcos, eleito, 2º turno) comparando estado anterior e novo."""
+"""Detecção de eventos da apuração (lead_change, milestone, elected, runoff) por comparação de estados."""
 
 from __future__ import annotations
 
@@ -30,10 +30,10 @@ def detectar(
     situacoes_antes: dict[str, str] | None = None,
     situacoes_depois: dict[str, str] | None = None,
 ) -> list[dict]:
-    """Eventos para um recorte BR/UF de um cargo. `nomes`: sqcand -> nome de urna."""
+    """Eventos para um recorte country/state de um cargo. `nomes`: tse_candidate_id -> nome de urna."""
     eventos: list[dict] = []
     nivel, cd = novo["level"], novo["office_code"]
-    if nivel not in ("br", "uf"):
+    if nivel not in ("country", "state"):
         return eventos
     quando: datetime = novo["tallied_at"]
     base = {
@@ -47,19 +47,19 @@ def detectar(
     pct_depois = novo.get("pct_sections") or 0.0
     cargo_nome = NOMES_CARGO.get(cd, str(cd))
 
-    if cd == 1 and nivel == "br" and pct_antes <= 0 < pct_depois:
+    if cd == 1 and nivel == "country" and pct_antes <= 0 < pct_depois:
         eventos.append(
             {
                 **base,
-                "type": "inicio",
+                "type": "start",
                 "title": "Começou a divulgação dos resultados",
                 "description": f"Primeiras seções totalizadas ({_fmt(pct_depois)}).",
                 "payload": {},
             }
         )
     # marcos de apuração: só para o cargo de referência (o progresso é o mesmo para todos os cargos)
-    referencia = cd == 1 or (nivel == "uf" and cd == 3)
-    if referencia and not (cd == 3 and nivel == "br"):
+    referencia = cd == 1 or (nivel == "state" and cd == 3)
+    if referencia and not (cd == 3 and nivel == "country"):
         for m in MARCOS:
             if pct_antes < m <= pct_depois + 1e-9:
                 titulo = (
@@ -70,10 +70,10 @@ def detectar(
                 eventos.append(
                     {
                         **base,
-                        "type": "marco",
+                        "type": "milestone",
                         "title": titulo,
                         "description": f"{_fmt(pct_depois)} das seções totalizadas.",
-                        "payload": {"marco": m},
+                        "payload": {"milestone": m},
                     }
                 )
     # virada de liderança (só majoritários; ignora ruído do comecinho)
@@ -83,12 +83,12 @@ def detectar(
             eventos.append(
                 {
                     **base,
-                    "type": "virada",
+                    "type": "lead_change",
                     "title": f"Virada em {recorte_nome} ({cargo_nome})",
                     "description": f"{nomes.get(l_depois, l_depois)} passou {nomes.get(l_antes, l_antes)} "
                     f"({_fmt(novo.get('leader_pct') or 0)} × {_fmt(novo.get('second_pct') or 0)}) "
                     f"com {_fmt(pct_depois)} apurado.",
-                    "payload": {"novo_lider": l_depois, "lider_anterior": l_antes},
+                    "payload": {"new_leader": l_depois, "previous_leader": l_antes},
                 }
             )
     # situação (eleito / 2º turno / matematicamente definido)
@@ -98,11 +98,11 @@ def detectar(
             if antes.get(sq) == st:
                 continue
             nome = nomes.get(sq, sq)
-            if st in (situacao.ELEITO, situacao.MATEMATICAMENTE_ELEITO) and antes.get(sq) not in (
-                situacao.ELEITO,
-                situacao.MATEMATICAMENTE_ELEITO,
+            if st in (situacao.ELECTED, situacao.MATHEMATICALLY_ELECTED) and antes.get(sq) not in (
+                situacao.ELECTED,
+                situacao.MATHEMATICALLY_ELECTED,
             ):
-                tipo = "eleito" if st == situacao.ELEITO else "matematicamente_definido"
+                tipo = "elected" if st == situacao.ELECTED else "mathematically_decided"
                 eventos.append(
                     {
                         **base,
@@ -110,20 +110,20 @@ def detectar(
                         "title": f"{nome} eleito(a) — {cargo_nome} {recorte_nome}",
                         "description": (
                             "Matematicamente eleito(a) antes do fim da apuração."
-                            if tipo != "eleito"
+                            if tipo != "elected"
                             else f"Eleição definida com {_fmt(pct_depois)} apurado."
                         ),
-                        "payload": {"sqcand": sq},
+                        "payload": {"tse_candidate_id": sq},
                     }
                 )
-            elif st == situacao.SEGUNDO_TURNO and sistema == "majoritario":
+            elif st == situacao.RUNOFF and sistema == "majoritario":
                 eventos.append(
                     {
                         **base,
-                        "type": "segundo_turno",
+                        "type": "runoff",
                         "title": f"{nome} vai ao 2º turno — {cargo_nome} {recorte_nome}",
                         "description": "Nenhum candidato atingiu a maioria absoluta dos votos válidos.",
-                        "payload": {"sqcand": sq},
+                        "payload": {"tse_candidate_id": sq},
                     }
                 )
     return eventos
