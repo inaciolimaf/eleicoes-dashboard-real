@@ -110,7 +110,7 @@ def municipalities_document(scenario: Scenario) -> dict[str, Any]:
     return {"dg": "01/10/2026", "hg": "12:00:00", "f": "o", "idg": "100000002", "abr": areas}
 
 
-def uf_sections_document(scenario: Scenario, state_code: str) -> dict[str, Any]:
+def state_sections_document(scenario: Scenario, state_code: str) -> dict[str, Any]:
     municipalities: list[dict[str, Any]] = []
     for m in scenario.municipalities:
         if m.state_code != state_code:
@@ -189,9 +189,9 @@ def _places_row(scenario: Scenario, i: int) -> list[str]:
 
 def photo_svg(scenario: Scenario, tse_candidate_id: str) -> bytes | None:
     for office in scenario.offices.values():
-        for cand in office.candidates:
-            if cand.tse_candidate_id == tse_candidate_id:
-                initials = "".join(p[0] for p in cand.ballot_name.split()[:2])
+        for candidate in office.candidates:
+            if candidate.tse_candidate_id == tse_candidate_id:
+                initials = "".join(p[0] for p in candidate.ballot_name.split()[:2])
                 hue = (
                     int(hashlib.md5(tse_candidate_id.encode(), usedforsecurity=False).hexdigest()[:6], 16)
                     % 360

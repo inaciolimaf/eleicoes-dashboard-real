@@ -36,7 +36,7 @@ class Scenario:
         self._municipality_index: dict[tuple[str, int], Municipality] | None = None
         # Per-section arrays, filled by the geography and timing builders.
         self.section_count: int = 0
-        self.section_uf: np.ndarray
+        self.section_state: np.ndarray
         self.section_municipality: np.ndarray
         self.section_zone: np.ndarray
         self.section_place: np.ndarray
@@ -50,8 +50,10 @@ class Scenario:
         build_timing(self)
         build_votes(self)
 
-    def offices_of_uf(self, state_code: str) -> list[StateOffice]:
-        return [office for (_code, office_uf), office in self.offices.items() if office_uf == state_code]
+    def offices_of_state(self, state_code: str) -> list[StateOffice]:
+        return [
+            office for (_code, office_state), office in self.offices.items() if office_state == state_code
+        ]
 
     def municipality_by_code(self, state_code: str, tse_code: int) -> Municipality | None:
         if self._municipality_index is None:

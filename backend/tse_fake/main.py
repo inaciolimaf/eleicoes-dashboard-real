@@ -196,7 +196,7 @@ async def config_sections(election_event: int, state_code: str, file_name: str, 
         "100000003",
         None,
         "json",
-        generate=lambda: state.publication.uf_sections(state_code),
+        generate=lambda: state.publication.state_sections(state_code),
     )
 
 

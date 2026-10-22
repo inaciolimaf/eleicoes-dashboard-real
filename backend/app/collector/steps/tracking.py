@@ -25,11 +25,13 @@ class TrackingSteps(CatalogSteps):
             e = self.election_of_round(round_number)
             if e is None:
                 continue
-            await asyncio.gather(*(self._track_uf(round_number, e, uf) for uf in ["br", *STATES]))
+            await asyncio.gather(
+                *(self._track_state(round_number, e, state_code) for state_code in ["br", *STATES])
+            )
 
-    async def _track_uf(self, round_number: int, e: Election, uf: str) -> None:
+    async def _track_state(self, round_number: int, e: Election, state_code: str) -> None:
         assert self.urls is not None
-        _status, body, _ = await self.fetch_file(self.urls.acompanhamento(e.election_code, uf))
+        _status, body, _ = await self.fetch_file(self.urls.tracking(e.election_code, state_code))
         if body is None:
             return
         await queue.enqueue(
@@ -37,32 +39,34 @@ class TrackingSteps(CatalogSteps):
             queue.TYPE_TRACKING,
             body,
             high_priority=True,
-            key=f"tracking:{round_number}:{uf}",
+            key=f"tracking:{round_number}:{state_code}",
             round=round_number,
-            state_code=uf,
+            state_code=state_code,
             captured_at=now_iso(),
         )
-        if uf == "br":
+        if state_code == "br":
             return
         tracking = parse_tracking(orjson.loads(body))
-        if not self._track_items(round_number, uf, tracking):
+        if not self._track_items(round_number, state_code, tracking):
             # TSE file without a breakdown by municipality: sweeps the state when it changes
             for municipality_id, m in self.municipalities.items():
-                if m["state_code"] == uf:
+                if m["state_code"] == state_code:
                     self.schedule_municipality(round_number, municipality_id)
 
-    def _track_items(self, round_number: int, uf: str, tracking: TrackingTSE) -> bool:
+    def _track_items(self, round_number: int, state_code: str, tracking: TrackingTSE) -> bool:
         """Marks changed states and municipalities; True when the file lists municipalities."""
         has_municipalities = False
         for item in tracking.items:
             signature = (item.sections_tallied, item.tallied_at)
-            if item.tipo == "uf":
-                key = (round_number, uf)
+            if item.kind == "uf":
+                key = (round_number, state_code)
                 if self.state_signature.get(key) != signature and item.sections_tallied > 0:
                     self.state_signature[key] = signature
-            elif item.tipo in MUNICIPALITY_ITEM_TYPES:
+            elif item.kind in MUNICIPALITY_ITEM_TYPES:
                 has_municipalities = True
-                municipality_id = item.code if item.code[:2].isalpha() else f"{uf}{int(item.code):05d}"
+                municipality_id = (
+                    item.code if item.code[:2].isalpha() else f"{state_code}{int(item.code):05d}"
+                )
                 if (
                     item.sections_tallied > 0
                     and self.municipality_signature.get((round_number, municipality_id)) != signature

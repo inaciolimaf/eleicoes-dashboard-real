@@ -59,9 +59,9 @@ class DemandSteps(SectionSteps):
                 if parsed is None:
                     continue
                 self.pending_sections.add(section_id)
-                uf, municipality, zone, section = parsed
+                state_code, municipality, zone, section = parsed
                 self.section_queue.put_nowait(
-                    (0, self._next_order(), round_number, uf, municipality, zone, section)
+                    (0, self._next_order(), round_number, state_code, municipality, zone, section)
                 )
 
     def _demand_is_settled(

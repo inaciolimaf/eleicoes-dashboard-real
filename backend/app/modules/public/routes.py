@@ -52,10 +52,10 @@ async def results(
     geo_area: GeoAreaDep,
     at: TimeDep,
     office: int = 1,
-    turno: int = Query(1, alias="round"),
+    round_number: int = Query(1, alias="round"),
 ) -> dict[str, Any]:
-    await request_sections(turno, geo_area.level, geo_area.id)
-    return await results_queries.build_result(session, turno, office, geo_area, at)
+    await request_sections(round_number, geo_area.level, geo_area.id)
+    return await results_queries.build_result(session, round_number, office, geo_area, at)
 
 
 @router.get("/results/series", response_model=SeriesDto, tags=["results"])
@@ -63,14 +63,14 @@ async def results_series(
     session: DbSession,
     geo_area: GeoAreaDep,
     office: int = 1,
-    turno: int = Query(1, alias="round"),
+    round_number: int = Query(1, alias="round"),
     from_: Annotated[str | None, Query(alias="from")] = None,
     to: str | None = None,
     max_points: int = Query(300, ge=10, le=2000),
 ) -> dict[str, Any]:
     return await results_queries.series(
         session,
-        turno,
+        round_number,
         office,
         geo_area,
         parse_time(from_, "from"),
@@ -85,20 +85,24 @@ async def geo_area_children(
     geo_area: GeoAreaDep,
     at: TimeDep,
     office: int = 1,
-    turno: int = Query(1, alias="round"),
+    round_number: int = Query(1, alias="round"),
     child_level: str | None = None,
     candidates: str | None = None,
 ) -> dict[str, Any]:
     if child_level and child_level not in ("state", "municipality", "zone", "polling_place", "section"):
         raise AppError(422, "Parâmetro inválido", "child_level inválido", "geo_area/invalid_child_level")
     selected = [c for c in (candidates or "").split(",") if c]
-    await request_sections(turno, geo_area.level, geo_area.id)
-    return await results_queries.children(session, turno, office, geo_area, at, child_level, selected or None)
+    await request_sections(round_number, geo_area.level, geo_area.id)
+    return await results_queries.children(
+        session, round_number, office, geo_area, at, child_level, selected or None
+    )
 
 
 @router.get("/progress", response_model=ProgressDto, tags=["progress"])
-async def progress(session: DbSession, at: TimeDep, turno: int = Query(1, alias="round")) -> dict[str, Any]:
-    return await results_queries.progress(session, turno, at)
+async def progress(
+    session: DbSession, at: TimeDep, round_number: int = Query(1, alias="round")
+) -> dict[str, Any]:
+    return await results_queries.progress(session, round_number, at)
 
 
 @router.get("/maps/polling-places", response_model=MapPollingPlacesDto, tags=["maps"])
@@ -126,10 +130,10 @@ async def map_polling_places(
 
 @router.get("/polling-places/{polling_place_id}", response_model=PollingPlaceDto, tags=["polling-places"])
 async def polling_place(
-    session: DbSession, polling_place_id: str, turno: int = Query(1, alias="round")
+    session: DbSession, polling_place_id: str, round_number: int = Query(1, alias="round")
 ) -> dict[str, Any]:
-    await request_sections(turno, "polling_place", polling_place_id.strip().lower())
-    detail = await results_queries.polling_place_detail(session, turno, polling_place_id)
+    await request_sections(round_number, "polling_place", polling_place_id.strip().lower())
+    detail = await results_queries.polling_place_detail(session, round_number, polling_place_id)
     if detail is None:
         raise AppError(404, "Não encontrado", "local não encontrado", "polling_places/not_found")
     return detail
@@ -141,9 +145,9 @@ async def polling_place(
     tags=["diagnostics"],
 )
 async def polling_place_diagnostics(
-    session: DbSession, polling_place_id: str, turno: int = Query(1, alias="round")
+    session: DbSession, polling_place_id: str, round_number: int = Query(1, alias="round")
 ) -> PollingPlaceDiagnosticsDto:
-    return await diagnostics.polling_place_diagnostics(session, turno, polling_place_id)
+    return await diagnostics.polling_place_diagnostics(session, round_number, polling_place_id)
 
 
 @router.get(
@@ -152,11 +156,11 @@ async def polling_place_diagnostics(
 async def polling_section(
     session: DbSession,
     polling_section_id: str,
-    turno: int = Query(1, alias="round"),
+    round_number: int = Query(1, alias="round"),
 ) -> dict[str, Any]:
-    await request_sections(turno, "section", polling_section_id.strip().lower())
+    await request_sections(round_number, "section", polling_section_id.strip().lower())
     try:
-        detail = await results_queries.section_detail(session, turno, polling_section_id)
+        detail = await results_queries.section_detail(session, round_number, polling_section_id)
     except GeoAreaInvalid as exc:
         raise AppError(
             422, "Parâmetro inválido", "id de seção inválido", "polling_sections/invalid_id"
@@ -169,12 +173,12 @@ async def polling_section(
 @router.get("/candidates", response_model=list[CandidateDto], tags=["candidates"])
 async def candidates(
     session: DbSession,
-    turno: int = Query(1, alias="round"),
+    round_number: int = Query(1, alias="round"),
     office: int | None = None,
     state_code: str | None = None,
 ) -> list[dict[str, Any]]:
     return await results_queries.list_candidates(
-        session, turno, office, state_code.lower() if state_code else None
+        session, round_number, office, state_code.lower() if state_code else None
     )
 
 
@@ -183,9 +187,9 @@ async def candidate(
     session: DbSession,
     tse_candidate_id: str,
     at: TimeDep,
-    turno: int = Query(1, alias="round"),
+    round_number: int = Query(1, alias="round"),
 ) -> dict[str, Any]:
-    detail = await results_queries.candidate_detail(session, tse_candidate_id, turno, at)
+    detail = await results_queries.candidate_detail(session, tse_candidate_id, round_number, at)
     if detail is None:
         raise AppError(404, "Não encontrado", "candidato não encontrado", "candidates/not_found")
     return detail
@@ -225,8 +229,8 @@ async def events(session: DbSession, f: Annotated[EventFilter, Query()]) -> list
 
 
 @router.get("/timeline", response_model=TimelineDto, tags=["timeline"])
-async def timeline(session: DbSession, turno: int = Query(1, alias="round")) -> dict[str, Any]:
-    return await results_queries.timeline(session, turno)
+async def timeline(session: DbSession, round_number: int = Query(1, alias="round")) -> dict[str, Any]:
+    return await results_queries.timeline(session, round_number)
 
 
 @router.get(

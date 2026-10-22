@@ -5,7 +5,7 @@ from pathlib import Path
 
 import numpy as np
 
-MUNICIPALITIES_FILE = Path(__file__).resolve().parent.parent.parent / "app" / "data" / "municipios.json"
+MUNICIPALITIES_FILE = Path(__file__).resolve().parent.parent.parent / "app" / "data" / "municipalities.json"
 
 ELECTION_EVENT_CODE = 9001
 FEDERAL_ELECTION_CODE = 9100
@@ -40,7 +40,7 @@ class Candidate:
     name: str
     ballot_name: str
     party: Party
-    vice_candidates: list[tuple[str, str]] = field(default_factory=list)  # (kind, name)
+    running_mate_candidates: list[tuple[str, str]] = field(default_factory=list)  # (kind, name)
 
 
 @dataclass

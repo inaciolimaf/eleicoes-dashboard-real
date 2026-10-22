@@ -36,7 +36,7 @@ def compiler() -> asn1tools.compiler.Specification:
 
 @dataclass
 class BallotVote:
-    tipo: str  # nominal | branco | nulo | legenda
+    kind: str  # nominal | branco | nulo | legenda
     votes: int
     number: int | None = None
     party: int | None = None
@@ -50,15 +50,15 @@ class BallotOffice:
 
     @property
     def validos(self) -> int:
-        return sum(v.votes for v in self.votes if v.tipo in ("nominal", "legenda"))
+        return sum(v.votes for v in self.votes if v.kind in ("nominal", "legenda"))
 
     @property
     def blank_votes(self) -> int:
-        return sum(v.votes for v in self.votes if v.tipo == "branco")
+        return sum(v.votes for v in self.votes if v.kind == "branco")
 
     @property
     def null_votes(self) -> int:
-        return sum(v.votes for v in self.votes if v.tipo == "nulo")
+        return sum(v.votes for v in self.votes if v.kind == "nulo")
 
 
 @dataclass
@@ -85,7 +85,7 @@ def _read_vote(entry: dict[str, Any]) -> BallotVote:
     kind = VOTE_TYPES.get(kind, str(kind)) if isinstance(kind, int) else kind
     votable = entry.get("identificacaoVotavel")
     return BallotVote(
-        tipo=kind,
+        kind=kind,
         votes=int(entry["quantidadeVotos"]),
         number=int(votable["codigo"]) if votable else None,
         party=int(votable["partido"]) if votable else None,
@@ -148,7 +148,7 @@ def _votable_items(votes: list[BallotVote]) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
     for position, vote in enumerate(votes, start=1):
         item: dict[str, Any] = {
-            "tipoVoto": vote.tipo,
+            "tipoVoto": vote.kind,
             "quantidadeVotos": vote.votes,
             "ordemGeracaoHash": position,
             "hash": b"\x00" * 4,
@@ -193,7 +193,7 @@ def _election_results(spec: BallotBoxSpec) -> list[dict[str, Any]]:
     return results
 
 
-def _urna_block(spec: BallotBoxSpec, ident: dict[str, Any]) -> dict[str, Any]:
+def _ballot_box_block(spec: BallotBoxSpec, ident: dict[str, Any]) -> dict[str, Any]:
     return {
         "tipoUrna": "secao",
         "versaoVotacao": "9.99.0.0 - Mock",
@@ -220,7 +220,7 @@ def _report_body(spec: BallotBoxSpec, ident: dict[str, Any], header: dict[str, A
     return {
         "cabecalho": header,
         "fase": spec.phase,
-        "urna": _urna_block(spec, ident),
+        "urna": _ballot_box_block(spec, ident),
         "identificacaoSecao": ident,
         "dataHoraEmissao": spec.issued,
         "dadosSecaoSA": (

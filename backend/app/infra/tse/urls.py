@@ -57,7 +57,7 @@ def fill_template(template: str, base: str, cycle: str, params: UrlParams | None
 class UrlBuilder:
     """Builds the URLs of one election event.
 
-    Method names are called by the collector and the public service, so they stay in Portuguese for now.
+    Method names are called by the collector and the public service.
     """
 
     def __init__(
@@ -72,25 +72,25 @@ class UrlBuilder:
     def _dir(self, template_key: str, params: UrlParams) -> str:
         return fill_template(self.templates[template_key], self.base, self.cycle, params)
 
-    def municipios(self, election_code: int) -> str:
+    def municipalities(self, election_code: int) -> str:
         directory = self._dir("cm", UrlParams(event_code=self.event_code, election_code=election_code))
         return f"{directory}/mun-e{pad(election_code, 6)}-cm.{self.ext}"
 
-    def acompanhamento(self, election_code: int, state_code: str = "br") -> str:
+    def tracking(self, election_code: int, state_code: str = "br") -> str:
         state_code = state_code.lower()
         directory = self._dir(
             "ab", UrlParams(event_code=self.event_code, election_code=election_code, state_code=state_code)
         )
         return f"{directory}/{state_code}-e{pad(election_code, 6)}-ab.{self.ext}"
 
-    def resultado(
+    def result(
         self,
         election_code: int,
         office_code: int,
         state_code: str = "br",
         municipality: int | None = None,
         zone: int | None = None,
-        tipo: str = "u",
+        kind: str = "u",
     ) -> str:
         state_code = state_code.lower()
         area = state_code
@@ -98,9 +98,9 @@ class UrlBuilder:
             area += pad(municipality, 5)
             if zone is not None:
                 area += f"-z{pad(zone, 4)}"
-        name = f"{area}-c{pad(office_code, 4)}-e{pad(election_code, 6)}-{tipo}"
+        name = f"{area}-c{pad(office_code, 4)}-e{pad(election_code, 6)}-{kind}"
         directory = self._dir(
-            tipo, UrlParams(event_code=self.event_code, election_code=election_code, state_code=state_code)
+            kind, UrlParams(event_code=self.event_code, election_code=election_code, state_code=state_code)
         )
         return f"{directory}/{name}.{self.ext}"
 
@@ -110,12 +110,12 @@ class UrlBuilder:
         )
         return f"{directory}/{tse_candidate_id}.jpeg"
 
-    def secoes(self, state_code: str) -> str:
+    def sections(self, state_code: str) -> str:
         state_code = state_code.lower()
         directory = self._dir("cs", UrlParams(event_code=self.event_code, state_code=state_code))
         return f"{directory}/{state_code}-p{pad(self.event_code, 6)}-cs.json"
 
-    def auxiliar_secao(self, state_code: str, municipality: int, zone: int, section: int) -> str:
+    def section_auxiliary(self, state_code: str, municipality: int, zone: int, section: int) -> str:
         state_code = state_code.lower()
         directory = self._dir(
             "aux",
@@ -133,7 +133,7 @@ class UrlBuilder:
         )
         return f"{directory}/{name}"
 
-    def arquivo_urna(
+    def ballot_box_file(
         self, state_code: str, municipality: int, zone: int, section: int, hash_: str, name: str
     ) -> str:
         directory = self._dir(

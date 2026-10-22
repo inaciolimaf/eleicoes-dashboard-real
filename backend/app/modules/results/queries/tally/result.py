@@ -17,7 +17,7 @@ from app.modules.results.queries.common import (
     office_info,
     office_json,
     photo_url,
-    vice_list,
+    running_mate_list,
 )
 from app.modules.results.queries.tally.lines import Line, get_line
 
@@ -72,7 +72,7 @@ def _result_candidate(pos: int, c: dict[str, Any], meta: Candidate | None, statu
         "overall_status": meta.overall_status if meta else candidate_status.COUNTING,
         "elected": bool(meta.elected) if meta else False,
         "vote_destination": c.get("d") or "Válido",
-        "vice_and_substitutes": vice_list(meta.vice_and_substitutes if meta else []),
+        "vice_and_substitutes": running_mate_list(meta.vice_and_substitutes if meta else []),
     }
 
 
@@ -140,27 +140,36 @@ def _provenance(line: Line) -> dict[str, Any]:
     }
 
 
-async def build_result(
-    session: AsyncSession, turno: int, cd: int, r: GeoArea, t: datetime | None = None
-) -> dict[str, Any]:
-    info = await office_info(session, turno, cd)
-    office = info[1] if info else None
-    base: dict[str, Any] = {"geo_area": await geo_area_info(session, r), "office": office_json(office, cd)}
-    line = await get_line(session, turno, cd, r, t)
-    if line is None:
-        return {"no_data": True, **base}
-    system = office.voting_system if office else "majoritario"
-    seats = _majoritarian_seats(office) if system == "majoritario" else 0
-    coverage_flag = (cd == 1 and r.level == "country") or (cd != 1 and r.level == "state")
-    cands = line.get("candidates") or []
-    meta = await candidate_meta(session, [c["sq"] for c in cands])
-    statuses = candidate_status.calculate(
+def _candidate_statuses(
+    line: dict[str, Any], cands: list[dict[str, Any]], seats: int, office_code: int, r: GeoArea
+) -> dict[str, str]:
+    coverage_flag = (office_code == 1 and r.level == "country") or (office_code != 1 and r.level == "state")
+    return candidate_status.calculate(
         cands,
         seats,
         bool(line.get("final_tally")),
         bool(line.get("mathematically_decided")),
         coverage_flag,
     )
+
+
+async def build_result(
+    session: AsyncSession, round_number: int, office_code: int, r: GeoArea, t: datetime | None = None
+) -> dict[str, Any]:
+    info = await office_info(session, round_number, office_code)
+    office = info[1] if info else None
+    base: dict[str, Any] = {
+        "geo_area": await geo_area_info(session, r),
+        "office": office_json(office, office_code),
+    }
+    line = await get_line(session, round_number, office_code, r, t)
+    if line is None:
+        return {"no_data": True, **base}
+    system = office.voting_system if office else "majoritario"
+    seats = _majoritarian_seats(office) if system == "majoritario" else 0
+    cands = line.get("candidates") or []
+    meta = await candidate_meta(session, [c["sq"] for c in cands])
+    statuses = _candidate_statuses(line, cands, seats, office_code, r)
     return {
         "no_data": False,
         **base,

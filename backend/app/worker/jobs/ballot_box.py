@@ -51,7 +51,7 @@ async def _ballot(proc: Processor, body: bytes, context: dict[str, Any]) -> None
                 status=str(context.get("status", "Totalizado")),
                 tallied_at=parse_datetime(context.get("tallied_at")),
                 url=context.get("url"),
-                numeros=numbers,
+                numbers=numbers,
             ),
         )
         if context.get("polling_section_id"):

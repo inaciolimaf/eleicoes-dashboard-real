@@ -106,8 +106,16 @@ class Collector(ResultSteps, TrackingSteps, DemandSteps):
 
     async def _consume_sections(self) -> None:
         while True:
-            priority, _, round_number, uf, municipality_code, zone, section = await self.section_queue.get()
-            section_id = SectionRef(round_number, uf, municipality_code, zone, section).id
+            (
+                priority,
+                _,
+                round_number,
+                state_code,
+                municipality_code,
+                zone,
+                section,
+            ) = await self.section_queue.get()
+            section_id = SectionRef(round_number, state_code, municipality_code, zone, section).id
             self.pending_sections.discard(section_id)
             while self.paused:
                 await asyncio.sleep(1)
@@ -115,7 +123,7 @@ class Collector(ResultSteps, TrackingSteps, DemandSteps):
                 # priority 0 = section or place open in the dashboard: goes first at the TSE
                 # and in the worker queue
                 await self.process_section(
-                    round_number, uf, municipality_code, zone, section, high_priority=priority == 0
+                    round_number, state_code, municipality_code, zone, section, high_priority=priority == 0
                 )
             except Exception:
                 log.exception("falha na seção %s", section_id)

@@ -10,7 +10,7 @@ from app.infra.tse.parsers.common import generation_id
 
 @dataclass
 class ProgressTSE:
-    tipo: str  # br | uf | mu
+    kind: str  # br | uf | mu
     code: str  # br, sp, 71072
     tallied_at: datetime | None
     progress_code: str
@@ -41,7 +41,7 @@ def _progress(area: dict[str, Any]) -> ProgressTSE:
     sections = area.get("s") or {}
     electorate = area.get("e") or {}
     return ProgressTSE(
-        tipo=str(area.get("tpabr") or "").lower(),
+        kind=str(area.get("tpabr") or "").lower(),
         code=str(area.get("cdabr") or "").lower(),
         tallied_at=date_time(area.get("dt"), area.get("ht")),
         progress_code=str(area.get("and") or ""),

@@ -17,7 +17,7 @@ def key_pair():
     return private, jws.JwsKey(kid="teste", x=jws.public_key_x(private))
 
 
-def test_jws_valido(key_pair):
+def test_jws_valid(key_pair):
     private, key = key_pair
     token = jws.sign(b'{"ok": true}', private, "teste")
     assert json.loads(jws.verify(token, key)) == {"ok": True}
@@ -44,7 +44,7 @@ def test_jws_kid_e_algoritmo_errados(key_pair):
         jws.verify("apenas.duas", key)
 
 
-def test_chave_do_mock_confere_com_ambiente_fake():
+def test_mock_key_matches_fake_environment():
     token = jws.sign(b"{}", private_key_fake(), key_for_environment("fake").kid)
     assert jws.verify(token, key_for_environment("fake")) == b"{}"
     assert key_for_environment("oficial").kid == "sNbt9Q_fLS65zE1_ZLNV-XRRwPY"
@@ -52,7 +52,7 @@ def test_chave_do_mock_confere_com_ambiente_fake():
         jws.verify(token, key_for_environment("simulado"))
 
 
-def test_boletim_de_urna_ida_e_volta():
+def test_ballot_box_round_trip():
     votes_president = [
         BallotVote("nominal", 130, 13, 13),
         BallotVote("nominal", 100, 22, 22),
@@ -83,5 +83,5 @@ def test_boletim_de_urna_ida_e_volta():
     pres, dep = bu.offices
     assert pres.office_code == 1 and pres.validos == 230 and pres.blank_votes == 5 and pres.null_votes == 15
     assert dep.office_code == 6 and dep.validos == 40
-    assert [v.tipo for v in dep.votes] == ["nominal", "legenda", "nulo"]
+    assert [v.kind for v in dep.votes] == ["nominal", "legenda", "nulo"]
     assert bu.issued_at.isoformat() == "2026-10-04T20:15:23+00:00"

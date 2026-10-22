@@ -10,14 +10,14 @@ from alembic import command
 from tests.conftest import alembic_config
 
 USUARIO = "00000000-0000-0000-0000-000000000001"
-ALERTA = "00000000-0000-0000-0000-000000000002"
+ALERT = "00000000-0000-0000-0000-000000000002"
 
 
 def test_migrations_go_up_down_and_match_models():
     cfg = alembic_config()
     command.downgrade(cfg, "base")
     command.upgrade(cfg, "head")
-    command.check(cfg)  # falha se os modelos SQLAlchemy divergirem das migrações
+    command.check(cfg)  # fails if the SQLAlchemy models diverge from the migrations
 
 
 async def _sql(sql: str, params: dict | None = None) -> list[tuple]:
@@ -44,7 +44,7 @@ def test_0002_keeps_data_and_converts_values_both_ways():
         _sql(
             "INSERT INTO alerts (id, user_id, type, params, active, created_at, updated_at) "
             "VALUES (:id, :u, 'candidate_pct', '{}', true, now(), now())",
-            {"id": ALERTA, "u": USUARIO},
+            {"id": ALERT, "u": USUARIO},
         )
     )
     asyncio.run(
@@ -91,7 +91,7 @@ def test_0003_renames_alert_and_preference_keys():
             "INSERT INTO alerts (id, user_id, type, params, active, created_at, updated_at) "
             "VALUES (:id, :u, 'candidate_pct', CAST(:p AS jsonb), true, now(), now())",
             {
-                "id": ALERTA,
+                "id": ALERT,
                 "u": USUARIO,
                 "p": '{"cargo": 1, "nivel": "br", "id": "br", "sqcand": "10", "limite": 5}',
             },
@@ -105,11 +105,11 @@ def test_0003_renames_alert_and_preference_keys():
     )
     try:
         command.downgrade(cfg, "0002")
-        assert asyncio.run(_sql("SELECT params FROM alerts WHERE id = :i", {"i": ALERTA})) == [
+        assert asyncio.run(_sql("SELECT params FROM alerts WHERE id = :i", {"i": ALERT})) == [
             ({"cargo": 1, "nivel": "br", "id": "br", "sqcand": "10", "limite": 5},)
         ]
         command.upgrade(cfg, "head")
-        assert asyncio.run(_sql("SELECT params FROM alerts WHERE id = :i", {"i": ALERTA})) == [
+        assert asyncio.run(_sql("SELECT params FROM alerts WHERE id = :i", {"i": ALERT})) == [
             (
                 {
                     "office_code": 1,

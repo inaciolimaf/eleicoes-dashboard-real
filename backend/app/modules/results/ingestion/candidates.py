@@ -85,7 +85,7 @@ def _candidate_row(ctx: ResultContext, c: CandidateTSE, statuses: dict[str, str]
         "alliance": c.alliance,
         "color": colors.candidate_color(c.number, c.party_number, c.party_abbreviation),
         "vice_and_substitutes": [
-            {"nome": v.name, "tipo": "vice" if v.tipo == "v" else "suplente"} for v in c.running_mates
+            {"nome": v.name, "tipo": "vice" if v.kind == "v" else "suplente"} for v in c.running_mates
         ],
         "overall_status": statuses.get(c.tse_candidate_id, candidate_status.COUNTING),
         "elected": statuses.get(c.tse_candidate_id)

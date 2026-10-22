@@ -53,7 +53,7 @@ def photo_url(tse_candidate_id: str) -> str:
     return f"/api/v1/candidates/{tse_candidate_id}/photo"
 
 
-def vice_list(items: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+def running_mate_list(items: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
     return [{"name": v.get("nome"), "kind": v.get("tipo")} for v in (items or [])]
 
 
@@ -82,14 +82,14 @@ def short_candidate(
 
 
 async def ballot_numbers_to_sq(
-    session: AsyncSession, round_number: int, office_code: int, uf: str
+    session: AsyncSession, round_number: int, office_code: int, state_code: str
 ) -> dict[int, str]:
     """Maps the ballot number of each candidate to its TSE id, as the ballot boxes name them."""
     res = await session.execute(
         select(Candidate.ballot_number, Candidate.tse_candidate_id).where(
             Candidate.round == round_number,
             Candidate.office_code == office_code,
-            Candidate.state_code == ("br" if office_code == 1 else uf),
+            Candidate.state_code == ("br" if office_code == 1 else state_code),
         )
     )
     return {int(number): sq for number, sq in res.all()}
@@ -129,8 +129,8 @@ async def geo_area_name(session: AsyncSession, r: GeoArea) -> str:
     if r.level == "country":
         return "Brasil"
     if r.level == "state":
-        uf = await session.get(State, r.state_code)
-        return uf.name if uf else (r.state_code or "").upper()
+        state_code = await session.get(State, r.state_code)
+        return state_code.name if state_code else (r.state_code or "").upper()
     if r.level == "municipality":
         m = await session.get(Municipality, r.id)
         return m.name if m else r.id

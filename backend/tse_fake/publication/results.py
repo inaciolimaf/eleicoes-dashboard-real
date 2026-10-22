@@ -136,11 +136,11 @@ def _group_candidates(
     only_elected: bool,
 ) -> dict[str, dict[str, Any]]:
     groups: dict[str, dict[str, Any]] = {}
-    for i, cand in enumerate(office.candidates):
-        flag, status = situation.get(cand.tse_candidate_id, ("n", ""))
+    for i, candidate in enumerate(office.candidates):
+        flag, status = situation.get(candidate.tse_candidate_id, ("n", ""))
         if only_elected and flag != "s":
             continue
-        party = cand.party
+        party = candidate.party
         group = groups.setdefault(
             party.alliance,
             {"n": party.alliance_number, "nm": party.alliance, "tp": party.kind, "_v": 0, "par": {}},
@@ -151,17 +151,17 @@ def _group_candidates(
         )
         count = int(votes[i])
         group["_v"] += count
-        row["cand"].append(_candidate_entry(cand, flag, status, count, valid))
+        row["cand"].append(_candidate_entry(candidate, flag, status, count, valid))
     return groups
 
 
-def _candidate_entry(cand: Candidate, flag: str, status: str, count: int, valid: int) -> dict[str, Any]:
+def _candidate_entry(candidate: Candidate, flag: str, status: str, count: int, valid: int) -> dict[str, Any]:
     return {
         "seq": "0",
-        "n": str(cand.ballot_number),
-        "sqcand": cand.tse_candidate_id,
-        "nm": cand.name,
-        "nmu": cand.ballot_name,
+        "n": str(candidate.ballot_number),
+        "sqcand": candidate.tse_candidate_id,
+        "nm": candidate.name,
+        "nmu": candidate.ballot_name,
         "dvt": "Válido",
         "e": flag,
         "st": status,
@@ -169,8 +169,8 @@ def _candidate_entry(cand: Candidate, flag: str, status: str, count: int, valid:
         "pvap": pct2(count, valid),
         "pvapn": pctn(count, valid),
         "vs": [
-            {"tp": kind, "nm": name, "nmu": name, "sgp": cand.party.acronym}
-            for kind, name in cand.vice_candidates
+            {"tp": kind, "nm": name, "nmu": name, "sgp": candidate.party.acronym}
+            for kind, name in candidate.running_mate_candidates
         ],
     }
 

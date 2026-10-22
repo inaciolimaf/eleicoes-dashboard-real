@@ -9,13 +9,10 @@ The rules are the guarantees of docs/refactoring-contract.md and the server runt
   becomes a dump;
 - a module imports another only through the package (`app.modules.<name>`), never a file inside it.
 
-`TEMPORARY_ALLOW` lists the violations still standing in the slices that the migration has not reached
-yet (results, events, collector, worker, infra). It is removed as each slice is migrated. With
-`ARCHITECTURE_STRICT=1` the allow-list is ignored, so the whole set of violations is visible.
+No violation is allowed: the rules hold for the whole `app` package.
 """
 
 import ast
-import os
 import re
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -24,7 +21,6 @@ from pathlib import Path
 BACKEND = Path(__file__).resolve().parents[2]
 APP = BACKEND / "app"
 MAX_FILES_PER_FOLDER = 8
-STRICT = os.environ.get("ARCHITECTURE_STRICT") == "1"
 
 #: The only file allowed to call `.commit()`.
 COMMIT_OWNER = "app/core/db.py"
@@ -37,14 +33,6 @@ _SQL_START = re.compile(
     r"\s*(SELECT\b.*\bFROM\b|INSERT\s+INTO\b|UPDATE\s+\w+\s+SET\b|DELETE\s+FROM\b|WITH\s+\w+\s+AS\b)",
     re.DOTALL,
 )
-
-#: Violations in slices not migrated yet, by rule. Each entry is removed by the agent of its slice.
-TEMPORARY_ALLOW: dict[str, dict[str, str]] = {
-    "commit": {},
-    "sql": {},
-    "folder": {},
-    "import": {},
-}
 
 
 @dataclass(frozen=True)
@@ -158,53 +146,25 @@ def _import_violations() -> Iterator[Violation]:
                 )
 
 
-def _allowed(rule: str, violations: list[Violation]) -> list[Violation]:
-    if STRICT:
-        return violations
-    allowed = TEMPORARY_ALLOW.get(rule, {})
-    return [v for v in violations if v.path not in allowed]
-
-
-def _stale_allowances(rule: str, violations: list[Violation]) -> list[str]:
-    """Allow-list entries that no longer match a violation: remove them from the list."""
-    current = {v.path for v in violations}
-    return [path for path in TEMPORARY_ALLOW.get(rule, {}) if path not in current]
-
-
 def _report(rule: str, violations: list[Violation]) -> str:
     return "\n".join(str(v) for v in violations) or f"no {rule} violations"
 
 
 def test_only_the_unit_of_work_commits():
     violations = list(_commit_violations())
-    assert not _allowed("commit", violations), _report("commit", _allowed("commit", violations))
+    assert not violations, _report("commit", violations)
 
 
 def test_sql_is_built_with_the_query_builder():
-    violations = list(_sql_violations())
-    remaining = [v for v in _allowed("sql", violations) if v.path not in ALLOWED_SQL]
-    assert not remaining, _report("sql", remaining)
+    violations = [v for v in _sql_violations() if v.path not in ALLOWED_SQL]
+    assert not violations, _report("sql", violations)
 
 
 def test_each_folder_holds_at_most_eight_python_files():
     violations = list(_folder_violations())
-    remaining = _allowed("folder", violations)
-    assert not remaining, _report("folder", remaining)
+    assert not violations, _report("folder", violations)
 
 
 def test_modules_import_each_other_through_their_package():
     violations = list(_import_violations())
-    remaining = _allowed("import", violations)
-    assert not remaining, _report("import", remaining)
-
-
-def test_temporary_allow_list_has_no_stale_entries():
-    if STRICT:
-        return
-    stale = {
-        "commit": _stale_allowances("commit", list(_commit_violations())),
-        "folder": _stale_allowances("folder", list(_folder_violations())),
-        "import": _stale_allowances("import", list(_import_violations())),
-        "sql": _stale_allowances("sql", list(_sql_violations())),
-    }
-    assert not any(stale.values()), f"remove these entries from TEMPORARY_ALLOW: {stale}"
+    assert not violations, _report("import", violations)

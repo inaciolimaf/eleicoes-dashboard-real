@@ -1,4 +1,4 @@
-"""EA18 file (auxiliar de seção): the ballot box files received for one section, and which one is tallied."""
+"""EA18 file (section auxiliary): the ballot box files received for one section, and which one is tallied."""
 
 from dataclasses import dataclass
 from datetime import datetime
@@ -18,7 +18,7 @@ class UrnFileTSE:
     def tallied(self) -> bool:
         return self.status.lower().startswith("totalizad")
 
-    def nome_bu(self) -> str | None:
+    def ballot_box_name(self) -> str | None:
         return next((name for name in self.files if name.endswith(".bu")), None)
 
 
@@ -27,8 +27,8 @@ class AuxiliarySectionTSE:
     status: str
     ballot_boxes: list[UrnFileTSE]
 
-    def urna_totalizada(self) -> UrnFileTSE | None:
-        tallied = [u for u in self.ballot_boxes if u.tallied and u.nome_bu()]
+    def ballot_box_tallied(self) -> UrnFileTSE | None:
+        tallied = [u for u in self.ballot_boxes if u.tallied and u.ballot_box_name()]
         if not tallied:
             return None
         # More than one tallied urn (replacement): the most recent one is used.

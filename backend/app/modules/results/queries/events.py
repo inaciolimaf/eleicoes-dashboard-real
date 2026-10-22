@@ -42,25 +42,25 @@ def event_json(e: Event) -> dict[str, Any]:
     }
 
 
-async def list_events(session: AsyncSession, filtro: EventsQuery) -> list[dict[str, Any]]:
-    q = select(Event).where(Event.round == filtro.round)
-    if filtro.since:
-        q = q.where(Event.occurred_at > filtro.since)
-    if filtro.until:
-        q = q.where(Event.occurred_at <= filtro.until)
-    if filtro.types:
-        q = q.where(Event.type.in_(filtro.types))
-    if filtro.office_code:
-        q = q.where(or_(Event.office_code == filtro.office_code, Event.office_code.is_(None)))
-    if filtro.level and filtro.geo_area_id:
+async def list_events(session: AsyncSession, query: EventsQuery) -> list[dict[str, Any]]:
+    q = select(Event).where(Event.round == query.round)
+    if query.since:
+        q = q.where(Event.occurred_at > query.since)
+    if query.until:
+        q = q.where(Event.occurred_at <= query.until)
+    if query.types:
+        q = q.where(Event.type.in_(query.types))
+    if query.office_code:
+        q = q.where(or_(Event.office_code == query.office_code, Event.office_code.is_(None)))
+    if query.level and query.geo_area_id:
         q = q.where(
             or_(
-                and_(Event.level == filtro.level, Event.geo_area_id == filtro.geo_area_id),
+                and_(Event.level == query.level, Event.geo_area_id == query.geo_area_id),
                 Event.type == "start",
             )
         )
     rows = (
-        (await session.execute(q.order_by(Event.occurred_at.desc(), Event.id.desc()).limit(filtro.limit)))
+        (await session.execute(q.order_by(Event.occurred_at.desc(), Event.id.desc()).limit(query.limit)))
         .scalars()
         .all()
     )
@@ -68,13 +68,13 @@ async def list_events(session: AsyncSession, filtro: EventsQuery) -> list[dict[s
 
 
 async def timeline(session: AsyncSession, round_number: int) -> dict[str, Any]:
-    ini, fim = (
+    ini, end = (
         await session.execute(
             select(func.min(ResultSnapshot.tallied_at), func.max(ResultSnapshot.tallied_at)).where(
                 ResultSnapshot.round == round_number, ResultSnapshot.level.in_(["country", "state"])
             )
         )
     ).one()
-    eventos = await list_events(session, EventsQuery(round=round_number, limit=300))
-    eventos = [e for e in eventos if e["level"] in ("country", "state", None)]
-    return {"start": iso(ini), "end": iso(fim), "now": iso(fim), "events": eventos}
+    events = await list_events(session, EventsQuery(round=round_number, limit=300))
+    events = [e for e in events if e["level"] in ("country", "state", None)]
+    return {"start": iso(ini), "end": iso(end), "now": iso(end), "events": events}

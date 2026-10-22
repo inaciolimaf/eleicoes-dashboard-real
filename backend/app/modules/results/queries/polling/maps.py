@@ -1,4 +1,4 @@
-"""`/maps/polling-places`: the polling places of a filter, with the result of each one."""
+"""`/maps/polling-places`: the polling places of a query, with the result of each one."""
 
 from __future__ import annotations
 
@@ -51,14 +51,14 @@ def _map_filters(criteria: MapQuery) -> list[Any]:
 
 
 async def _official_results(
-    session: AsyncSession, turno: int, cd: int, ids: list[str]
+    session: AsyncSession, round_number: int, office_code: int, ids: list[str]
 ) -> dict[str, dict[str, Any]]:
     """Results of the places as the TSE tallied them (the current table)."""
     res: dict[str, dict[str, Any]] = {}
     for start in range(0, len(ids), BATCH):
         stmt = select(PollingPlaceResult).where(
-            PollingPlaceResult.round == turno,
-            PollingPlaceResult.office_code == cd,
+            PollingPlaceResult.round == round_number,
+            PollingPlaceResult.office_code == office_code,
             PollingPlaceResult.polling_place_id.in_(ids[start : start + BATCH]),
         )
         for x in (await session.execute(stmt)).scalars():
@@ -85,7 +85,7 @@ def _ballot_box_result(line: Line) -> dict[str, Any]:
 
 
 async def _ballot_box_results(
-    session: AsyncSession, turno: int, cd: int, ids: list[str], at: datetime
+    session: AsyncSession, round_number: int, office_code: int, ids: list[str], at: datetime
 ) -> dict[str, dict[str, Any]]:
     """Results of the places as of `at`, summed from the ballot boxes collected up to then."""
     res: dict[str, dict[str, Any]] = {}
@@ -94,9 +94,9 @@ async def _ballot_box_results(
         stmt = select(
             BallotBoxReport.polling_place_id,
             BallotBoxReport.state_code,
-            BallotBoxReport.votes[str(cd)],
+            BallotBoxReport.votes[str(office_code)],
         ).where(
-            BallotBoxReport.round == turno,
+            BallotBoxReport.round == round_number,
             BallotBoxReport.polling_place_id.in_(ids[start : start + BATCH]),
             BallotBoxReport.tallied_at <= at,
         )
@@ -108,17 +108,19 @@ async def _ballot_box_results(
         for place_id, votes in votes_by_place.items():
             state_code = states[place_id]
             if state_code not in sq_maps:
-                sq_maps[state_code] = await ballot_numbers_to_sq(session, turno, cd, state_code)
+                sq_maps[state_code] = await ballot_numbers_to_sq(
+                    session, round_number, office_code, state_code
+                )
             res[place_id] = _ballot_box_result(sum_ballot_boxes(votes, 0, 0, sq_maps[state_code]))
     return res
 
 
 async def _polling_place_results(
-    session: AsyncSession, turno: int, cd: int, ids: list[str], at: datetime | None
+    session: AsyncSession, round_number: int, office_code: int, ids: list[str], at: datetime | None
 ) -> dict[str, dict[str, Any]]:
     if at is None:
-        return await _official_results(session, turno, cd, ids)
-    return await _ballot_box_results(session, turno, cd, ids, at)
+        return await _official_results(session, round_number, office_code, ids)
+    return await _ballot_box_results(session, round_number, office_code, ids, at)
 
 
 def _map_item(x: Any, result: dict[str, Any] | None, meta: dict[str, Candidate]) -> dict[str, Any]:
@@ -144,13 +146,13 @@ def _map_item(x: Any, result: dict[str, Any] | None, meta: dict[str, Candidate])
 
 async def polling_place_map(
     session: AsyncSession,
-    turno: int,
-    cd: int,
-    filtro: MapQuery,
+    round_number: int,
+    office_code: int,
+    query: MapQuery,
     t: datetime | None,
-    limite: int = 20000,
+    limit: int = 20000,
 ) -> dict[str, Any]:
-    filters = _map_filters(filtro)
+    filters = _map_filters(query)
     total = (
         await session.execute(select(func.count()).select_from(PollingPlace).where(*filters))
     ).scalar_one()
@@ -167,10 +169,10 @@ async def polling_place_map(
                 PollingPlace.state_code,
             )
             .where(*filters)
-            .limit(limite)
+            .limit(limit)
         )
     ).all()
-    results = await _polling_place_results(session, turno, cd, [x.id for x in places], t)
+    results = await _polling_place_results(session, round_number, office_code, [x.id for x in places], t)
     leaders = [v["leader"] for v in results.values() if v.get("leader")]
     meta = await candidate_meta(session, leaders)
     items = [_map_item(x, results.get(x.id), meta) for x in places]

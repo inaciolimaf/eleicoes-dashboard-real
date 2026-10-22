@@ -95,10 +95,10 @@ async def get_owned[M: Base](
 ) -> M:
     """The user's record, or 404: the same 404 for "does not exist" and "belongs to another user"."""
     try:
-        chave: Any = uuid.UUID(key) if isinstance(key, str) else key
+        parsed: Any = uuid.UUID(key) if isinstance(key, str) else key
     except ValueError:
-        chave = None
-    obj = await session.get(model, chave) if chave is not None else None
+        parsed = None
+    obj = await session.get(model, parsed) if parsed is not None else None
     if obj is None or getattr(obj, "user_id", None) != user.id:
         raise AppError(
             404,

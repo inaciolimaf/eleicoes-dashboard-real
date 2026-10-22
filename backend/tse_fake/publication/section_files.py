@@ -99,8 +99,8 @@ def _elections(
 def _office_votes(office: StateOffice, i: int) -> list[BallotVote]:
     row = i - office.start
     votes = [
-        BallotVote("nominal", int(v), cand.ballot_number, cand.party.number)
-        for cand, v in zip(office.candidates, office.votes[row], strict=True)
+        BallotVote("nominal", int(v), candidate.ballot_number, candidate.party.number)
+        for candidate, v in zip(office.candidates, office.votes[row], strict=True)
         if v > 0
     ]
     if office.party_votes is not None:

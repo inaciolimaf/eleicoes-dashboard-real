@@ -33,7 +33,7 @@ class Publication:
         self._zone_index = self._build_zone_index()
         self._situation_cache: dict[tuple[int, str, float], tuple[Situation, dict[str, int], bool, bool]] = {}
         self._municipality_cache: dict[int, dict[str, Any]] = {}
-        self._uf_section_cache: dict[str, dict[str, Any]] = {}
+        self._state_section_cache: dict[str, dict[str, Any]] = {}
         self._ballot_cache: dict[int, bytes] = {}
         self._places_csv: bytes | None = None
 
@@ -151,10 +151,12 @@ class Publication:
         area = (state_code, municipality, zone)
         return results.result_document(self, election, office_code, area, t, only_elected)
 
-    def uf_sections(self, state_code: str) -> dict[str, Any]:
-        if state_code not in self._uf_section_cache:
-            self._uf_section_cache[state_code] = documents.uf_sections_document(self.scenario, state_code)
-        return self._uf_section_cache[state_code]
+    def state_sections(self, state_code: str) -> dict[str, Any]:
+        if state_code not in self._state_section_cache:
+            self._state_section_cache[state_code] = documents.state_sections_document(
+                self.scenario, state_code
+            )
+        return self._state_section_cache[state_code]
 
     def section_index(self, state_code: str, municipality: int, zone: int, section: int) -> int | None:
         return self._section_index.get((state_code, municipality, zone, section))

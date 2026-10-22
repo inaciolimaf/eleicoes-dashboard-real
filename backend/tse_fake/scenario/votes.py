@@ -60,10 +60,12 @@ def build_votes(scenario: Scenario) -> None:
         )
 
 
-def _draw_names(rng: np.random.Generator, used: set[str], vice_count: int) -> tuple[str, str, list[str]]:
+def _draw_names(
+    rng: np.random.Generator, used: set[str], running_mate_count: int
+) -> tuple[str, str, list[str]]:
     """Full name, ballot name and the ballot names of `vice_count` running mates or substitutes."""
     name, ballot = make_name(rng, used)
-    running_mates = [make_name(rng, used)[1] for _ in range(vice_count)]
+    running_mates = [make_name(rng, used)[1] for _ in range(running_mate_count)]
     return name, ballot, running_mates
 
 
@@ -100,9 +102,9 @@ def _presidential_slate(
     candidates: list[Candidate] = []
     for i, (base, bonus) in enumerate(PRESIDENTIAL_PROFILE):
         party = scenario.parties[PRESIDENTIAL_PARTY_INDEXES[i]]
-        name, ballot, (vice,) = _draw_names(rng, used, 1)
+        name, ballot, (running_mate,) = _draw_names(rng, used, 1)
         candidate_id = tse_candidate_id(scenario.seed, 1, "br", i)
-        candidates.append(Candidate(candidate_id, party.number, name, ballot, party, [("v", vice)]))
+        candidates.append(Candidate(candidate_id, party.number, name, ballot, party, [("v", running_mate)]))
         noise = noise_by_municipality[scenario.section_municipality, i]
         util[:, i] = _presidential_column(scenario, rng, base, bonus, region_of_section, noise)
     return candidates, util
@@ -162,9 +164,9 @@ def _governor_slate(
     chosen = rng.choice(len(parties), count, replace=False)
     for i in range(count):
         party = parties[int(chosen[i])]
-        name, ballot, (vice,) = _draw_names(rng, used, 1)
+        name, ballot, (running_mate,) = _draw_names(rng, used, 1)
         candidate_id = tse_candidate_id(scenario.seed, 3, state_code, i)
-        candidates.append(Candidate(candidate_id, party.number, name, ballot, party, [("v", vice)]))
+        candidates.append(Candidate(candidate_id, party.number, name, ballot, party, [("v", running_mate)]))
         util[:, i] = bases[i] + spatial_field(rng, lat, lon, 3, 0.6) * 0.5 + rng.normal(0, 0.1, n)
     return unique_numbers(candidates, util)
 

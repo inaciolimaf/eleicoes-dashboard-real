@@ -17,7 +17,7 @@ from app.modules.elections import Election
 from app.modules.geography import PollingPlace
 from app.modules.results import ingestion
 
-MUNICIPALITIES_FILE = Path(__file__).resolve().parents[2] / "data" / "municipios.json"
+MUNICIPALITIES_FILE = Path(__file__).resolve().parents[2] / "data" / "municipalities.json"
 
 
 class CatalogSteps(RequestSteps):
@@ -28,12 +28,12 @@ class CatalogSteps(RequestSteps):
         if status == 304 or body is None:
             return False
         catalog = parse_catalog(orjson.loads(body))
-        event = catalog.pleito_atual()
+        event = catalog.current_election_event()
         if event is None:
             return False
         is_new = self.catalog is None or self.catalog.generation_id != catalog.generation_id
         self.catalog = catalog
-        self.urls = UrlBuilder(self.settings.tse_base_url, catalog.templates, event.cycle, event.cd)
+        self.urls = UrlBuilder(self.settings.tse_base_url, catalog.templates, event.cycle, event.code)
         async with unit_of_work(self.sessionmaker) as session:
             self.elections = await ingestion.ingest_catalog(session, catalog, self.settings.tse_environment)
         if is_new:
@@ -43,7 +43,7 @@ class CatalogSteps(RequestSteps):
         log.info(
             "catálogo: ciclo=%s pleito=%s eleições=%s",
             event.cycle,
-            event.cd,
+            event.code,
             [e.election_code for e in self.elections],
         )
         return True
@@ -69,7 +69,7 @@ class CatalogSteps(RequestSteps):
         if e is None:
             return False
         office_code = 1 if any(c.office_code == 1 for c in e.offices) else e.offices[0].office_code
-        url = self.urls.resultado(e.election_code, office_code, "br" if office_code == 1 else "sp")
+        url = self.urls.result(e.election_code, office_code, "br" if office_code == 1 else "sp")
         status, _, _ = await self.fetch_file(url, archive=False)
         return status in (200, 304)
 
@@ -78,7 +78,7 @@ class CatalogSteps(RequestSteps):
         e = self.election_for_office(1, 1) or (self.elections[0] if self.elections else None)
         if e is None:
             return
-        _status, body, _ = await self.fetch_file(self.urls.municipios(e.election_code))
+        _status, body, _ = await self.fetch_file(self.urls.municipalities(e.election_code))
         if body is None:
             return
         listed = parse_municipalities(orjson.loads(body))
@@ -88,7 +88,7 @@ class CatalogSteps(RequestSteps):
         async with unit_of_work(self.sessionmaker) as session:
             await ingestion.ingest_municipalities(session, listed, coords)
         self.municipalities = {
-            f"{m.state_code}{m.cd:05d}": {"state_code": m.state_code, "code": m.cd, "zones": m.zones}
+            f"{m.state_code}{m.code:05d}": {"state_code": m.state_code, "code": m.code, "zones": m.zones}
             for m in listed
         }
         log.info("municípios carregados: %d", len(self.municipalities))
@@ -106,13 +106,15 @@ class CatalogSteps(RequestSteps):
             total = await ingestion.import_polling_places(session, ingestion.read_polling_place_csv(r.body))
         log.info("locais de votação importados: %d", total)
 
-    async def load_sections_of_state(self, uf: str) -> None:
-        if uf in self.states_with_sections or self.urls is None:
+    async def load_sections_of_state(self, state_code: str) -> None:
+        if state_code in self.states_with_sections or self.urls is None:
             return
-        self.states_with_sections.add(uf)
-        _status, body, _ = await self.fetch_file(self.urls.secoes(uf), archive=False, high_priority=False)
+        self.states_with_sections.add(state_code)
+        _status, body, _ = await self.fetch_file(
+            self.urls.sections(state_code), archive=False, high_priority=False
+        )
         if body is None:
-            self.states_with_sections.discard(uf)
+            self.states_with_sections.discard(state_code)
             return
         listed = parse_sections(orjson.loads(body))
         async with unit_of_work(self.sessionmaker) as session:

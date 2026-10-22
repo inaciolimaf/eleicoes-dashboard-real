@@ -139,11 +139,11 @@ async def _descriptor(session: AsyncSession, level: str, rid: str, line: Line) -
 
 
 async def child_item(
-    session: AsyncSession, round_number: int, office_code: int, linha: Line
+    session: AsyncSession, round_number: int, office_code: int, line: Line
 ) -> dict[str, Any]:
     """Item of `/geo-areas/children` for a single area (used by the real-time updates)."""
-    level = linha["level"]
-    d = await _descriptor(session, level, linha["geo_area_id"], linha)
-    involved = [x for x in (linha.get("leader_candidate_id"), linha.get("second_candidate_id")) if x]
+    level = line["level"]
+    d = await _descriptor(session, level, line["geo_area_id"], line)
+    involved = [x for x in (line.get("leader_candidate_id"), line.get("second_candidate_id")) if x]
     meta = await candidate_meta(session, involved)
-    return build_item(level, d, linha, meta)
+    return build_item(level, d, line, meta)

@@ -9,7 +9,7 @@ from app.infra.tse.numbers import integer, integer_or_none, yes_no
 @dataclass
 class MunicipalityTSE:
     state_code: str
-    cd: int
+    code: int
     ibge_code: int | None
     name: str
     is_capital: bool
@@ -24,7 +24,7 @@ def parse_municipalities(data: dict[str, Any]) -> list[MunicipalityTSE]:
             result.append(
                 MunicipalityTSE(
                     state_code=state_code,
-                    cd=integer(entry.get("cd")),
+                    code=integer(entry.get("cd")),
                     ibge_code=integer_or_none(entry.get("cdi")),
                     name=str(entry.get("nm") or "").strip(),
                     is_capital=yes_no(entry.get("c")),

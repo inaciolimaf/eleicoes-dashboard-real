@@ -21,28 +21,28 @@ OFFICE_NAMES = {
 
 @dataclass
 class CatalogOffice:
-    cd: int
+    code: int
     name: str
     system: str  # majoritario | proporcional
 
     @property
     def abrangencia(self) -> str:
-        return "br" if self.cd == 1 else "uf"
+        return "br" if self.code == 1 else "uf"
 
 
 @dataclass
 class CatalogElection:
-    cd: int
-    cd_t2: int | None
+    code: int
+    runoff_election_code: int | None
     round: int
-    tipo: str
+    kind: str
     name: str
     offices: list[CatalogOffice] = field(default_factory=list)
 
 
 @dataclass
 class CatalogEvent:
-    cd: int
+    code: int
     cycle: str
     data: str
     elections: list[CatalogElection] = field(default_factory=list)
@@ -54,7 +54,7 @@ class Catalog:
     templates: dict[str, str]
     events: list[CatalogEvent]
 
-    def pleito_atual(self) -> CatalogEvent | None:
+    def current_election_event(self) -> CatalogEvent | None:
         """Most recent election event (by the dd/mm/yyyy date)."""
         if not self.events:
             return None
@@ -76,13 +76,13 @@ class Catalog:
         candidates: list[tuple[CatalogEvent, CatalogElection]] = []
         for event in self.events:
             for election in event.elections:
-                if election.round == round_number and any(c.cd == office_code for c in election.offices):
+                if election.round == round_number and any(c.code == office_code for c in election.offices):
                     candidates.append((event, election))
         if not candidates:
             return None
-        current = self.pleito_atual()
+        current = self.current_election_event()
         for event, election in candidates:
-            if current and event.cd == current.cd:
+            if current and event.code == current.code:
                 return event, election
         return candidates[0]
 
@@ -98,17 +98,17 @@ def _parse_offices(election: dict[str, Any]) -> list[CatalogOffice]:
             seen.add(code)
             system = "proporcional" if str(entry.get("tp")) == "2" else "majoritario"
             name = str(entry.get("ds") or OFFICE_NAMES.get(code, f"Cargo {code}"))
-            offices.append(CatalogOffice(cd=code, name=name, system=system))
+            offices.append(CatalogOffice(code=code, name=name, system=system))
     return offices
 
 
 def _parse_election(entry: dict[str, Any]) -> CatalogElection:
     kind = integer(entry.get("tp"))
     return CatalogElection(
-        cd=integer(entry.get("cd")),
-        cd_t2=integer_or_none(entry.get("cdt2")),
+        code=integer(entry.get("cd")),
+        runoff_election_code=integer_or_none(entry.get("cdt2")),
         round=integer(entry.get("t"), 1),
-        tipo=ELECTION_TYPES.get(kind, str(kind)),
+        kind=ELECTION_TYPES.get(kind, str(kind)),
         name=str(entry.get("nm") or ""),
         offices=_parse_offices(entry),
     )
@@ -116,7 +116,9 @@ def _parse_election(entry: dict[str, Any]) -> CatalogElection:
 
 def _parse_event(entry: dict[str, Any], root_cycle: str) -> CatalogEvent:
     event = CatalogEvent(
-        cd=integer(entry.get("cd")), cycle=str(entry.get("c") or root_cycle), data=str(entry.get("dt") or "")
+        code=integer(entry.get("cd")),
+        cycle=str(entry.get("c") or root_cycle),
+        data=str(entry.get("dt") or ""),
     )
     event.elections = [_parse_election(e) for e in entry.get("e", []) or []]
     return event

@@ -16,7 +16,7 @@ CONFIG = {
 
 
 @pytest_asyncio.fixture
-async def cli(banco_limpo):
+async def cli(clean_db):
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://teste") as c:
         yield c
 
@@ -60,17 +60,17 @@ async def test_dashboards_crud_default_and_sharing(cli):
             "/api/v1/dashboards", json={"name": "SP", "config": CONFIG, "is_default": True}, headers=h
         )
     ).json()
-    lista = (await cli.get("/api/v1/dashboards", headers=h)).json()
-    assert [p["name"] for p in lista] == ["Noite", "SP"]
-    assert [p["is_default"] for p in lista] == [False, True]
+    items = (await cli.get("/api/v1/dashboards", headers=h)).json()
+    assert [p["name"] for p in items] == ["Noite", "SP"]
+    assert [p["is_default"] for p in items] == [False, True]
     novo = {**CONFIG, "widgets": CONFIG["widgets"] * 2}
     r = await cli.put(f"/api/v1/dashboards/{p1['id']}", json={"name": "Noite 2", "config": novo}, headers=h)
     assert r.json()["name"] == "Noite 2" and len(r.json()["config"]["widgets"]) == 2
-    invalido = await cli.post(
+    invalid = await cli.post(
         "/api/v1/dashboards", json={"name": "x", "config": {"widgets": "nao"}}, headers=h
     )
-    assert invalido.status_code == 422
-    assert invalido.headers["content-type"].startswith("application/problem+json")
+    assert invalid.status_code == 422
+    assert invalid.headers["content-type"].startswith("application/problem+json")
     sh = (await cli.post(f"/api/v1/dashboards/{p2['id']}/shares", json={"mode": "live"}, headers=h)).json()
     pub = (await cli.get(f"/api/v1/shared/{sh['token']}")).json()
     assert pub["dashboard"]["name"] == "SP" and pub["mode"] == "live"
@@ -84,8 +84,8 @@ async def test_dashboards_crud_default_and_sharing(cli):
         .json()["frozen_time"]
         .startswith("2026-10-04T22:00")
     )
-    sem_tempo = await cli.post(f"/api/v1/dashboards/{p2['id']}/shares", json={"mode": "frozen"}, headers=h)
-    assert sem_tempo.status_code == 422 and sem_tempo.json()["detail"]
+    no_time = await cli.post(f"/api/v1/dashboards/{p2['id']}/shares", json={"mode": "frozen"}, headers=h)
+    assert no_time.status_code == 422 and no_time.json()["detail"]
     h2, _ = await sign_up(cli, "bia@exemplo.com")
     assert (await cli.get(f"/api/v1/dashboards/{p1['id']}", headers=h2)).status_code == 404
     assert (await cli.delete(f"/api/v1/dashboards/{p1['id']}", headers=h)).status_code == 204
@@ -145,7 +145,7 @@ async def test_favorites_alerts_preferences(cli):
     assert (await cli.get("/api/v1/preferences", headers=h)).json()["candidate_colors"] == {"1": "#fff"}
 
 
-async def test_admin_coletor(cli, redis_cliente):
+async def test_admin_collector(cli, redis_cliente):
     h, _ = await sign_up(cli)
     assert (await cli.post("/api/v1/admin/collector/pause", headers=h)).json() == {"paused": True}
     assert await redis_cliente.get("collector:paused")
@@ -156,12 +156,12 @@ async def test_admin_coletor(cli, redis_cliente):
 
 
 async def test_404_and_422_as_problem_json(cli):
-    """Todo erro sai no mesmo formato RFC 9457, com `detail` explicando o que fazer."""
+    """Every error comes in the same RFC 9457 format, with `detail` explaining what to do."""
     r404 = await cli.get("/api/v1/candidates/9999999")
     assert r404.status_code == 404
     assert r404.headers["content-type"].startswith("application/problem+json")
-    corpo = r404.json()
-    assert corpo["status"] == 404 and corpo["type"] == "candidates/not_found" and corpo["detail"]
+    body = r404.json()
+    assert body["status"] == 404 and body["type"] == "candidates/not_found" and body["detail"]
     r422 = await cli.get("/api/v1/results", params={"level": "bogus"})
     assert r422.status_code == 422
     assert r422.headers["content-type"].startswith("application/problem+json")
@@ -179,7 +179,7 @@ async def test_health_at_root(cli):
 
 
 async def test_unit_of_work_undoes_what_raises_after_writing(engine, session):
-    """Uma função que grava e levanta exceção não deixa nada no banco."""
+    """A function that writes and raises leaves nothing in the database."""
     from app.core.errors import AppError
 
     sm = db_mod.get_sessionmaker()
@@ -194,28 +194,28 @@ async def test_unit_of_work_undoes_what_raises_after_writing(engine, session):
     assert total == 0
 
 
-async def test_commit_failure_becomes_500_not_200(banco_limpo):
-    """Com `scope="function"` o commit roda antes da resposta: se falha, o cliente recebe 500."""
+async def test_commit_failure_becomes_500_not_200(clean_db):
+    """With `scope="function"` the commit runs before the response: if it fails, the client gets 500."""
     from contextlib import asynccontextmanager
 
     from app.core.main import app as principal
 
     real = db_mod.get_sessionmaker()
 
-    def fabrica_que_falha():
+    def factory_that_fails():
         @asynccontextmanager
         async def abrir():
             async with real() as s:
 
-                async def commit_falha() -> None:
+                async def commit_failed() -> None:
                     raise RuntimeError("commit falhou de propósito")
 
-                s.commit = commit_falha  # type: ignore[method-assign]
+                s.commit = commit_failed  # type: ignore[method-assign]
                 yield s
 
         return abrir()
 
-    principal.dependency_overrides[db_mod.get_sessionmaker] = fabrica_que_falha
+    principal.dependency_overrides[db_mod.get_sessionmaker] = factory_that_fails
     try:
         transporte = httpx.ASGITransport(app=principal, raise_app_exceptions=False)
         async with httpx.AsyncClient(transport=transporte, base_url="http://teste") as cli:
@@ -233,14 +233,14 @@ async def test_attempt_limit_blocks_the_sixth_even_with_right_password(cli):
     for _ in range(5):
         errada = await cli.post("/api/v1/auth/login", json={"email": "ana@exemplo.com", "password": "errada"})
         assert errada.status_code == 401
-    bloqueada = await cli.post(
+    blocked = await cli.post(
         "/api/v1/auth/login", json={"email": "ana@exemplo.com", "password": "segredo123"}
     )
-    assert bloqueada.status_code == 429
-    assert bloqueada.headers["content-type"].startswith("application/problem+json")
-    assert int(bloqueada.headers["retry-after"]) > 0
-    assert bloqueada.json()["type"] == "auth/too_many_attempts"
-    assert "Aguarde" in bloqueada.json()["detail"]
+    assert blocked.status_code == 429
+    assert blocked.headers["content-type"].startswith("application/problem+json")
+    assert int(blocked.headers["retry-after"]) > 0
+    assert blocked.json()["type"] == "auth/too_many_attempts"
+    assert "Aguarde" in blocked.json()["detail"]
 
 
 async def test_successful_login_clears_the_email_counter(cli, redis_cliente):
@@ -258,11 +258,11 @@ async def test_login_works_again_after_the_window(cli, monkeypatch):
     await sign_up(cli)
     for _ in range(5):
         await cli.post("/api/v1/auth/login", json={"email": "ana@exemplo.com", "password": "errada"})
-    bloqueada = await cli.post(
+    blocked = await cli.post(
         "/api/v1/auth/login", json={"email": "ana@exemplo.com", "password": "segredo123"}
     )
-    assert bloqueada.status_code == 429
-    assert bloqueada.headers["retry-after"] == "900"
+    assert blocked.status_code == 429
+    assert blocked.headers["retry-after"] == "900"
     now[0] += 15 * 60 + 1
     ok = await cli.post("/api/v1/auth/login", json={"email": "ana@exemplo.com", "password": "segredo123"})
     assert ok.status_code == 200

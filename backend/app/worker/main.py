@@ -1,4 +1,4 @@
-"""Entrypoint do worker: consome a fila do coletor e processa os arquivos."""
+"""Worker entrypoint: consumes the collector's queue and processes the files."""
 
 import asyncio
 import logging
@@ -12,13 +12,13 @@ from app.worker.jobs import Processor
 log = logging.getLogger("worker")
 
 
-async def consumer(nome: str, proc: Processor) -> None:
+async def consumer(name: str, proc: Processor) -> None:
     redis = get_redis()
     while True:
         try:
             item = await queue.dequeue(redis, timeout=5)
         except Exception:
-            log.exception("[%s] falha ao ler a fila", nome)
+            log.exception("[%s] falha ao ler a fila", name)
             await asyncio.sleep(1)
             continue
         if not item:
@@ -29,7 +29,7 @@ async def consumer(nome: str, proc: Processor) -> None:
             await redis.hincrby("worker:metrics", f"ok:{type_}", 1)
         except Exception:
             log.exception(
-                "[%s] falha ao processar %s %s", nome, type_, context.get("file") or context.get("url")
+                "[%s] falha ao processar %s %s", name, type_, context.get("file") or context.get("url")
             )
             await redis.hincrby("worker:metrics", f"erro:{type_}", 1)
 

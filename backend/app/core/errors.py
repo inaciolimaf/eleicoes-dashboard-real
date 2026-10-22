@@ -122,5 +122,5 @@ async def handle_error(request: Request, exc: Exception) -> JSONResponse:
 
 
 def install_error_handlers(app: FastAPI) -> None:
-    for tipo in (AppError, StarletteHTTPException, RequestValidationError):
-        app.add_exception_handler(tipo, handle_error)
+    for kind in (AppError, StarletteHTTPException, RequestValidationError):
+        app.add_exception_handler(kind, handle_error)

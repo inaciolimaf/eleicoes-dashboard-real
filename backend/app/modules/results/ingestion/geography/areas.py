@@ -37,9 +37,9 @@ async def ingest_municipalities(
     rows: list[dict[str, Any]] = []
     zones: list[dict[str, Any]] = []
     for m in municipalities:
-        key = municipality_id_of(m.state_code, m.cd)
+        key = municipality_id_of(m.state_code, m.code)
         rows.append(_municipality_row(m, geo.get(m.ibge_code or -1, ()), key))
-        zones.extend(_zone_row(m.state_code, m.cd, z, key) for z in m.zones)
+        zones.extend(_zone_row(m.state_code, m.code, z, key) for z in m.zones)
     await _upsert_municipalities(session, rows)
     await insert_zones(session, zones)
     await session.flush()
@@ -52,7 +52,7 @@ def _municipality_row(m: MunicipalityTSE, geo: tuple[Any, ...], key: str) -> dic
     return {
         "id": key,
         "state_code": m.state_code,
-        "tse_code": m.cd,
+        "tse_code": m.code,
         "ibge_code": m.ibge_code,
         "name": name,
         "is_capital": m.is_capital,
@@ -61,11 +61,11 @@ def _municipality_row(m: MunicipalityTSE, geo: tuple[Any, ...], key: str) -> dic
     }
 
 
-def _zone_row(uf: str, cd_mun: int, zone: int, municipality_key: str) -> dict[str, Any]:
+def _zone_row(state_code: str, municipality_code: int, zone: int, municipality_key: str) -> dict[str, Any]:
     return {
-        "id": zone_id_of(uf, cd_mun, zone),
+        "id": zone_id_of(state_code, municipality_code, zone),
         "municipality_id": municipality_key,
-        "state_code": uf,
+        "state_code": state_code,
         "number": zone,
     }
 

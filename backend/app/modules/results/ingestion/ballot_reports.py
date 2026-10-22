@@ -33,7 +33,7 @@ class BallotReportContext:
     status: str
     tallied_at: datetime | None
     url: str | None
-    numeros: dict[tuple[int, int], str]
+    numbers: dict[tuple[int, int], str]
 
 
 @dataclass(frozen=True)
@@ -46,12 +46,12 @@ class _Keys:
 
 
 async def candidate_number_map(
-    session: AsyncSession, round_number: int, uf: str
+    session: AsyncSession, round_number: int, state_code: str
 ) -> dict[tuple[int, int], str]:
-    """(office code, ballot number) -> TSE candidate id, for President (uf=br) and the UF's state offices."""
+    """(office code, ballot number) -> TSE candidate id, for President and the state's offices."""
     result = await session.execute(
         select(Candidate.office_code, Candidate.ballot_number, Candidate.tse_candidate_id).where(
-            Candidate.round == round_number, Candidate.state_code.in_(["br", uf])
+            Candidate.round == round_number, Candidate.state_code.in_(["br", state_code])
         )
     )
     return {(int(c), int(n)): sq for c, n, sq in result.all()}
@@ -60,30 +60,30 @@ async def candidate_number_map(
 async def ingest_ballot_report(
     session: AsyncSession,
     round_number: int,
-    uf: str,
+    state_code: str,
     bu: DecodedBallotBox,
     ctx: BallotReportContext,
 ) -> list[tuple[int, str]]:
     """Writes the report and recalculates its polling place. Returns the [(office code, place id)] changed."""
-    keys = _keys(uf, bu)
+    keys = _keys(state_code, bu)
     municipality = await session.get(Municipality, keys.municipality_id)
     if municipality is None:
         return []
     await _ensure_place(session, bu, keys, municipality)
     await _upsert_section(session, bu, keys)
     await _upsert_report(session, _report_row(round_number, ctx, bu, keys))
-    changed = await recalculate_polling_place(session, round_number, keys.place_id, ctx.numeros)
+    changed = await recalculate_polling_place(session, round_number, keys.place_id, ctx.numbers)
     await session.flush()
     return changed
 
 
-def _keys(uf: str, bu: DecodedBallotBox) -> _Keys:
+def _keys(state_code: str, bu: DecodedBallotBox) -> _Keys:
     return _Keys(
-        state_code=uf,
-        municipality_id=municipality_id_of(uf, bu.municipality),
-        zone_id=zone_id_of(uf, bu.municipality, bu.zone),
-        place_id=polling_place_id_of(uf, bu.municipality, bu.zone, bu.polling_place),
-        section_id=section_id_of(uf, bu.municipality, bu.zone, bu.section),
+        state_code=state_code,
+        municipality_id=municipality_id_of(state_code, bu.municipality),
+        zone_id=zone_id_of(state_code, bu.municipality, bu.zone),
+        place_id=polling_place_id_of(state_code, bu.municipality, bu.zone, bu.polling_place),
+        section_id=section_id_of(state_code, bu.municipality, bu.zone, bu.section),
     )
 
 
@@ -162,12 +162,12 @@ def _report_row(
 
 def _votes_by_office(bu: DecodedBallotBox) -> dict[str, dict[str, Any]]:
     votes: dict[str, dict[str, Any]] = {}
-    for cargo in bu.offices:
-        nominal, legend = _split_votes(cargo.votes)
-        votes[str(cargo.office_code)] = {
-            "comp": cargo.turnout,
-            "b": cargo.blank_votes,
-            "n": cargo.null_votes,
+    for office in bu.offices:
+        nominal, legend = _split_votes(office.votes)
+        votes[str(office.office_code)] = {
+            "comp": office.turnout,
+            "b": office.blank_votes,
+            "n": office.null_votes,
             "nom": nominal,
             "leg": legend,
         }
@@ -180,9 +180,9 @@ def _split_votes(votes: list[BallotVote]) -> tuple[dict[str, int], dict[str, int
     for v in votes:
         if v.number is None:
             continue
-        if v.tipo == "nominal":
+        if v.kind == "nominal":
             nominal[str(v.number)] = nominal.get(str(v.number), 0) + v.votes
-        elif v.tipo == "legenda":
+        elif v.kind == "legenda":
             legend[str(v.number)] = legend.get(str(v.number), 0) + v.votes
     return nominal, legend
 

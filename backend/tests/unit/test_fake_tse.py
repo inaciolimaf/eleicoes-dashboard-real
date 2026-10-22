@@ -14,18 +14,18 @@ def div():
     return Publication(Scenario(seed=11, scale=0.05))
 
 
-def test_cenario_deterministico(div):
+def test_scenario_is_deterministic(div):
     other = Scenario(seed=11, scale=0.05)
     assert other.section_count == div.scenario.section_count
     assert np.array_equal(other.offices[(1, "br")].votes, div.scenario.offices[(1, "br")].votes)
 
 
-def test_soma_dos_municipios_bate_com_o_brasil(div):
+def test_municipality_sum_matches_brazil(div):
     t = 3600.0
     _, national = div.result(FEDERAL_ELECTION_CODE, 1, "br", None, None, t)
     total = 0
-    for uf in div.scenario.states:
-        _, document = div.result(FEDERAL_ELECTION_CODE, 1, uf, None, None, t)
+    for state_code in div.scenario.states:
+        _, document = div.result(FEDERAL_ELECTION_CODE, 1, state_code, None, None, t)
         total += parse_result(document, 1).totals.valid_votes
     assert total == parse_result(national, 1).totals.valid_votes
 
@@ -57,12 +57,12 @@ def test_final_presidente_e_proporcional(div):
     assert sum(1 for c in parse_result(senators, 5).candidates if c.elected) == 2
 
 
-def test_acompanhamento_e_boletim(div):
+def test_tracking_and_ballot_report(div):
     t = float(np.median(div.scenario.section_time))
     _, tracking = div.tracking(FEDERAL_ELECTION_CODE, "br", t)
     a = parse_tracking(tracking)
-    assert a.items[0].tipo == "br" and 45 <= a.items[0].pct_sections <= 55
-    assert len([i for i in a.items if i.tipo == "uf"]) == 27
+    assert a.items[0].kind == "br" and 45 <= a.items[0].pct_sections <= 55
+    assert len([i for i in a.items if i.kind == "uf"]) == 27
     i = int(np.argmin(div.scenario.section_time))
     _, aux = div.auxiliary(i, float(div.scenario.section_time[i]) + 1)
     assert aux["st"] == "Totalizada" and aux["hashes"][0]["nmarq"][2].endswith(".bu")

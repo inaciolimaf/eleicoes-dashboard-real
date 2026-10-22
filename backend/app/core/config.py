@@ -73,7 +73,7 @@ class Settings(BaseSettings):
     tse_fake_public_key: str = Field("", validation_alias="TSE_FAKE_CHAVE_PUBLICA")
     tse_fake_control_url: str = Field("http://tse-fake:8080/_fake", validation_alias="TSE_FAKE_CONTROLE_URL")
 
-    #: Open data: the "Eleitorado - local de votação" CSV (accepts .csv or .zip).
+    #: Open data: the TSE "Eleitorado - local de votação" CSV (accepts .csv or .zip).
     polling_places_url: str = Field(
         "http://tse-fake:8080/dadosabertos/eleitorado_local_votacao_2026.csv",
         validation_alias="LOCAIS_VOTACAO_URL",
@@ -99,10 +99,10 @@ class Settings(BaseSettings):
         """In production the process does not start with a missing, short or example secret."""
         if self.environment != "production":
             return self
-        segredo = self.jwt_secret.get_secret_value()
-        if len(segredo.encode()) < 32:
+        secret = self.jwt_secret.get_secret_value()
+        if len(secret.encode()) < 32:
             raise SettingsError("JWT_SECRET precisa de 32+ bytes em produção")
-        if segredo in EXAMPLE_SECRETS:
+        if secret in EXAMPLE_SECRETS:
             raise SettingsError("JWT_SECRET ainda está com o valor de exemplo de .env.example")
         return self
 

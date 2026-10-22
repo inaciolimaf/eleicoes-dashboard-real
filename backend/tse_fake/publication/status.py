@@ -32,7 +32,7 @@ def compute_situation(
         * office.votes_per_voter
     )
     order = list(np.argsort(-votes, kind="stable"))
-    situation: Situation = {cand.tse_candidate_id: ("n", "") for cand in office.candidates}
+    situation: Situation = {candidate.tse_candidate_id: ("n", "") for candidate in office.candidates}
     seats_by_alliance: dict[str, int] = {}
     decided = False
     valid = int(votes.sum())
@@ -58,12 +58,12 @@ def _decide_single_seat(
     leader = int(order[0])
     if final and votes[leader] * 2 <= valid:
         top_two = {int(order[0]), int(order[1])} if len(order) > 1 else {leader}
-        for i, cand in enumerate(office.candidates):
-            situation[cand.tse_candidate_id] = ("n", "2º turno") if i in top_two else ("n", "Não eleito")
+        for i, candidate in enumerate(office.candidates):
+            situation[candidate.tse_candidate_id] = ("n", "2º turno") if i in top_two else ("n", "Não eleito")
         return False
     if final or votes[leader] * 2 > valid + remaining:
-        for i, cand in enumerate(office.candidates):
-            situation[cand.tse_candidate_id] = ("s", "Eleito") if i == leader else ("n", "Não eleito")
+        for i, candidate in enumerate(office.candidates):
+            situation[candidate.tse_candidate_id] = ("s", "Eleito") if i == leader else ("n", "Não eleito")
         return True
     return False
 
@@ -81,8 +81,8 @@ def _decide_multi_seat(
     if not defined:
         return False
     elected = {int(x) for x in order[:seats]}
-    for i, cand in enumerate(office.candidates):
-        situation[cand.tse_candidate_id] = ("s", "Eleito") if i in elected else ("n", "Não eleito")
+    for i, candidate in enumerate(office.candidates):
+        situation[candidate.tse_candidate_id] = ("s", "Eleito") if i in elected else ("n", "Não eleito")
     return not final
 
 
@@ -91,8 +91,8 @@ def _alliance_votes(
 ) -> tuple[dict[str, int], dict[str, list[int]]]:
     alliance_votes: dict[str, int] = {}
     alliance_candidates: dict[str, list[int]] = {}
-    for i, cand in enumerate(office.candidates):
-        alliance = cand.party.alliance
+    for i, candidate in enumerate(office.candidates):
+        alliance = candidate.party.alliance
         alliance_votes[alliance] = alliance_votes.get(alliance, 0) + int(votes[i])
         alliance_candidates.setdefault(alliance, []).append(i)
     if party_votes is not None:

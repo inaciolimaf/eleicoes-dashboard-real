@@ -59,10 +59,10 @@ async def _tse_row(
 
 
 async def tse_line(
-    session: AsyncSession, turno: int, cd: int, nivel: str, rid: str, t: datetime | None
+    session: AsyncSession, round_number: int, office_code: int, level: str, rid: str, t: datetime | None
 ) -> Line | None:
     """Line the TSE published for the area: the current one, or the snapshot at `t`."""
-    obj = await _tse_row(session, turno, cd, nivel, rid, t)
+    obj = await _tse_row(session, round_number, office_code, level, rid, t)
     if obj is None:
         return None
     return {c.key: getattr(obj, c.key) for c in obj.__table__.columns}

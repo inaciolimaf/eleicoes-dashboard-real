@@ -1,4 +1,4 @@
-"""EA20 file (resultado unificado): the tally of one office, with the candidates, alliances and totals."""
+"""EA20 file (unified result): the tally of one office, with the candidates, alliances and totals."""
 
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -11,7 +11,7 @@ from app.infra.tse.parsers.common import generation_id
 @dataclass
 class RunningMateTSE:
     name: str
-    tipo: str
+    kind: str
 
 
 @dataclass
@@ -36,7 +36,7 @@ class CandidateTSE:
 class AllianceTSE:
     number: str
     name: str
-    tipo: str
+    kind: str
     parties: list[str]
     votes: int
     seats: int | None
@@ -130,24 +130,26 @@ def _select_office(data: dict[str, Any], office_code: int | None) -> dict[str, A
     return selected
 
 
-def _read_candidate(cand: dict[str, Any], party: dict[str, Any], alliance: dict[str, Any]) -> CandidateTSE:
+def _read_candidate(
+    candidate: dict[str, Any], party: dict[str, Any], alliance: dict[str, Any]
+) -> CandidateTSE:
     return CandidateTSE(
-        tse_candidate_id=str(cand.get("sqcand") or cand.get("n")),
-        number=integer(cand.get("n")),
-        name=str(cand.get("nm") or ""),
-        ballot_name=str(cand.get("nmu") or cand.get("nm") or ""),
+        tse_candidate_id=str(candidate.get("sqcand") or candidate.get("n")),
+        number=integer(candidate.get("n")),
+        name=str(candidate.get("nm") or ""),
+        ballot_name=str(candidate.get("nmu") or candidate.get("nm") or ""),
         party_abbreviation=str(party.get("sg") or ""),
         party_number=integer(party.get("n")),
         alliance=str(alliance.get("nm") or party.get("nm") or ""),
         alliance_number=str(alliance.get("n") or ""),
-        votes=integer(cand.get("vap")),
-        pct_valid=decimal(cand.get("pvapn", cand.get("pvap"))),
-        elected=yes_no(cand.get("e")),
-        tse_status=str(cand.get("st") or ""),
-        vote_destination=str(cand.get("dvt") or "Válido"),
+        votes=integer(candidate.get("vap")),
+        pct_valid=decimal(candidate.get("pvapn", candidate.get("pvap"))),
+        elected=yes_no(candidate.get("e")),
+        tse_status=str(candidate.get("st") or ""),
+        vote_destination=str(candidate.get("dvt") or "Válido"),
         running_mates=[
-            RunningMateTSE(name=str(x.get("nmu") or x.get("nm") or ""), tipo=str(x.get("tp") or "v"))
-            for x in (cand.get("vs") or [])
+            RunningMateTSE(name=str(x.get("nmu") or x.get("nm") or ""), kind=str(x.get("tp") or "v"))
+            for x in (candidate.get("vs") or [])
         ],
     )
 
@@ -158,15 +160,15 @@ def _read_alliance(alliance: dict[str, Any]) -> tuple[AllianceTSE, list[Candidat
     candidates: list[CandidateTSE] = []
     votes = 0
     for party in parties:
-        for cand in party.get("cand", []) or []:
-            count = integer(cand.get("vap"))
-            votes += count if str(cand.get("dvt") or "Válido").startswith("V") else 0
-            candidates.append(_read_candidate(cand, party, alliance))
+        for candidate in party.get("cand", []) or []:
+            count = integer(candidate.get("vap"))
+            votes += count if str(candidate.get("dvt") or "Válido").startswith("V") else 0
+            candidates.append(_read_candidate(candidate, party, alliance))
         votes += integer(party.get("tvl"))
     row = AllianceTSE(
         number=str(alliance.get("n") or ""),
         name=str(alliance.get("nm") or "/".join(acronyms)),
-        tipo=str(alliance.get("tp") or "i"),
+        kind=str(alliance.get("tp") or "i"),
         parties=acronyms,
         votes=integer(alliance.get("tvtl"), votes) or votes,
         seats=integer_or_none(alliance.get("vag")),

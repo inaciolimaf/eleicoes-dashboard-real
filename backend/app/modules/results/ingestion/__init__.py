@@ -1,9 +1,4 @@
-"""Ingestion of the TSE files into the database, called by the collector and the worker.
-
-The collector and the worker still use the Portuguese names below; they are aliases of the English
-ones, which are the names for new code. Context fields keep their Portuguese spelling because the
-worker builds them with keyword arguments.
-"""
+"""Ingestion of the TSE files into the database, called by the collector and the worker."""
 
 from app.modules.results.ingestion.ballot_reports import (
     BallotReportContext,

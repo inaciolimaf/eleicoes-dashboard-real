@@ -51,29 +51,29 @@ async def last_tally(session: AsyncSession) -> datetime | None:
     ).scalar_one()
 
 
-async def pct_country(session: AsyncSession, turno: int = 1) -> float:
+async def pct_country(session: AsyncSession, round_number: int = 1) -> float:
     r = (
         await session.execute(
             select(CurrentProgress.pct_sections).where(
-                CurrentProgress.round == turno, CurrentProgress.level == "country"
+                CurrentProgress.round == round_number, CurrentProgress.level == "country"
             )
         )
     ).scalar_one_or_none()
     return float(r or 0.0)
 
 
-async def _progress_rows(session: AsyncSession, turno: int, t: datetime | None) -> list[ProgressRow]:
+async def _progress_rows(session: AsyncSession, round_number: int, t: datetime | None) -> list[ProgressRow]:
     """Country and state progress: the current rows, or the latest snapshot up to `t`."""
     levels = ["country", "state"]
     if t is None:
         stmt = select(CurrentProgress).where(
-            CurrentProgress.round == turno, CurrentProgress.level.in_(levels)
+            CurrentProgress.round == round_number, CurrentProgress.level.in_(levels)
         )
         return list((await session.execute(stmt)).scalars().all())
     stmt_snap = (
         select(ProgressSnapshot)
         .where(
-            ProgressSnapshot.round == turno,
+            ProgressSnapshot.round == round_number,
             ProgressSnapshot.level.in_(levels),
             ProgressSnapshot.tallied_at <= t,
         )
@@ -108,8 +108,8 @@ def _progress_country(br: ProgressRow | None) -> dict[str, Any]:
     }
 
 
-async def progress(session: AsyncSession, turno: int, t: datetime | None) -> dict[str, Any]:
-    rows = await _progress_rows(session, turno, t)
+async def progress(session: AsyncSession, round_number: int, t: datetime | None) -> dict[str, Any]:
+    rows = await _progress_rows(session, round_number, t)
     names = {u.code: u.name for u in (await session.execute(select(State))).scalars()}
     municipalities = dict(
         (

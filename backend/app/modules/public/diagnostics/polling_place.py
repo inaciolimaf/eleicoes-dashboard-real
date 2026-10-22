@@ -14,7 +14,7 @@ COLLECTOR_DIAGNOSTIC_FIELDS = ("section_mode", "section_queue", "sections_collec
 
 
 async def polling_place_diagnostics(
-    session: AsyncSession, turno: int, polling_place_id: str
+    session: AsyncSession, round_number: int, polling_place_id: str
 ) -> PollingPlaceDiagnosticsDto:
     """Explains why the sections of a polling place do not show.
 
@@ -29,13 +29,13 @@ async def polling_place_diagnostics(
         .scalars()
         .all()
     )
-    reported = await _reported_section_ids(session, turno, lid)
+    reported = await _reported_section_ids(session, round_number, lid)
     requests = await demand.pending(redis)
     return PollingPlaceDiagnosticsDto(
         polling_place_id=lid,
         polling_place_in_db=place is not None,
         municipality_in_db=bool(place and await session.get(Municipality, place.municipality_id)),
-        request_registered=(turno, "polling_place", lid) in requests,
+        request_registered=(round_number, "polling_place", lid) in requests,
         collector=await _collector_diagnostic(redis),
         sections=[
             await _section_diagnostic(redis, section.id, section.id in reported) for section in sections
@@ -43,11 +43,11 @@ async def polling_place_diagnostics(
     )
 
 
-async def _reported_section_ids(session: AsyncSession, turno: int, lid: str) -> set[str]:
+async def _reported_section_ids(session: AsyncSession, round_number: int, lid: str) -> set[str]:
     """Sections of the polling place whose ballot box report is already in the database."""
     rows = await session.execute(
         select(BallotBoxReport.polling_section_id).where(
-            BallotBoxReport.round == turno, BallotBoxReport.polling_place_id == lid
+            BallotBoxReport.round == round_number, BallotBoxReport.polling_place_id == lid
         )
     )
     return set(rows.scalars())

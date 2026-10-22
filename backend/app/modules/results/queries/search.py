@@ -155,7 +155,7 @@ async def _section_hits(session: AsyncSession, number: int, rest: str, limit: in
 
 
 async def _numbered_hits(session: AsyncSession, q: str, number: str, limit: int) -> list[dict[str, Any]]:
-    """`zona 12 ...` and `secao 120 ...`: a zone or a section number, with an optional municipality name."""
+    """Zone or section number typed as `zona 12` or `secao 120`, optionally with a municipality."""
     words = without_accents(q).split()
     if not (number and words and words[0] in ZONE_WORDS + SECTION_WORDS):
         return []
@@ -165,7 +165,7 @@ async def _numbered_hits(session: AsyncSession, q: str, number: str, limit: int)
     return await _section_hits(session, int(number), rest, limit)
 
 
-async def search_items(session: AsyncSession, q: str, limite: int = 20) -> dict[str, Any]:
+async def search_items(session: AsyncSession, q: str, limit: int = 20) -> dict[str, Any]:
     q = q.strip()
     if len(q) < 2:
         return {"items": []}
@@ -173,8 +173,8 @@ async def search_items(session: AsyncSession, q: str, limite: int = 20) -> dict[
     number = "".join(ch for ch in q if ch.isdigit())
     items: list[dict[str, Any]] = []
     items += await _state_hits(session, q, term)
-    items += await _municipality_hits(session, term, limite)
-    items += await _candidate_hits(session, q, term, number, limite)
-    items += await _polling_place_hits(session, term, limite)
-    items += await _numbered_hits(session, q, number, limite)
-    return {"items": items[: limite * 3]}
+    items += await _municipality_hits(session, term, limit)
+    items += await _candidate_hits(session, q, term, number, limit)
+    items += await _polling_place_hits(session, term, limit)
+    items += await _numbered_hits(session, q, number, limit)
+    return {"items": items[: limit * 3]}

@@ -16,6 +16,7 @@ class CandidateDto(BaseModel):
     photo_url: str
     state_code: str | None
     office_code: int
+    office_name: str
     overall_status: str
     elected: bool
     vice_and_substitutes: list[ViceDto]

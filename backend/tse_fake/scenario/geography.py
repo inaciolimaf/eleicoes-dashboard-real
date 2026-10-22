@@ -75,7 +75,7 @@ class _GeographyBuilder:
         self.scenario = scenario
         self.rng = scenario.rng
         self.cols = _SectionColumns()
-        self.uf_index = {state_code: i for i, state_code in enumerate(scenario.states)}
+        self.state_index = {state_code: i for i, state_code in enumerate(scenario.states)}
         self.zone_numbers: dict[str, int] = {}
 
     def add_municipality(self, entry: dict[str, Any]) -> None:
@@ -175,7 +175,7 @@ class _GeographyBuilder:
     ) -> int:
         lat, lon = point
         for _ in range(size):
-            self.cols.state_code.append(self.uf_index[mun.state_code])
+            self.cols.state_code.append(self.state_index[mun.state_code])
             self.cols.municipality.append(mun.idx)
             self.cols.zone.append(zone.idx)
             self.cols.place.append(place.idx)
@@ -216,7 +216,7 @@ class _GeographyBuilder:
     def finish(self) -> None:
         scenario = self.scenario
         cols = self.cols
-        scenario.section_uf = np.array(cols.state_code, dtype=np.int16)
+        scenario.section_state = np.array(cols.state_code, dtype=np.int16)
         scenario.section_municipality = np.array(cols.municipality, dtype=np.int32)
         scenario.section_zone = np.array(cols.zone, dtype=np.int32)
         scenario.section_place = np.array(cols.place, dtype=np.int32)
@@ -226,5 +226,5 @@ class _GeographyBuilder:
         scenario.section_lon = np.array(cols.lon, dtype=np.float64)
         scenario.section_count = len(cols.number)
         for state_code in scenario.states:
-            indexes = np.nonzero(scenario.section_uf == self.uf_index[state_code])[0]
+            indexes = np.nonzero(scenario.section_state == self.state_index[state_code])[0]
             scenario.state_ranges[state_code] = (int(indexes[0]), int(indexes[-1]) + 1)

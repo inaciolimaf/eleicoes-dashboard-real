@@ -1,11 +1,11 @@
-"""Regras de domínio: recortes, situação do candidato, eventos e colors."""
+"""Domain rules: geo areas, candidate status, events and colors."""
 
 from datetime import UTC, datetime
 
 import pytest
 
 from app.modules.elections import colors, status
-from app.modules.events import detection as eventos
+from app.modules.events import detection as events
 from app.modules.geography import CHILD_LEVEL, GeoAreaInvalid, parse
 
 
@@ -69,43 +69,43 @@ def test_leading_is_computed_only_while_tse_has_not_decided():
     assert status.calculate(cands, 2, False, False, True)["b"] == "LEADING"
     # proporcional: ninguém "liderando"
     assert set(status.calculate(cands, 0, False, False, True).values()) == {"COUNTING"}
-    # abaixo da abrangência do cargo, a situação local ignora o "eleito" do TSE
+    # below the office's coverage, the local status ignores the TSE "eleito" flag
     cands[0].update(e=True, st="Eleito")
     assert status.calculate(cands, 1, True, False, False)["a"] == "LEADING"
     assert status.calculate(cands, 1, True, False, True)["a"] == "ELECTED"
 
 
-def _linha(pct, lider, segundo="x", level="country", cd=1):
+def _line(pct, leader, second="x", level="country", office_code=1):
     return {
         "level": level,
-        "office_code": cd,
+        "office_code": office_code,
         "geo_area_id": "br" if level == "country" else "mg",
         "round": 1,
         "tallied_at": datetime(2026, 10, 4, 22, tzinfo=UTC),
         "pct_sections": pct,
-        "leader_candidate_id": lider,
-        "second_candidate_id": segundo,
+        "leader_candidate_id": leader,
+        "second_candidate_id": second,
         "leader_pct": 49.0,
         "second_pct": 48.0,
     }
 
 
 def test_events_start_milestones_and_lead_change():
-    nomes = {"a": "ANA", "b": "BIA"}
-    evs = eventos.detect(_linha(0, None), _linha(26, "a"), nomes, "Brasil", "majoritario")
-    tipos = [e["type"] for e in evs]
-    assert tipos.count("milestone") == 2 and "start" in tipos
-    evs = eventos.detect(_linha(60, "a", "b"), _linha(61, "b", "a"), nomes, "Brasil", "majoritario")
+    names = {"a": "ANA", "b": "BIA"}
+    evs = events.detect(_line(0, None), _line(26, "a"), names, "Brasil", "majoritario")
+    types = [e["type"] for e in evs]
+    assert types.count("milestone") == 2 and "start" in types
+    evs = events.detect(_line(60, "a", "b"), _line(61, "b", "a"), names, "Brasil", "majoritario")
     virada = next(e for e in evs if e["type"] == "lead_change")
     assert "BIA passou ANA" in virada["description"]
-    assert eventos.detect(_linha(60, "a"), _linha(61, "b"), nomes, "Brasil", "proporcional") == []
-    assert eventos.detect(None, _linha(50, "a", level="municipality"), nomes, "X", "majoritario") == []
+    assert events.detect(_line(60, "a"), _line(61, "b"), names, "Brasil", "proporcional") == []
+    assert events.detect(None, _line(50, "a", level="municipality"), names, "X", "majoritario") == []
 
 
 def test_events_elected_and_runoff():
-    evs = eventos.detect(
-        _linha(99, "a"),
-        _linha(100, "a"),
+    evs = events.detect(
+        _line(99, "a"),
+        _line(100, "a"),
         {"a": "ANA", "b": "BIA"},
         "Brasil",
         "majoritario",
@@ -113,9 +113,9 @@ def test_events_elected_and_runoff():
         {"a": "RUNOFF", "b": "RUNOFF"},
     )
     assert [e["type"] for e in evs].count("runoff") == 2
-    evs = eventos.detect(
-        _linha(80, "a"),
-        _linha(81, "a"),
+    evs = events.detect(
+        _line(80, "a"),
+        _line(81, "a"),
         {"a": "ANA"},
         "Minas Gerais",
         "majoritario",
@@ -133,7 +133,7 @@ def test_colors_are_stable():
 def test_colors_by_party():
     vermelho_pt = colors.PARTIES[13][1]
     assert colors.party_color(13) == vermelho_pt
-    assert colors.party_color(13123) == vermelho_pt  # candidato a vereador do PT
+    assert colors.party_color(13123) == vermelho_pt  # a PT city councillor candidate
     assert colors.candidate_color(13, None, None) == vermelho_pt
     assert colors.candidate_color(99, 13, None) == vermelho_pt
     assert colors.candidate_color(99, None, "pt") == vermelho_pt
