@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.infra.tse.parsers import AcompanhamentoTSE, ProgressoTSE
+from app.infra.tse.parsers import AcompanhamentoTSE, ProgressTSE
 from app.modules.geography import municipio_id
 from app.modules.results.ingestion.common import now
 from app.modules.results.models import CurrentProgress, ProgressSnapshot
@@ -47,7 +47,7 @@ async def ingest_progress(
     return changed
 
 
-def _area_of(item: ProgressoTSE, file_uf: str) -> _Area:
+def _area_of(item: ProgressTSE, file_uf: str) -> _Area:
     if item.tipo == "br":
         return _Area("country", "br", "br")
     if item.tipo == "uf":
@@ -57,7 +57,7 @@ def _area_of(item: ProgressoTSE, file_uf: str) -> _Area:
 
 
 def _progress_row(
-    round_number: int, area: _Area, item: ProgressoTSE, acomp: AcompanhamentoTSE, captured_at: datetime | None
+    round_number: int, area: _Area, item: ProgressTSE, acomp: AcompanhamentoTSE, captured_at: datetime | None
 ) -> dict[str, Any]:
     return {
         "round": round_number,
@@ -93,7 +93,7 @@ async def _current_progress(session: AsyncSession, round_number: int, area: _Are
     return current
 
 
-def _unchanged(current: CurrentProgress | None, item: ProgressoTSE) -> bool:
+def _unchanged(current: CurrentProgress | None, item: ProgressTSE) -> bool:
     return (
         current is not None
         and current.sections_tallied == item.secoes_totalizadas

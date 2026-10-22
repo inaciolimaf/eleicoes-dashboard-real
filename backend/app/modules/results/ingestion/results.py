@@ -8,7 +8,7 @@ from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.infra.tse.parsers import AgremiacaoTSE, CandidatoTSE, ResultadoTSE, TotaisTSE
+from app.infra.tse.parsers import AllianceTSE, CandidateTSE, ResultadoTSE, TotalsTSE
 from app.modules.geography import Municipality
 from app.modules.results.ingestion.candidates import ensure_candidates
 from app.modules.results.ingestion.common import now
@@ -86,7 +86,7 @@ def _result_row(ctx: ResultContext, res: ResultadoTSE, system: str) -> dict[str,
     return row
 
 
-def _totals_columns(t: TotaisTSE) -> dict[str, Any]:
+def _totals_columns(t: TotalsTSE) -> dict[str, Any]:
     return {
         "electorate": t.eleitorado,
         "tallied_electorate": t.eleitorado_apurado,
@@ -129,7 +129,7 @@ def _ranking_columns(res: ResultadoTSE, system: str) -> dict[str, Any]:
     }
 
 
-def _candidate_line(c: CandidatoTSE) -> dict[str, Any]:
+def _candidate_line(c: CandidateTSE) -> dict[str, Any]:
     return {
         "sq": c.sqcand,
         "v": c.votos,
@@ -140,7 +140,7 @@ def _candidate_line(c: CandidatoTSE) -> dict[str, Any]:
     }
 
 
-def _alliance_line(a: AgremiacaoTSE) -> dict[str, Any]:
+def _alliance_line(a: AllianceTSE) -> dict[str, Any]:
     return {"nome": a.nome, "partidos": a.partidos, "v": a.votos, "vag": a.vagas, "n": a.numero}
 
 

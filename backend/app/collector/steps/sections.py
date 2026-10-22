@@ -11,7 +11,7 @@ import orjson
 from app.collector.steps.base import SectionRef, log, now_iso
 from app.collector.steps.catalog import CatalogSteps
 from app.infra import queue
-from app.infra.tse.parsers import ArquivoUrnaTSE, parse_auxiliar
+from app.infra.tse.parsers import UrnFileTSE, parse_auxiliar
 
 
 class SectionSteps(CatalogSteps):
@@ -74,7 +74,7 @@ class SectionSteps(CatalogSteps):
         await self._fetch_ballot(ref, ballot_box, high_priority, diag)
 
     async def _fetch_ballot(
-        self, ref: SectionRef, ballot_box: ArquivoUrnaTSE, high_priority: bool, diag: dict[str, Any]
+        self, ref: SectionRef, ballot_box: UrnFileTSE, high_priority: bool, diag: dict[str, Any]
     ) -> None:
         assert self.urls is not None
         name = ballot_box.nome_bu()

@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.infra.tse.parsers import CandidatoTSE, ResultadoTSE
+from app.infra.tse.parsers import CandidateTSE, ResultadoTSE
 from app.modules.elections import Candidate, colors
 from app.modules.elections import status as candidate_status
 
@@ -64,7 +64,7 @@ async def _upsert_candidates(
         await session.execute(stmt)
 
 
-def _candidate_row(ctx: ResultContext, c: CandidatoTSE, statuses: dict[str, str]) -> dict[str, Any]:
+def _candidate_row(ctx: ResultContext, c: CandidateTSE, statuses: dict[str, str]) -> dict[str, Any]:
     return {
         "tse_candidate_id": c.sqcand,
         "election_id": ctx.eleicao_id,

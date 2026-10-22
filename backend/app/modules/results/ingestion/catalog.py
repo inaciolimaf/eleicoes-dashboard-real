@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.infra.tse.catalog import CargoCatalogo, Catalogo, PleitoCatalogo
+from app.infra.tse.catalog import CatalogEvent, Catalogo, CatalogOffice
 from app.modules.elections import Election, ElectionOffice
 
 SEATS_BY_MAJORITARIAN_OFFICE = {1: 1, 3: 1, 5: 2, 11: 1}
@@ -21,10 +21,10 @@ class _ElectionRecord:
     turn: int
     jurisdiction: str
     name: str
-    offices: list[CargoCatalogo]
+    offices: list[CatalogOffice]
 
 
-def _election_records(event: PleitoCatalogo) -> list[_ElectionRecord]:
+def _election_records(event: CatalogEvent) -> list[_ElectionRecord]:
     records: list[_ElectionRecord] = []
     for e in event.eleicoes:
         records.append(_ElectionRecord(e.cd, e.turno, e.tipo, e.nome, e.cargos))
@@ -55,7 +55,7 @@ async def ingest_catalog(session: AsyncSession, catalog: Catalogo, environment: 
 
 
 async def _upsert_election(
-    session: AsyncSession, event: PleitoCatalogo, environment: str, record: _ElectionRecord
+    session: AsyncSession, event: CatalogEvent, environment: str, record: _ElectionRecord
 ) -> int:
     stmt = (
         insert(Election)
@@ -87,7 +87,7 @@ async def _upsert_election(
     return election_id
 
 
-async def _upsert_office(session: AsyncSession, election_id: int, office: CargoCatalogo) -> None:
+async def _upsert_office(session: AsyncSession, election_id: int, office: CatalogOffice) -> None:
     seats = SEATS_BY_MAJORITARIAN_OFFICE.get(office.cd) if office.sistema == "majoritario" else None
     await session.execute(
         insert(ElectionOffice)
