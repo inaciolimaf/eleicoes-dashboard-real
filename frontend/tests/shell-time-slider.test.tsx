@@ -63,7 +63,7 @@ describe("shell time slider", () => {
     expect(Date.parse(useTime.getState().t ?? "")).toBe(Date.parse(TIMELINE_EVENTS[0].occurred_at));
     await user.click(screen.getByRole("button", { name: "Próximo evento" }));
     expect(Date.parse(useTime.getState().t ?? "")).toBe(Date.parse(TIMELINE_EVENTS[1].occurred_at));
-    await user.click(screen.getByRole("button", { name: "EventDto anterior" }));
+    await user.click(screen.getByRole("button", { name: "Evento anterior" }));
     expect(Date.parse(useTime.getState().t ?? "")).toBe(Date.parse(TIMELINE_EVENTS[0].occurred_at));
   });
 

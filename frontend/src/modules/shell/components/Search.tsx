@@ -40,8 +40,7 @@ export function Search() {
 
   const openHit = useCallback(
     (hit: SearchItemDto) => {
-      // the API marks candidate hits as "candidato" here, as it always did
-      if (hit.type === "candidato") {
+      if (hit.type === "candidate") {
         if (hit.office_code)
           useFilter
             .getState()

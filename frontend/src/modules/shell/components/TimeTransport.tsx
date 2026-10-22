@@ -16,13 +16,8 @@ interface TimeTransportProps {
 export function TimeTransport({ playing, onTogglePlay, onJump }: TimeTransportProps) {
   return (
     <Group gap={4} wrap="nowrap">
-      <Tooltip label="EventDto anterior">
-        <ActionIcon
-          variant="subtle"
-          onClick={() => onJump(-1)}
-          aria-label="EventDto anterior"
-          visibleFrom="sm"
-        >
+      <Tooltip label="Evento anterior">
+        <ActionIcon variant="subtle" onClick={() => onJump(-1)} aria-label="Evento anterior" visibleFrom="sm">
           <IconPlayerTrackPrev size={16} />
         </ActionIcon>
       </Tooltip>

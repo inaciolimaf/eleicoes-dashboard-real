@@ -74,3 +74,22 @@ describe("shell search", () => {
     expect(await screen.findByText("São Paulo", {}, { timeout: 2000 })).toBeInTheDocument();
   });
 });
+
+describe("shell search hits", () => {
+  it("a candidate hit opens the candidate screen", async () => {
+    const hit = {
+      type: "candidate",
+      id: "280001234567",
+      title: "FULANO",
+      subtitle: "Presidente",
+      office_code: 1,
+      state_code: null,
+    };
+    const api = fakeApi(shellAnswers({ "GET /search": { items: [hit] } }));
+    const { user } = await renderScreen("/conta");
+    const input = await openSpotlight();
+    await user.type(input, "fulano");
+    await user.click(await screen.findByText("FULANO"));
+    await vi.waitFor(() => expect(api.calls("GET /candidates/280001234567").length).toBeGreaterThan(0));
+  });
+});
