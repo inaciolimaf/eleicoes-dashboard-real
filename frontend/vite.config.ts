@@ -68,8 +68,7 @@ export default defineConfig({
       provider: "v8",
       include: ["src/**"],
       exclude: ["src/api/types.ts", "src/main.tsx"],
-      // TEMPORARY: raised to 60 once the screen tests exist (standard: testing.md)
-      thresholds: { lines: 0, statements: 0, functions: 0, branches: 0 },
+      thresholds: { lines: 60, statements: 60, functions: 60, branches: 60 },
     },
   },
 });

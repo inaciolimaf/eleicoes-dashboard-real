@@ -48,41 +48,6 @@ const SHARED_IMPORTS = [
   },
 ];
 
-// TEMPORARY (refactoring of 2026-10-22): files that do not comply with the new rules yet. To check a file: ESLINT_STRICT=1 npx eslint <file>.
-const PENDING = [
-  "src/modules/charts/components/Donut.tsx",
-  "src/modules/charts/components/EChart.tsx",
-  "src/modules/charts/components/Evolution.tsx",
-  "src/modules/charts/components/Hemicycle.tsx",
-  "src/modules/charts/components/ProgressHeatmap.tsx",
-  "src/modules/polling-places/components/PollingPlaceDetail.tsx",
-  "src/modules/maps/components/Legend.tsx",
-  "src/modules/maps/components/ElectoralMapView.tsx",
-  "src/modules/results/components/TotalsBlock.tsx",
-  "src/modules/results/components/CandidateCard.tsx",
-  "src/modules/results/components/Scoreboard.tsx",
-  "src/modules/sections/components/SectionDetail.tsx",
-  "src/modules/results/components/GeoAreaTable.tsx",
-  "src/lib/export.ts",
-  "src/lib/useColor.ts",
-  "src/modules/results/components/CandidateScreen.tsx",
-  "src/modules/results/components/CandidatesScreen.tsx",
-  "src/modules/results/components/ExploreScreen.tsx",
-  "src/modules/maps/components/MapsScreen.tsx",
-  "src/modules/dashboards/components/DashboardsScreen.tsx",
-  "src/modules/dashboards/components/TvScreen.tsx",
-  "src/modules/dashboards/components/ShareModal.tsx",
-  "src/modules/dashboards/components/ConfigDrawer.tsx",
-  "src/modules/dashboards/components/WidgetDrawer.tsx",
-  "src/modules/dashboards/components/NewDashboardModal.tsx",
-  "src/modules/dashboards/components/DashboardView.tsx",
-  "src/modules/dashboards/repo.ts",
-  "src/modules/realtime/apply.ts",
-  "src/modules/dashboards/widgets/components.tsx",
-  "src/modules/dashboards/widgets/registry.tsx",
-];
-const STRICT = process.env.ESLINT_STRICT === "1";
-
 export default tseslint.config(
   {
     ignores: [
@@ -127,13 +92,5 @@ export default tseslint.config(
     rules: { "no-restricted-syntax": syntax("color") },
   },
   { files: ["src/lib/formatting.ts"], rules: { "no-restricted-syntax": syntax("number") } },
-  ...(STRICT || PENDING.length === 0
-    ? []
-    : [
-        {
-          files: PENDING,
-          rules: { "max-lines-per-function": "off", "max-lines": "off", "no-restricted-syntax": "off" },
-        },
-      ]),
   prettier,
 );
