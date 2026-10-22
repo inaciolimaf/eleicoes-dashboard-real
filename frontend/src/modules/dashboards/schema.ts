@@ -1,6 +1,11 @@
 import { z } from "zod";
 import type { Level } from "../../api/models";
 
+/**
+ * Version of the dashboard JSON stored in `dashboards.config` and in `localStorage`.
+ * The keys of that JSON (`filtroGlobal`, `herda`, `nivelFilhos`, widget type ids...) are user
+ * data: they keep their Portuguese names so saved dashboards and shared links still load.
+ */
 export const SCHEMA_VERSION = 1;
 
 export const WIDGET_TYPES = [
@@ -23,8 +28,8 @@ export const WIDGET_TYPES = [
 ] as const;
 export type WidgetType = (typeof WIDGET_TYPES)[number];
 
-/** Níveis salvos antes da migração para a API em inglês: a leitura aceita os dois vocabulários. */
-const NIVEL_LEGADO: Record<string, Level> = {
+/** Levels saved before the API moved to English names: reading accepts both vocabularies. */
+const LEGACY_LEVELS: Record<string, Level> = {
   br: "country",
   uf: "state",
   municipio: "municipality",
@@ -32,7 +37,7 @@ const NIVEL_LEGADO: Record<string, Level> = {
   local: "polling_place",
   secao: "section",
 };
-const nivelZ = z
+const levelSchema = z
   .enum([
     "br",
     "uf",
@@ -47,7 +52,7 @@ const nivelZ = z
     "polling_place",
     "section",
   ])
-  .transform((v): Level => NIVEL_LEGADO[v] ?? (v as Level));
+  .transform((value): Level => LEGACY_LEVELS[value] ?? (value as Level));
 
 export const globalFilterSchema = z
   .object({
@@ -55,7 +60,7 @@ export const globalFilterSchema = z
     ciclo: z.string().nullable().optional(),
     turno: z.number().int().min(1).max(2).default(1),
     cargo: z.number().int().default(1),
-    nivel: nivelZ.default("br"),
+    nivel: levelSchema.default("br"),
     recorte: z.string().default("br"),
     tempo: z.string().default("agora"),
   })
@@ -74,7 +79,7 @@ export const widgetFiltersSchema = z
   .object({
     turno: z.number().int().min(1).max(2),
     cargo: z.number().int(),
-    nivel: nivelZ,
+    nivel: levelSchema,
     recorte: z.string(),
     tempo: z.string(),
   })
@@ -91,8 +96,14 @@ export const widgetSchema = z.object({
 });
 export type WidgetCfg = z.infer<typeof widgetSchema>;
 
-const layoutItemZ = z.object({ i: z.string(), x: z.number(), y: z.number(), w: z.number(), h: z.number() });
-export type LayoutItem = z.infer<typeof layoutItemZ>;
+const layoutItemSchema = z.object({
+  i: z.string(),
+  x: z.number(),
+  y: z.number(),
+  w: z.number(),
+  h: z.number(),
+});
+export type LayoutItem = z.infer<typeof layoutItemSchema>;
 
 export const dashboardConfigSchema = z
   .object({
@@ -101,13 +112,13 @@ export const dashboardConfigSchema = z
     schemaVersion: z.number().int().default(SCHEMA_VERSION),
     filtroGlobal: globalFilterSchema,
     widgets: z.array(widgetSchema),
-    /** layouts por breakpoint (md/sm/xs). O lg vem de widgets[].pos */
-    layouts: z.record(z.array(layoutItemZ)).optional(),
+    /** Layouts per breakpoint (md/sm/xs). The lg layout comes from widgets[].pos. */
+    layouts: z.record(z.array(layoutItemSchema)).optional(),
   })
   .passthrough();
 export type DashboardConfig = z.infer<typeof dashboardConfigSchema>;
 
-/** Formato do arquivo exportado/importado */
+/** Format of the exported/imported file. */
 export const dashboardFileSchema = z.object({
   formato: z.literal("eleicoes-dashboard/painel").optional(),
   schemaVersion: z.number().int().min(1).max(SCHEMA_VERSION),
@@ -116,20 +127,20 @@ export const dashboardFileSchema = z.object({
 });
 export type DashboardFile = z.infer<typeof dashboardFileSchema>;
 
-/** Migrações futuras: hoje só existe a versão 1. */
-export function migrate(cfg: unknown): DashboardConfig | null {
-  const r = dashboardConfigSchema.safeParse(cfg);
-  if (!r.success) return null;
-  return { ...r.data, schemaVersion: SCHEMA_VERSION };
+/** Parses a stored config; `null` when it does not match the schema. Only version 1 exists. */
+export function migrate(config: unknown): DashboardConfig | null {
+  const parsed = dashboardConfigSchema.safeParse(config);
+  if (!parsed.success) return null;
+  return { ...parsed.data, schemaVersion: SCHEMA_VERSION };
 }
 
 export function newWidgetId(): string {
   return `w${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 }
 
-export function describeZodError(e: z.ZodError): string {
-  return e.issues
+export function describeZodError(error: z.ZodError): string {
+  return error.issues
     .slice(0, 4)
-    .map((i) => `${i.path.join(".") || "(raiz)"}: ${i.message}`)
+    .map((issue) => `${issue.path.join(".") || "(raiz)"}: ${issue.message}`)
     .join("; ");
 }
