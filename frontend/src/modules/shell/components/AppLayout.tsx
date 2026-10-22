@@ -4,31 +4,33 @@ import { Suspense, useEffect, useState } from "react";
 import { Outlet } from "react-router-dom";
 import { useFilter } from "../../../lib/filter-store";
 import { useDesktopNav, useUi } from "../../../lib/ui-store";
-import { useLive } from "../../realtime";
-import { topic } from "../../realtime";
+import { topic, useLive } from "../../realtime";
+import { AuthModal } from "../../accounts";
 import { Header } from "./Header";
 import { Navbar } from "./Navbar";
 import { FilterBar } from "./FilterBar";
 import { TimeSlider } from "./TimeSlider";
-import { AuthModal } from "../../accounts";
 
-function BannerReconexao() {
-  const ws = useUi((s) => s.wsEstado);
-  const [mostrar, setMostrar] = useState(false);
+/** The banner waits this long before it shows, so a quick reconnect does not flash it. */
+const RECONNECT_BANNER_DELAY_MS = 2500;
+
+function ReconnectBanner() {
+  const socketState = useUi((s) => s.wsEstado);
+  const [visible, setVisible] = useState(false);
   useEffect(() => {
-    if (ws !== "reconectando") {
-      setMostrar(false);
+    if (socketState !== "reconectando") {
+      setVisible(false);
       return;
     }
-    const id = setTimeout(() => setMostrar(true), 2500);
+    const id = setTimeout(() => setVisible(true), RECONNECT_BANNER_DELAY_MS);
     return () => clearTimeout(id);
-  }, [ws]);
+  }, [socketState]);
   return (
-    <Transition mounted={mostrar} transition="slide-down" duration={200}>
-      {(st) => (
+    <Transition mounted={visible} transition="slide-down" duration={200}>
+      {(styles) => (
         <Alert
           style={{
-            ...st,
+            ...styles,
             position: "fixed",
             top: 64,
             left: "50%",
@@ -58,15 +60,15 @@ export function Loading() {
 
 /** AppShell: header, navbar recolhível, barra de filtro, conteúdo e slider de tempo fixo no rodapé. */
 export function AppLayout() {
-  const navbarAberta = useUi((s) => s.navbarAberta);
-  const desktop = useDesktopNav((s) => s.aberta);
-  const turno = useFilter((s) => s.turno);
-  // tópicos globais: eventos (toasts) e status
-  useLive([topic.events(turno), topic.status()]);
+  const navbarOpen = useUi((s) => s.navbarAberta);
+  const desktopNavOpen = useDesktopNav((s) => s.aberta);
+  const round = useFilter((s) => s.turno);
+  // global topics: events (toasts) and status
+  useLive([topic.events(round), topic.status()]);
   return (
     <AppShell
       header={{ height: 60 }}
-      navbar={{ width: 250, breakpoint: "sm", collapsed: { mobile: !navbarAberta, desktop: !desktop } }}
+      navbar={{ width: 250, breakpoint: "sm", collapsed: { mobile: !navbarOpen, desktop: !desktopNavOpen } }}
       footer={{ height: 64 }}
       padding={0}
       transitionDuration={250}
@@ -90,7 +92,7 @@ export function AppLayout() {
       <AppShell.Footer>
         <TimeSlider />
       </AppShell.Footer>
-      <BannerReconexao />
+      <ReconnectBanner />
       <AuthModal />
     </AppShell>
   );

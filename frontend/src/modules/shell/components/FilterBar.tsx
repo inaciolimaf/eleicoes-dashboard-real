@@ -1,75 +1,47 @@
-import { ActionIcon, Anchor, Badge, Breadcrumbs, Group, ScrollArea, Text, Tooltip } from "@mantine/core";
-import {
-  IconChevronRight,
-  IconClockHour4,
-  IconSearch,
-  IconStar,
-  IconStarFilled,
-  IconX,
-} from "@tabler/icons-react";
+import { ActionIcon, Badge, Group, ScrollArea, Tooltip } from "@mantine/core";
+import { spotlight } from "@mantine/spotlight";
+import { IconClockHour4, IconSearch, IconStar, IconStarFilled, IconX } from "@tabler/icons-react";
 import { useEffect } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useResults, useStatus } from "../../results";
-import { ENVIRONMENT } from "./LiveIndicator";
-import type { GeoAreaRefDto, Level } from "../../../api/models";
+import { useResults, useStatus, useOfficeWithoutBrResult } from "../../results";
+import { useFavorites } from "../../accounts";
+import type { GeoAreaRefDto } from "../../../api/models";
 import { useFilter } from "../../../lib/filter-store";
 import { useTime } from "../../../lib/time-store";
-import { useFavorites } from "../../accounts";
-import { geoAreaLink, defaultGeoAreaName } from "../../../lib/geo-areas";
 import { OFFICE_NAME } from "../../../lib/offices";
 import { fmtShortDate } from "../../../lib/time";
-import { useOfficeWithoutBrResult } from "../../results";
-import { spotlight } from "@mantine/spotlight";
-import { asLevel } from "../../../lib/geo-areas";
+import { ENVIRONMENT } from "./LiveIndicator";
+import { FavoriteChips } from "./FavoriteChips";
+import { GeoCrumbs, defaultBreadcrumb } from "./GeoCrumbs";
 
-function breadcrumbPadrao(nivel: Level, id: string, nome?: string): GeoAreaRefDto[] {
-  const l: GeoAreaRefDto[] = [{ level: "country", id: "br", name: "Brasil" }];
-  if (nivel === "country") return l;
-  const uf = id.slice(0, 2);
-  l.push({ level: "state", id: uf, name: defaultGeoAreaName("state", uf) });
-  if (nivel !== "state") l.push({ level: nivel, id, name: nome ?? defaultGeoAreaName(nivel, id) });
-  return l;
-}
-
-/** Barra de filtro global: breadcrumb clicável, cargo, chip de tempo e favoritos. */
+/** Global filter bar: clickable breadcrumb, office, time chip and favorites. */
 export function FilterBar() {
-  const f = useFilter();
-  const t = useTime((s) => s.t);
-  const aoVivo = useTime((s) => s.aoVivo);
-  const navigate = useNavigate();
-  const loc = useLocation();
-  const semBr = useOfficeWithoutBrResult(f.cargo, f.nivel);
-  const q = useResults(
-    { turno: f.turno, cargo: f.cargo, nivel: f.nivel, id: f.id, t },
-    !semBr && f.nivel !== "country",
+  const filter = useFilter();
+  const time = useTime((s) => s.t);
+  const goLive = useTime((s) => s.aoVivo);
+  const withoutBrResult = useOfficeWithoutBrResult(filter.cargo, filter.nivel);
+  const geoQuery = useResults(
+    { turno: filter.turno, cargo: filter.cargo, nivel: filter.nivel, id: filter.id, t: time },
+    !withoutBrResult && filter.nivel !== "country",
   );
-  const { favoritos, eFavorito, alternar } = useFavorites();
+  const { favoritos: favorites, eFavorito: isFavorite, alternar: toggleFavorite } = useFavorites();
   const status = useStatus();
-  const crumbs = q.data?.geo_area.breadcrumb?.length
-    ? q.data.geo_area.breadcrumb
-    : breadcrumbPadrao(f.nivel, f.id, f.nome);
-  const atual = crumbs[crumbs.length - 1];
+  const crumbs: GeoAreaRefDto[] = geoQuery.data?.geo_area.breadcrumb?.length
+    ? geoQuery.data.geo_area.breadcrumb
+    : defaultBreadcrumb(filter.nivel, filter.id, filter.nome);
+  const current = crumbs[crumbs.length - 1];
 
-  // guarda o nome do recorte para os chips dos widgets
+  // keeps the area name for the widget chips
   useEffect(() => {
-    if (q.data?.geo_area?.name && q.data.geo_area.id === f.id && q.data.geo_area.name !== f.nome)
-      useFilter.getState().setFiltro({ nome: q.data.geo_area.name });
-  }, [q.data, f.id, f.nome]);
-
-  const ir = (c: GeoAreaRefDto) => {
     if (
-      c.level === "polling_place" ||
-      c.level === "section" ||
-      loc.pathname.startsWith("/explorar") ||
-      loc.pathname.startsWith("/locais") ||
-      loc.pathname.startsWith("/secoes")
-    ) {
-      if (c.level !== "polling_place" && c.level !== "section") f.setRecorte(asLevel(c.level), c.id, c.name);
-      navigate(geoAreaLink(asLevel(c.level), c.id));
-    } else f.setRecorte(asLevel(c.level), c.id, c.name);
-  };
+      geoQuery.data?.geo_area?.name &&
+      geoQuery.data.geo_area.id === filter.id &&
+      geoQuery.data.geo_area.name !== filter.nome
+    )
+      useFilter.getState().setFiltro({ nome: geoQuery.data.geo_area.name });
+  }, [geoQuery.data, filter.id, filter.nome]);
 
-  const fav = eFavorito("geo_area", `${f.nivel}:${f.id}`);
+  const areaRef = `${filter.nivel}:${filter.id}`;
+  const starred = isFavorite("geo_area", areaRef);
 
   return (
     <Group
@@ -84,41 +56,22 @@ export function FilterBar() {
     >
       <ScrollArea type="never" style={{ flex: 1, minWidth: 0 }}>
         <Group gap="xs" wrap="nowrap">
-          <Breadcrumbs
-            separator={<IconChevronRight size={12} />}
-            separatorMargin={4}
-            styles={{ root: { flexWrap: "nowrap" } }}
-          >
-            {crumbs.map((c, i) => (
-              <Anchor
-                key={`${c.level}:${c.id}`}
-                component="button"
-                type="button"
-                size="sm"
-                fw={i === crumbs.length - 1 ? 700 : 500}
-                c={i === crumbs.length - 1 ? undefined : "dimmed"}
-                onClick={() => ir(c)}
-                style={{ whiteSpace: "nowrap" }}
-              >
-                {c.name}
-              </Anchor>
-            ))}
-          </Breadcrumbs>
-          <Tooltip label={fav ? "Remover dos favoritos" : "Adicionar recorte aos favoritos"}>
+          <GeoCrumbs crumbs={crumbs} />
+          <Tooltip label={starred ? "Remover dos favoritos" : "Adicionar recorte aos favoritos"}>
             <ActionIcon
               variant="subtle"
               size="sm"
               color="yellow"
               onClick={() =>
-                alternar({ type: "geo_area", ref: `${f.nivel}:${f.id}`, label: atual?.name ?? f.id })
+                toggleFavorite({ type: "geo_area", ref: areaRef, label: current?.name ?? filter.id })
               }
               aria-label="Favoritar recorte"
             >
-              {fav ? <IconStarFilled size={14} /> : <IconStar size={14} />}
+              {starred ? <IconStarFilled size={14} /> : <IconStar size={14} />}
             </ActionIcon>
           </Tooltip>
           <Badge variant="light" color="gray" size="sm" style={{ flexShrink: 0 }}>
-            {OFFICE_NAME[f.cargo] ?? `Cargo ${f.cargo}`} · {f.turno}º turno
+            {OFFICE_NAME[filter.cargo] ?? `Cargo ${filter.cargo}`} · {filter.turno}º turno
           </Badge>
           {status.data && status.data.tse_environment !== "oficial" && (
             <Tooltip label="Ambiente de dados (não é o resultado oficial)">
@@ -127,7 +80,7 @@ export function FilterBar() {
               </Badge>
             </Tooltip>
           )}
-          {t && (
+          {time && (
             <Badge
               color="yellow"
               variant="light"
@@ -138,7 +91,7 @@ export function FilterBar() {
                   size={14}
                   variant="transparent"
                   color="yellow"
-                  onClick={aoVivo}
+                  onClick={goLive}
                   aria-label="Voltar ao vivo"
                 >
                   <IconX size={10} />
@@ -146,41 +99,10 @@ export function FilterBar() {
               }
               style={{ flexShrink: 0 }}
             >
-              {fmtShortDate(t)}
+              {fmtShortDate(time)}
             </Badge>
           )}
-          {favoritos.length > 0 && (
-            <>
-              <Text size="xs" c="dimmed" visibleFrom="md" style={{ whiteSpace: "nowrap" }}>
-                Favoritos:
-              </Text>
-              {favoritos.slice(0, 12).map((fv) => {
-                const destino =
-                  fv.type === "candidate"
-                    ? `/candidatos/${fv.ref}`
-                    : fv.type === "polling_place"
-                      ? `/locais/${fv.ref}`
-                      : (() => {
-                          const [n, ...r] = fv.ref.split(":");
-                          return geoAreaLink(n as Level, r.join(":"));
-                        })();
-                return (
-                  <Badge
-                    key={`${fv.type}:${fv.ref}`}
-                    component={Link}
-                    to={destino}
-                    variant="outline"
-                    color={fv.type === "candidate" ? "grape" : "yellow"}
-                    size="sm"
-                    style={{ cursor: "pointer", flexShrink: 0, textTransform: "none" }}
-                    leftSection={<IconStarFilled size={10} />}
-                  >
-                    {fv.label}
-                  </Badge>
-                );
-              })}
-            </>
-          )}
+          {favorites.length > 0 && <FavoriteChips favorites={favorites} />}
         </Group>
       </ScrollArea>
       <Tooltip label="Buscar recorte (Ctrl+K)">

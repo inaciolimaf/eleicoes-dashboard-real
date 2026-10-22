@@ -8,8 +8,8 @@ import type {
   TokenDto,
   UserDto,
 } from "../../api/models";
-import { useAuth } from "../../lib/auth-store";
 import { qk } from "../../api/query-keys";
+import { useAuth } from "../../lib/auth-store";
 
 export function useMe() {
   const token = useAuth((s) => s.token);
@@ -23,30 +23,34 @@ export function useMe() {
 }
 
 export function useLogin() {
-  const setSessao = useAuth((s) => s.setSessao);
-  const qc = useQueryClient();
+  const setSession = useAuth((s) => s.setSessao);
+  const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (b: { email: string; senha: string }) =>
+    mutationFn: (credentials: { email: string; password: string }) =>
       api<TokenDto>("/auth/login", {
         method: "POST",
-        body: { email: b.email, password: b.senha } satisfies LoginCreate,
+        body: { email: credentials.email, password: credentials.password } satisfies LoginCreate,
       }),
-    onSuccess: (r) => {
-      setSessao(r.access_token, r.user);
-      qc.invalidateQueries({ queryKey: qk.paineis() });
+    onSuccess: (token) => {
+      setSession(token.access_token, token.user);
+      queryClient.invalidateQueries({ queryKey: qk.paineis() });
     },
   });
 }
 
 export function useRegister() {
-  const setSessao = useAuth((s) => s.setSessao);
+  const setSession = useAuth((s) => s.setSessao);
   return useMutation({
-    mutationFn: (b: { email: string; senha: string; nome: string }) =>
+    mutationFn: (credentials: { email: string; password: string; name: string }) =>
       api<TokenDto>("/auth/register", {
         method: "POST",
-        body: { email: b.email, password: b.senha, name: b.nome } satisfies RegisterCreate,
+        body: {
+          email: credentials.email,
+          password: credentials.password,
+          name: credentials.name,
+        } satisfies RegisterCreate,
       }),
-    onSuccess: (r) => setSessao(r.access_token, r.user),
+    onSuccess: (token) => setSession(token.access_token, token.user),
   });
 }
 

@@ -1,2 +1,1 @@
-export * from "./components/AlertsScreen";
-export * from "./hooks";
+export { AlertsScreen } from "./components/AlertsScreen";
