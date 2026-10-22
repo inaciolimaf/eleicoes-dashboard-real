@@ -54,6 +54,7 @@ class AppError(Exception):
         detail: str,
         type: str,  # noqa: A002 - é o nome do campo do RFC 9457
         extras: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
     ) -> None:
         if not detail or not detail.strip():
             raise ValueError("AppError exige um detail que explique o que fazer")
@@ -65,13 +66,20 @@ class AppError(Exception):
         self.detail = detail
         self.type = type
         self.extras = extras or {}
+        #: Cabeçalhos extras da resposta, por exemplo `Retry-After` no 429.
+        self.headers = headers or {}
 
 
 def problem(
-    status_code: int, title: str, detail: str, type_: str, extras: dict[str, Any] | None = None
+    status_code: int,
+    title: str,
+    detail: str,
+    type_: str,
+    extras: dict[str, Any] | None = None,
+    headers: dict[str, str] | None = None,
 ) -> JSONResponse:
     corpo = {"type": type_, "title": title, "status": status_code, "detail": detail, **(extras or {})}
-    return JSONResponse(corpo, status_code=status_code, media_type=PROBLEM_MEDIA_TYPE)
+    return JSONResponse(corpo, status_code=status_code, media_type=PROBLEM_MEDIA_TYPE, headers=headers)
 
 
 def _de_http(exc: StarletteHTTPException) -> JSONResponse:
@@ -106,7 +114,7 @@ def _de_validacao(exc: RequestValidationError) -> JSONResponse:
 async def handle_error(request: Request, exc: Exception) -> JSONResponse:
     """O único handler: converte qualquer erro conhecido em `problem+json`."""
     if isinstance(exc, AppError):
-        return problem(exc.status_code, exc.title, exc.detail, exc.type, exc.extras)
+        return problem(exc.status_code, exc.title, exc.detail, exc.type, exc.extras, exc.headers)
     if isinstance(exc, RequestValidationError):
         return _de_validacao(exc)
     if isinstance(exc, StarletteHTTPException):

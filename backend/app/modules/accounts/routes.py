@@ -1,9 +1,10 @@
 """Rotas de conta: autenticação, painéis, compartilhamento, favoritos e preferências (só HTTP)."""
 
-from fastapi import APIRouter, Response
+from fastapi import APIRouter, Request, Response
 
 from app.core.deps import DbSession
-from app.modules.accounts import auth, dashboards, favorites, preferences
+from app.modules.accounts import dashboards, favorites, preferences
+from app.modules.accounts.auth import credentials, tokens
 from app.modules.accounts.deps import UsuarioDep
 from app.modules.accounts.schemas import (
     DashboardCreate,
@@ -27,17 +28,18 @@ router = APIRouter()
 
 @router.post("/auth/register", status_code=201, response_model=TokenDto, tags=["auth"])
 async def register(session: DbSession, dados: RegisterCreate) -> TokenDto:
-    return auth.token_dto(await auth.register(session, dados))
+    return tokens.token_dto(await credentials.register(session, dados))
 
 
 @router.post("/auth/login", response_model=TokenDto, tags=["auth"])
-async def login(session: DbSession, dados: LoginCreate) -> TokenDto:
-    return auth.token_dto(await auth.authenticate(session, dados))
+async def login(session: DbSession, dados: LoginCreate, request: Request) -> TokenDto:
+    ip = request.client.host if request.client else "unknown"
+    return tokens.token_dto(await credentials.authenticate(session, dados, ip))
 
 
 @router.get("/auth/me", response_model=UserDto, tags=["auth"])
 async def me(u: UsuarioDep) -> UserDto:
-    return auth.user_dto(u)
+    return tokens.user_dto(u)
 
 
 @router.get("/dashboards", response_model=list[DashboardDto], tags=["dashboards"])

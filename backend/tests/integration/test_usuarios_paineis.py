@@ -7,6 +7,7 @@ from sqlalchemy import func, select
 from app.core import db as db_mod
 from app.core.main import app
 from app.modules.accounts import User
+from app.modules.accounts.auth import login_limit
 
 CONFIG = {
     "filtroGlobal": {"turno": 1, "cargo": 1, "nivel": "br", "id": "br", "tempo": "agora"},
@@ -225,3 +226,43 @@ async def test_falha_no_commit_vira_500_e_nao_200(banco_limpo):
         assert r.status_code == 500
     finally:
         principal.dependency_overrides.clear()
+
+
+async def test_limite_de_tentativas_bloqueia_a_sexta_mesmo_com_senha_certa(cli):
+    await registrar(cli)
+    for _ in range(5):
+        errada = await cli.post("/api/v1/auth/login", json={"email": "ana@exemplo.com", "password": "errada"})
+        assert errada.status_code == 401
+    bloqueada = await cli.post(
+        "/api/v1/auth/login", json={"email": "ana@exemplo.com", "password": "segredo123"}
+    )
+    assert bloqueada.status_code == 429
+    assert bloqueada.headers["content-type"].startswith("application/problem+json")
+    assert int(bloqueada.headers["retry-after"]) > 0
+    assert bloqueada.json()["type"] == "auth/too_many_attempts"
+    assert "Aguarde" in bloqueada.json()["detail"]
+
+
+async def test_login_certo_zera_o_contador_do_email(cli, redis_cliente):
+    await registrar(cli)
+    for _ in range(4):
+        await cli.post("/api/v1/auth/login", json={"email": "ana@exemplo.com", "password": "errada"})
+    ok = await cli.post("/api/v1/auth/login", json={"email": "ana@exemplo.com", "password": "segredo123"})
+    assert ok.status_code == 200
+    assert await redis_cliente.zcard("login:failures:email:ana@exemplo.com") == 0
+
+
+async def test_depois_da_janela_o_login_volta_a_funcionar(cli, monkeypatch):
+    agora = [1_000_000.0]
+    monkeypatch.setattr(login_limit, "clock", lambda: agora[0])
+    await registrar(cli)
+    for _ in range(5):
+        await cli.post("/api/v1/auth/login", json={"email": "ana@exemplo.com", "password": "errada"})
+    bloqueada = await cli.post(
+        "/api/v1/auth/login", json={"email": "ana@exemplo.com", "password": "segredo123"}
+    )
+    assert bloqueada.status_code == 429
+    assert bloqueada.headers["retry-after"] == "900"
+    agora[0] += 15 * 60 + 1
+    ok = await cli.post("/api/v1/auth/login", json={"email": "ana@exemplo.com", "password": "segredo123"})
+    assert ok.status_code == 200

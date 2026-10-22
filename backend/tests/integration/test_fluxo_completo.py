@@ -67,9 +67,9 @@ async def ambiente(engine, redis_cliente):
     cliente = httpx.AsyncClient(transport=httpx.ASGITransport(app=fake.app))
     s = get_settings().model_copy(
         update={
-            "intervalo_min_municipio": 0,
+            "interval_min_municipality": 0,
             # o fluxo completo varre as seções; o modo sob demanda tem teste próprio
-            "modo_secoes": "todas",
+            "section_mode": "todas",
         }
     )
     coletor = Coletor(s, get_sessionmaker(), redis_cliente, Fetcher(10000, 16, cliente=cliente))
@@ -178,7 +178,7 @@ async def test_secoes_sob_demanda(ambiente, api, redis_cliente):
     coletor, proc = ambiente
     # A configuração é imutável: o coletor recebe uma cópia com o modo sob demanda.
     s_original = coletor.s
-    coletor.s = get_settings().model_copy(update={"modo_secoes": "sob_demanda"})
+    coletor.s = get_settings().model_copy(update={"section_mode": "sob_demanda"})
     try:
         while not coletor.fila_sec.empty():
             coletor.fila_sec.get_nowait()
