@@ -2,7 +2,9 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup, configure } from "@testing-library/react";
 import { afterEach, vi } from "vitest";
 
-configure({ asyncUtilTimeout: 4000 });
+// Role queries on the large screens (maps, dashboards) take seconds while the whole suite runs in
+// parallel under coverage; the wait lives here, not in each test.
+configure({ asyncUtilTimeout: 8000 });
 
 // maplibre-gl creates a worker blob URL when it is imported; jsdom has no createObjectURL.
 if (!URL.createObjectURL) URL.createObjectURL = () => "blob:test";

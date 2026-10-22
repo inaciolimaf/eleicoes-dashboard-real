@@ -12,7 +12,7 @@ export const ERROR_SCREEN_TITLE = "Não foi possível carregar";
  * `tests/e2e-routes-list.test.ts` compares the two lists); `path` is the URL the routes project
  * opens, with fake ids where the screen needs one.
  */
-export const ROUTES: { pattern: string; path: string }[] = [
+export const ROUTES: { pattern: string; path: string; missingId?: boolean }[] = [
   { pattern: "/", path: "/" },
   { pattern: "/p/:token", path: "/p/x" },
   { pattern: "/tv", path: "/tv" },
@@ -22,9 +22,9 @@ export const ROUTES: { pattern: string; path: string }[] = [
   { pattern: "/explorar/:nivel", path: "/explorar/uf" },
   { pattern: "/explorar/:nivel/:id", path: "/explorar/uf/sp" },
   { pattern: "/mapas", path: "/mapas" },
-  { pattern: "/locais/:id", path: "/locais/x" },
-  { pattern: "/secoes/:id", path: "/secoes/x" },
-  { pattern: "/secoes/:uf/:mun/:zona/:secao", path: "/secoes/sp/0/0/0" },
+  { pattern: "/locais/:id", path: "/locais/x", missingId: true },
+  { pattern: "/secoes/:id", path: "/secoes/sp00000-z0000-s0000", missingId: true },
+  { pattern: "/secoes/:uf/:mun/:zona/:secao", path: "/secoes/sp/00000/0000/0000", missingId: true },
   { pattern: "/candidatos", path: "/candidatos" },
   { pattern: "/candidatos/:sqcand", path: "/candidatos/0" },
   { pattern: "/eventos", path: "/eventos" },
@@ -35,25 +35,33 @@ export const ROUTES: { pattern: string; path: string }[] = [
   { pattern: "*", path: "/rota-que-nao-existe" },
 ];
 
-/** Opens a route and fails on an uncaught error, the error screen or an empty `#root`. */
-export async function abrirRota(page: Page, path: string): Promise<void> {
+/** Text of the API's 404 `detail` for a record that does not exist ("... não encontrado"). */
+const NOT_FOUND_DETAIL = /não encontrad/i;
+
+/**
+ * Opens a route and fails on an uncaught error, an empty `#root` or the error screen. A route opened
+ * with an id that does not exist (`missingId`) may show the error screen, but only with the API's
+ * "not found" detail.
+ */
+export async function openRoute(page: Page, path: string, missingId = false): Promise<void> {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto(path, { waitUntil: "load" });
   await page.waitForLoadState("networkidle").catch(() => undefined);
   await expect(page.locator("#root")).not.toBeEmpty();
-  await expect(page.getByText(ERROR_SCREEN_TITLE)).toHaveCount(0);
+  if (missingId) await expect(page.getByText(NOT_FOUND_DETAIL).first()).toBeVisible();
+  else await expect(page.getByText(ERROR_SCREEN_TITLE)).toHaveCount(0);
   expect(errors, `page errors in ${path}`).toEqual([]);
 }
 
 /** Logs in through the form at `/conta`, the way the user does. */
-export async function entrarPeloFormulario(page: Page): Promise<void> {
-  if (!E2E_EMAIL || !E2E_SENHA) throw new Error("Defina E2E_EMAIL e E2E_SENHA para os flows.");
+export async function signInThroughForm(page: Page): Promise<void> {
+  if (!E2E_EMAIL || !E2E_SENHA) throw new Error("Set E2E_EMAIL and E2E_SENHA to run the flows.");
   await page.goto("/conta");
   await page.getByRole("button", { name: "Entrar", exact: true }).first().click();
-  const dialogo = page.getByRole("dialog");
-  await dialogo.getByLabel("E-mail").fill(E2E_EMAIL);
-  await dialogo.getByLabel("Senha").fill(E2E_SENHA);
-  await dialogo.getByRole("button", { name: "Entrar", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("E-mail").fill(E2E_EMAIL);
+  await dialog.getByLabel("Senha").fill(E2E_SENHA);
+  await dialog.getByRole("button", { name: "Entrar", exact: true }).click();
   await expect(page.getByRole("button", { name: "Menu do usuário" })).toBeVisible();
 }

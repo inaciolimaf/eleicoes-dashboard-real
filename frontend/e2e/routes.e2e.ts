@@ -1,8 +1,8 @@
 import { test } from "@playwright/test";
-import { abrirRota, ROUTES } from "./helpers";
+import { openRoute, ROUTES } from "./helpers";
 
-for (const rota of ROUTES) {
-  test(`abre ${rota.pattern} sem erro`, async ({ page }) => {
-    await abrirRota(page, rota.path);
+for (const route of ROUTES) {
+  test(`opens ${route.pattern} without errors`, async ({ page }) => {
+    await openRoute(page, route.path, route.missingId);
   });
 }
