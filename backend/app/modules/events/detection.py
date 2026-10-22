@@ -1,13 +1,19 @@
-"""Detecção de eventos da apuração (lead_change, milestone, elected, runoff) por comparação de estados."""
+"""Event detection for the tally: compares the state before and after a result line.
+
+Only the country and state levels produce events. The titles and descriptions are product text
+(Portuguese); the event types and payload keys are the stored, English names.
+"""
 
 from __future__ import annotations
 
-from datetime import datetime
+from dataclasses import dataclass
+from typing import Any
 
-from app.modules.elections import status as situacao
+from app.modules.elections import status
 
-MARCOS = (10, 25, 50, 75, 90, 100)
-NOMES_CARGO = {
+MILESTONES = (10, 25, 50, 75, 90, 100)
+ELECTED_STATUSES = (status.ELECTED, status.MATHEMATICALLY_ELECTED)
+OFFICE_NAMES = {
     1: "Presidente",
     3: "Governador",
     5: "Senador",
@@ -21,109 +27,165 @@ def _fmt(p: float) -> str:
     return f"{p:.2f}".replace(".", ",") + "%"
 
 
-def detectar(
-    anterior: dict | None,
-    novo: dict,
-    nomes: dict[str, str],
-    recorte_nome: str,
-    sistema: str,
-    situacoes_antes: dict[str, str] | None = None,
-    situacoes_depois: dict[str, str] | None = None,
-) -> list[dict]:
-    """Eventos para um recorte country/state de um cargo. `nomes`: tse_candidate_id -> nome de urna."""
-    eventos: list[dict] = []
-    nivel, cd = novo["level"], novo["office_code"]
-    if nivel not in ("country", "state"):
-        return eventos
-    quando: datetime = novo["tallied_at"]
-    base = {
-        "office_code": cd,
-        "level": nivel,
-        "geo_area_id": novo["geo_area_id"],
-        "occurred_at": quando,
-        "round": novo["round"],
-    }
-    pct_antes = (anterior or {}).get("pct_sections") or 0.0
-    pct_depois = novo.get("pct_sections") or 0.0
-    cargo_nome = NOMES_CARGO.get(cd, str(cd))
+@dataclass(frozen=True)
+class _Change:
+    """One country or state level of one office, between two result lines."""
 
-    if cd == 1 and nivel == "country" and pct_antes <= 0 < pct_depois:
-        eventos.append(
-            {
-                **base,
-                "type": "start",
-                "title": "Começou a divulgação dos resultados",
-                "description": f"Primeiras seções totalizadas ({_fmt(pct_depois)}).",
-                "payload": {},
-            }
-        )
-    # marcos de apuração: só para o cargo de referência (o progresso é o mesmo para todos os cargos)
-    referencia = cd == 1 or (nivel == "state" and cd == 3)
-    if referencia and not (cd == 3 and nivel == "country"):
-        for m in MARCOS:
-            if pct_antes < m <= pct_depois + 1e-9:
-                titulo = (
-                    f"Apuração finalizada em {recorte_nome}"
-                    if m == 100
-                    else f"{recorte_nome}: {m}% das seções apuradas"
-                )
-                eventos.append(
-                    {
-                        **base,
-                        "type": "milestone",
-                        "title": titulo,
-                        "description": f"{_fmt(pct_depois)} das seções totalizadas.",
-                        "payload": {"milestone": m},
-                    }
-                )
-    # virada de liderança (só majoritários; ignora ruído do comecinho)
-    if sistema == "majoritario" and anterior and pct_depois >= 1.0:
-        l_antes, l_depois = anterior.get("leader_candidate_id"), novo.get("leader_candidate_id")
-        if l_antes and l_depois and l_antes != l_depois:
-            eventos.append(
+    before: dict[str, Any] | None
+    after: dict[str, Any]
+    area_name: str
+    office_name: str
+    system: str
+
+    @property
+    def base(self) -> dict[str, Any]:
+        row = self.after
+        return {
+            "office_code": row["office_code"],
+            "level": row["level"],
+            "geo_area_id": row["geo_area_id"],
+            "occurred_at": row["tallied_at"],
+            "round": row["round"],
+        }
+
+    @property
+    def pct_before(self) -> float:
+        return (self.before or {}).get("pct_sections") or 0.0
+
+    @property
+    def pct_after(self) -> float:
+        return self.after.get("pct_sections") or 0.0
+
+
+def detect(
+    before: dict[str, Any] | None,
+    after: dict[str, Any],
+    names: dict[str, str],
+    area_name: str,
+    system: str,
+    statuses_before: dict[str, str] | None = None,
+    statuses_after: dict[str, str] | None = None,
+) -> list[dict[str, Any]]:
+    """Events for a country or state level of one office. `names`: tse_candidate_id -> ballot name."""
+    if after["level"] not in ("country", "state"):
+        return []
+    change = _Change(
+        before, after, area_name, OFFICE_NAMES.get(after["office_code"], str(after["office_code"])), system
+    )
+    events: list[dict[str, Any]] = []
+    start = _start_event(change)
+    if start is not None:
+        events.append(start)
+    events.extend(_milestone_events(change))
+    lead = _lead_change_event(change, names)
+    if lead is not None:
+        events.append(lead)
+    events.extend(_status_events(change, names, statuses_before or {}, statuses_after))
+    return events
+
+
+def _start_event(change: _Change) -> dict[str, Any] | None:
+    if change.after["office_code"] != 1 or change.after["level"] != "country":
+        return None
+    if not change.pct_before <= 0 < change.pct_after:
+        return None
+    return {
+        **change.base,
+        "type": "start",
+        "title": "Começou a divulgação dos resultados",
+        "description": f"Primeiras seções totalizadas ({_fmt(change.pct_after)}).",
+        "payload": {},
+    }
+
+
+def _milestone_events(change: _Change) -> list[dict[str, Any]]:
+    """Progress marks, only for the reference office (the progress is the same for every office)."""
+    level, office_code = change.after["level"], change.after["office_code"]
+    is_reference = office_code == 1 or (level == "state" and office_code == 3)
+    if not is_reference or (office_code == 3 and level == "country"):
+        return []
+    events: list[dict[str, Any]] = []
+    for milestone in MILESTONES:
+        if change.pct_before < milestone <= change.pct_after + 1e-9:
+            title = (
+                f"Apuração finalizada em {change.area_name}"
+                if milestone == 100
+                else f"{change.area_name}: {milestone}% das seções apuradas"
+            )
+            events.append(
                 {
-                    **base,
-                    "type": "lead_change",
-                    "title": f"Virada em {recorte_nome} ({cargo_nome})",
-                    "description": f"{nomes.get(l_depois, l_depois)} passou {nomes.get(l_antes, l_antes)} "
-                    f"({_fmt(novo.get('leader_pct') or 0)} × {_fmt(novo.get('second_pct') or 0)}) "
-                    f"com {_fmt(pct_depois)} apurado.",
-                    "payload": {"new_leader": l_depois, "previous_leader": l_antes},
+                    **change.base,
+                    "type": "milestone",
+                    "title": title,
+                    "description": f"{_fmt(change.pct_after)} das seções totalizadas.",
+                    "payload": {"milestone": milestone},
                 }
             )
-    # situação (eleito / 2º turno / matematicamente definido)
-    if situacoes_depois:
-        antes = situacoes_antes or {}
-        for sq, st in situacoes_depois.items():
-            if antes.get(sq) == st:
-                continue
-            nome = nomes.get(sq, sq)
-            if st in (situacao.ELECTED, situacao.MATHEMATICALLY_ELECTED) and antes.get(sq) not in (
-                situacao.ELECTED,
-                situacao.MATHEMATICALLY_ELECTED,
-            ):
-                tipo = "elected" if st == situacao.ELECTED else "mathematically_decided"
-                eventos.append(
-                    {
-                        **base,
-                        "type": tipo,
-                        "title": f"{nome} eleito(a) — {cargo_nome} {recorte_nome}",
-                        "description": (
-                            "Matematicamente eleito(a) antes do fim da apuração."
-                            if tipo != "elected"
-                            else f"Eleição definida com {_fmt(pct_depois)} apurado."
-                        ),
-                        "payload": {"tse_candidate_id": sq},
-                    }
-                )
-            elif st == situacao.RUNOFF and sistema == "majoritario":
-                eventos.append(
-                    {
-                        **base,
-                        "type": "runoff",
-                        "title": f"{nome} vai ao 2º turno — {cargo_nome} {recorte_nome}",
-                        "description": "Nenhum candidato atingiu a maioria absoluta dos votos válidos.",
-                        "payload": {"tse_candidate_id": sq},
-                    }
-                )
-    return eventos
+    return events
+
+
+def _lead_change_event(change: _Change, names: dict[str, str]) -> dict[str, Any] | None:
+    """Change of leader; majoritarian offices only, and ignored at the very beginning of the tally."""
+    if change.system != "majoritario" or not change.before or change.pct_after < 1.0:
+        return None
+    before_leader = change.before.get("leader_candidate_id")
+    after_leader = change.after.get("leader_candidate_id")
+    if not before_leader or not after_leader or before_leader == after_leader:
+        return None
+    after = change.after
+    return {
+        **change.base,
+        "type": "lead_change",
+        "title": f"Virada em {change.area_name} ({change.office_name})",
+        "description": (
+            f"{names.get(after_leader, after_leader)} passou {names.get(before_leader, before_leader)} "
+            f"({_fmt(after.get('leader_pct') or 0)} × {_fmt(after.get('second_pct') or 0)}) "
+            f"com {_fmt(change.pct_after)} apurado."
+        ),
+        "payload": {"new_leader": after_leader, "previous_leader": before_leader},
+    }
+
+
+def _status_events(
+    change: _Change,
+    names: dict[str, str],
+    statuses_before: dict[str, str],
+    statuses_after: dict[str, str] | None,
+) -> list[dict[str, Any]]:
+    """Candidates who were elected, went to a runoff, or were mathematically decided in this line."""
+    events: list[dict[str, Any]] = []
+    for candidate_id, new_status in (statuses_after or {}).items():
+        if statuses_before.get(candidate_id) == new_status:
+            continue
+        name = names.get(candidate_id, candidate_id)
+        if new_status in ELECTED_STATUSES and statuses_before.get(candidate_id) not in ELECTED_STATUSES:
+            events.append(_elected_event(change, candidate_id, name, new_status))
+        elif new_status == status.RUNOFF and change.system == "majoritario":
+            events.append(_runoff_event(change, candidate_id, name))
+    return events
+
+
+def _elected_event(change: _Change, candidate_id: str, name: str, new_status: str) -> dict[str, Any]:
+    kind = "elected" if new_status == status.ELECTED else "mathematically_decided"
+    description = (
+        f"Eleição definida com {_fmt(change.pct_after)} apurado."
+        if kind == "elected"
+        else "Matematicamente eleito(a) antes do fim da apuração."
+    )
+    return {
+        **change.base,
+        "type": kind,
+        "title": f"{name} eleito(a) — {change.office_name} {change.area_name}",
+        "description": description,
+        "payload": {"tse_candidate_id": candidate_id},
+    }
+
+
+def _runoff_event(change: _Change, candidate_id: str, name: str) -> dict[str, Any]:
+    return {
+        **change.base,
+        "type": "runoff",
+        "title": f"{name} vai ao 2º turno — {change.office_name} {change.area_name}",
+        "description": "Nenhum candidato atingiu a maioria absoluta dos votos válidos.",
+        "payload": {"tse_candidate_id": candidate_id},
+    }

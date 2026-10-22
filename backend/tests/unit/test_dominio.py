@@ -93,18 +93,18 @@ def _linha(pct, lider, segundo="x", nivel="country", cd=1):
 
 def test_eventos_inicio_marcos_e_virada():
     nomes = {"a": "ANA", "b": "BIA"}
-    evs = eventos.detectar(_linha(0, None), _linha(26, "a"), nomes, "Brasil", "majoritario")
+    evs = eventos.detect(_linha(0, None), _linha(26, "a"), nomes, "Brasil", "majoritario")
     tipos = [e["type"] for e in evs]
     assert tipos.count("milestone") == 2 and "start" in tipos
-    evs = eventos.detectar(_linha(60, "a", "b"), _linha(61, "b", "a"), nomes, "Brasil", "majoritario")
+    evs = eventos.detect(_linha(60, "a", "b"), _linha(61, "b", "a"), nomes, "Brasil", "majoritario")
     virada = next(e for e in evs if e["type"] == "lead_change")
     assert "BIA passou ANA" in virada["description"]
-    assert eventos.detectar(_linha(60, "a"), _linha(61, "b"), nomes, "Brasil", "proporcional") == []
-    assert eventos.detectar(None, _linha(50, "a", nivel="municipality"), nomes, "X", "majoritario") == []
+    assert eventos.detect(_linha(60, "a"), _linha(61, "b"), nomes, "Brasil", "proporcional") == []
+    assert eventos.detect(None, _linha(50, "a", nivel="municipality"), nomes, "X", "majoritario") == []
 
 
 def test_eventos_elected_e_runoff():
-    evs = eventos.detectar(
+    evs = eventos.detect(
         _linha(99, "a"),
         _linha(100, "a"),
         {"a": "ANA", "b": "BIA"},
@@ -114,7 +114,7 @@ def test_eventos_elected_e_runoff():
         {"a": "RUNOFF", "b": "RUNOFF"},
     )
     assert [e["type"] for e in evs].count("runoff") == 2
-    evs = eventos.detectar(
+    evs = eventos.detect(
         _linha(80, "a"),
         _linha(81, "a"),
         {"a": "ANA"},
