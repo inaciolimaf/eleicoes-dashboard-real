@@ -1,4 +1,4 @@
-"""Dados fixos do mock: UFs, regiões, capitais, partidos fictícios e listas de nomes."""
+"""Fixed data of the mock: states, regions, capitals, fictitious parties and name lists."""
 
 UFS = {
     "ac": ("Acre", "Norte", 8),
@@ -30,7 +30,7 @@ UFS = {
     "to": ("Tocantins", "Norte", 8),
 }
 
-CAPITAIS = {
+CAPITALS = {
     1200401,
     2704302,
     1302603,
@@ -61,14 +61,14 @@ CAPITAIS = {
 }
 
 
-def vagas_estaduais(dep_fed: int) -> int:
-    """Art. 27 da Constituição: triplo da bancada federal até 36; acima disso, +1 por deputado
-    federal acima de 12."""
-    return dep_fed * 3 if dep_fed * 3 <= 36 else 36 + (dep_fed - 12)
+def state_seats(federal_deputies: int) -> int:
+    """Art. 27 of the Constitution: triple the federal delegation up to 36; above that, +1 per federal deputy
+    above 12."""
+    return federal_deputies * 3 if federal_deputies * 3 <= 36 else 36 + (federal_deputies - 12)
 
 
-# (número, sigla, nome, federação)
-PARTIDOS = [
+# (number, acronym, name, federation)
+PARTIES = [
     (10, "PAL", "Partido Alfa", "Federação Aurora"),
     (12, "PBE", "Partido Beta", "Federação Aurora"),
     (15, "PGA", "Partido Gama", "Federação Horizonte"),
@@ -83,9 +83,9 @@ PARTIDOS = [
     (44, "PMU", "Partido Mi", None),
 ]
 
-NUMEROS_FEDERACAO = {"Federação Aurora": "70000001", "Federação Horizonte": "70000002"}
+FEDERATION_NUMBERS = {"Federação Aurora": "70000001", "Federação Horizonte": "70000002"}
 
-PRIMEIROS = [
+FIRST_NAMES = [
     "ANA",
     "BRUNO",
     "CARLA",
@@ -143,7 +143,7 @@ PRIMEIROS = [
     "NÚBIA",
     "RENATO",
 ]
-SOBRENOMES = [
+SURNAMES = [
     "ALMEIDA",
     "BARBOSA",
     "CARVALHO",
@@ -185,7 +185,7 @@ SOBRENOMES = [
     "BORGES",
     "CUNHA",
 ]
-APELIDOS = [
+NICKNAMES = [
     "DO POVO",
     "DA SAÚDE",
     "PROFESSOR",
@@ -201,7 +201,7 @@ APELIDOS = [
     "DO ESPORTE",
 ]
 
-TIPOS_LOCAL = [
+PLACE_TYPES = [
     "ESCOLA ESTADUAL",
     "ESCOLA MUNICIPAL",
     "EMEF",
@@ -213,7 +213,7 @@ TIPOS_LOCAL = [
     "FACULDADE",
     "GINÁSIO MUNICIPAL",
 ]
-HOMENAGEADOS = ["PROF. " + s for s in SOBRENOMES[:15]] + [
+HONOREES = ["PROF. " + s for s in SURNAMES[:15]] + [
     "DOM PEDRO II",
     "TIRADENTES",
     "SANTOS DUMONT",
@@ -233,7 +233,7 @@ HOMENAGEADOS = ["PROF. " + s for s in SOBRENOMES[:15]] + [
     "CÂNDIDO RONDON",
     "ADOLFO LUTZ",
 ]
-BAIRROS = [
+DISTRICTS = [
     "CENTRO",
     "JARDIM AMÉRICA",
     "VILA NOVA",
@@ -255,4 +255,4 @@ BAIRROS = [
     "ZONA RURAL",
     "VILA RICA",
 ]
-LOGRADOUROS = ["RUA", "AVENIDA", "TRAVESSA", "PRAÇA", "ALAMEDA", "RODOVIA"]
+STREET_TYPES = ["RUA", "AVENIDA", "TRAVESSA", "PRAÇA", "ALAMEDA", "RODOVIA"]

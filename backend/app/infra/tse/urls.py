@@ -1,13 +1,14 @@
-"""Montagem das URLs dos arquivos de divulgação.
+"""URLs of the TSE dissemination files.
 
-O diretório vem SEMPRE do template publicado no catálogo (`arq[].dir`). Só o nome do arquivo é regra fixa.
-`<base>` e `<ambiente>` já estão embutidos na base configurada (ex.: https://resultados.tse.jus.br/oficial).
+The directory ALWAYS comes from the template published in the catalog (`arq[].dir`). Only the file name
+follows a fixed rule. `<base>` and `<ambiente>` are already part of the configured base
+(e.g. https://resultados.tse.jus.br/oficial).
 """
 
 import re
 from dataclasses import dataclass
 
-PADROES_PADRAO = {
+DEFAULT_TEMPLATES = {
     "cm": "<base>/<ambiente>/<ciclo>/<cd_eleicao>/config",
     "ab": "<base>/<ambiente>/<ciclo>/<cd_eleicao>/dados/<uf>",
     "u": "<base>/<ambiente>/<ciclo>/<cd_eleicao>/dados/<uf>",
@@ -20,59 +21,65 @@ PADROES_PADRAO = {
 
 @dataclass(frozen=True)
 class UrlParams:
-    """Valores que preenchem os marcadores do template de URL."""
+    """Values that fill the placeholders of a URL template."""
 
-    cd_eleicao: int | None = None
+    election_code: int | None = None
     uf: str = "br"
-    cd_pleito: int | None = None
-    municipio: int | None = None
-    zona: int | None = None
-    secao: int | None = None
+    event_code: int | None = None
+    municipality: int | None = None
+    zone: int | None = None
+    section: int | None = None
 
 
-def pad(n: int | str, largura: int) -> str:
-    return str(int(n)).zfill(largura)
+def pad(number: int | str, width: int) -> str:
+    return str(int(number)).zfill(width)
 
 
-def preencher(template: str, base: str, ciclo: str, params: UrlParams | None = None) -> str:
+def fill_template(template: str, base: str, cycle: str, params: UrlParams | None = None) -> str:
     p = params or UrlParams()
-    valores = {
+    values = {
         "<base>": base.rstrip("/"),
         "<ambiente>": "",
-        "<ciclo>": ciclo,
-        "<cd_eleicao>": str(p.cd_eleicao) if p.cd_eleicao is not None else "",
+        "<ciclo>": cycle,
+        "<cd_eleicao>": str(p.election_code) if p.election_code is not None else "",
         "<uf>": p.uf.lower(),
-        "<cd_pleito>": str(p.cd_pleito) if p.cd_pleito is not None else "",
-        "<municipio>": pad(p.municipio, 5) if p.municipio is not None else "",
-        "<zona>": pad(p.zona, 4) if p.zona is not None else "",
-        "<secao>": pad(p.secao, 4) if p.secao is not None else "",
+        "<cd_pleito>": str(p.event_code) if p.event_code is not None else "",
+        "<municipio>": pad(p.municipality, 5) if p.municipality is not None else "",
+        "<zona>": pad(p.zone, 4) if p.zone is not None else "",
+        "<secao>": pad(p.section, 4) if p.section is not None else "",
     }
-    saida = template
-    for chave, valor in valores.items():
-        saida = saida.replace(chave, valor)
-    return re.sub(r"(?<!:)/{2,}", "/", saida)
+    result = template
+    for placeholder, value in values.items():
+        result = result.replace(placeholder, value)
+    return re.sub(r"(?<!:)/{2,}", "/", result)
 
 
-class MontadorUrls:
+class UrlBuilder:
+    """Builds the URLs of one election event.
+
+    Method names are called by the collector and the public service, so they stay in Portuguese for now.
+    """
+
     def __init__(
-        self, base: str, templates: dict[str, str], ciclo: str, cd_pleito: int, extensao: str = "json"
+        self, base: str, templates: dict[str, str], cycle: str, event_code: int, extension: str = "json"
     ) -> None:
         self.base = base
-        self.templates = {**PADROES_PADRAO, **templates}
-        self.ciclo = ciclo
-        self.cd_pleito = cd_pleito
-        self.ext = extensao
+        self.templates = {**DEFAULT_TEMPLATES, **templates}
+        self.cycle = cycle
+        self.event_code = event_code
+        self.ext = extension
 
-    def _dir(self, tp: str, **kw: int | str | None) -> str:
-        params = UrlParams(cd_pleito=self.cd_pleito, **kw)  # type: ignore[arg-type]
-        return preencher(self.templates[tp], self.base, self.ciclo, params)
+    def _dir(self, template_key: str, params: UrlParams) -> str:
+        return fill_template(self.templates[template_key], self.base, self.cycle, params)
 
     def municipios(self, cd_eleicao: int) -> str:
-        return f"{self._dir('cm', cd_eleicao=cd_eleicao)}/mun-e{pad(cd_eleicao, 6)}-cm.{self.ext}"
+        directory = self._dir("cm", UrlParams(event_code=self.event_code, election_code=cd_eleicao))
+        return f"{directory}/mun-e{pad(cd_eleicao, 6)}-cm.{self.ext}"
 
     def acompanhamento(self, cd_eleicao: int, uf: str = "br") -> str:
         uf = uf.lower()
-        return f"{self._dir('ab', cd_eleicao=cd_eleicao, uf=uf)}/{uf}-e{pad(cd_eleicao, 6)}-ab.{self.ext}"
+        directory = self._dir("ab", UrlParams(event_code=self.event_code, election_code=cd_eleicao, uf=uf))
+        return f"{directory}/{uf}-e{pad(cd_eleicao, 6)}-ab.{self.ext}"
 
     def resultado(
         self,
@@ -84,29 +91,42 @@ class MontadorUrls:
         tipo: str = "u",
     ) -> str:
         uf = uf.lower()
-        abr = uf
+        area = uf
         if municipio is not None:
-            abr += pad(municipio, 5)
+            area += pad(municipio, 5)
             if zona is not None:
-                abr += f"-z{pad(zona, 4)}"
-        nome = f"{abr}-c{pad(cd_cargo, 4)}-e{pad(cd_eleicao, 6)}-{tipo}"
-        return f"{self._dir(tipo, cd_eleicao=cd_eleicao, uf=uf)}/{nome}.{self.ext}"
+                area += f"-z{pad(zona, 4)}"
+        name = f"{area}-c{pad(cd_cargo, 4)}-e{pad(cd_eleicao, 6)}-{tipo}"
+        directory = self._dir(tipo, UrlParams(event_code=self.event_code, election_code=cd_eleicao, uf=uf))
+        return f"{directory}/{name}.{self.ext}"
 
     def foto(self, cd_eleicao: int, uf: str, sqcand: str) -> str:
-        return f"{self._dir('ft', cd_eleicao=cd_eleicao, uf=uf)}/{sqcand}.jpeg"
+        directory = self._dir("ft", UrlParams(event_code=self.event_code, election_code=cd_eleicao, uf=uf))
+        return f"{directory}/{sqcand}.jpeg"
 
     def secoes(self, uf: str) -> str:
         uf = uf.lower()
-        return f"{self._dir('cs', uf=uf)}/{uf}-p{pad(self.cd_pleito, 6)}-cs.json"
+        directory = self._dir("cs", UrlParams(event_code=self.event_code, uf=uf))
+        return f"{directory}/{uf}-p{pad(self.event_code, 6)}-cs.json"
 
     def auxiliar_secao(self, uf: str, municipio: int, zona: int, secao: int) -> str:
         uf = uf.lower()
-        d = self._dir("aux", uf=uf, municipio=municipio, zona=zona, secao=secao)
-        nome = (
-            f"p{pad(self.cd_pleito, 6)}-{uf}-m{pad(municipio, 5)}-z{pad(zona, 4)}-s{pad(secao, 4)}-aux.json"
+        directory = self._dir(
+            "aux",
+            UrlParams(event_code=self.event_code, uf=uf, municipality=municipio, zone=zona, section=secao),
         )
-        return f"{d}/{nome}"
+        name = (
+            f"p{pad(self.event_code, 6)}-{uf}-m{pad(municipio, 5)}-z{pad(zona, 4)}-s{pad(secao, 4)}-aux.json"
+        )
+        return f"{directory}/{name}"
 
     def arquivo_urna(self, uf: str, municipio: int, zona: int, secao: int, hash_: str, nome: str) -> str:
-        d = self._dir("aux", uf=uf, municipio=municipio, zona=zona, secao=secao)
-        return f"{d}/{hash_}/{nome}"
+        directory = self._dir(
+            "aux",
+            UrlParams(event_code=self.event_code, uf=uf, municipality=municipio, zone=zona, section=secao),
+        )
+        return f"{directory}/{hash_}/{nome}"
+
+
+# Name used before the English rename; the collector and the public service still import it.
+MontadorUrls = UrlBuilder
