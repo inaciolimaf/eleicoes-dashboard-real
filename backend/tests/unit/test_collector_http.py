@@ -116,12 +116,12 @@ async def test_section_retries_the_ballot_report_if_it_failed():
     collector = Collector(Settings(tse_verify_jws=False), None, None, Fetcher(max_rps=1000))  # type: ignore[arg-type]
     collector.urls = MagicMock()
     collector.urls.section_auxiliary.return_value = "http://tse.teste/aux.json"
-    collector.urls.ballot_box_file.return_value = "http://tse.teste/h/o.bu"
-    aux = b'{"st": "Totalizada", "hashes": [{"hash": "h", "st": "Totalizado", "dr": "04/10/2026", "hr": "17:30:00", "nmarq": ["o.bu"]}]}'
+    collector.urls.ballot_box_file.return_value = "http://tse.teste/h/o-bu.dat"
+    aux = b'{"st": "Totalizada", "hashes": [{"hash": "h", "st": "Totalizado", "dr": "04/10/2026", "hr": "17:30:00", "arq": [{"nm": "o-bu.dat", "tp": "bu"}]}]}'
     aux_route = respx.get("http://tse.teste/aux.json").mock(
         return_value=httpx.Response(200, content=aux, headers={"ETag": '"1"'})
     )
-    respx.get("http://tse.teste/h/o.bu").mock(
+    respx.get("http://tse.teste/h/o-bu.dat").mock(
         side_effect=[httpx.Response(404), httpx.Response(200, content=b"BU")]
     )
     with patch("app.infra.queue.enqueue", new=AsyncMock()) as enqueue:

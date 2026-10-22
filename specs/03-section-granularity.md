@@ -39,6 +39,14 @@ EA18  p<pleito6>-<uf>-m<mun5>-z<zona4>-s<secao4>-aux.json
 BU    .../<secao4>/<hash>/o00406-0605000020824.bu   (binário ASN.1/BER)
 ```
 
+**Em 2026 o EA18 mudou [OBS, 1º turno de 2026]:** os arquivos vêm em
+`arq: [{"nm": "o03220ap0605000020069-bu.dat", "tp": "bu"}, {"nm": "...-log.jez", "tp": "log"},
+{"nm": "...-vota.vsc", "tp": "vota"}, {"nm": "...-rdv.dat", "tp": "rdv"}]`. Não há mais `nmarq`
+nem a extensão `.bu`. O nome do BU é `o<pleito5><uf><mun5><zona4><secao4>-bu.dat`, mas o
+`<hash>` do diretório só vem no auxiliar. O BU continua no mesmo ASN.1 (decodificado sem mudança;
+fixture real em `backend/tests/fixtures/tse/`). Uma seção do 1º turno: auxiliar de 524 bytes e BU
+de 12,4 KB.
+
 Notas:
 - `hashes[]` pode ter **mais de uma urna por seção** (substituição ou
   contingência). Usar a entrada com `st = "Totalizado"`. Se houver mais de

@@ -88,7 +88,7 @@ The mock TSE serves these routes (`backend/tse_fake/main.py`). Unknown names ret
 | GET `/oficial/ele2026/{election}/fotos/{uf}/{sqcand}.jpeg` | Candidate photo (SVG content) | 404 unknown candidate |
 | GET `/oficial/ele2026/arquivo-urna/{pleito}/config/{uf}/{uf}-p{pleito}-cs.json` | Section tree of a state (EA16) | 404 unknown state |
 | GET `/oficial/ele2026/arquivo-urna/{pleito}/dados/{uf}/{mun}/{zona}/{secao}/...-aux.json` | Auxiliary of a section (EA18) | 404 unknown section |
-| GET `.../{secao}/{hash}/{name}` | `.bu` (binary); other files of the urn answer `MOCK` | 404 wrong hash, or the section is not tallied yet |
+| GET `.../{secao}/{hash}/{name}` | `<name>-bu.dat` (binary BU); other files of the urn answer `MOCK` | 404 wrong hash, or the section is not tallied yet |
 | GET `/dadosabertos/eleitorado_local_votacao_2026.csv` | Polling places, latin-1 CSV | none |
 | GET `/_fake/estado` | Simulated clock, speed, pause, percent of sections tallied | none |
 | POST `/_fake/controle` | Body `{"velocidade"?, "pausado"?, "reiniciar"?, "ir_para"?}`; `ir_para` is `HH:MM` (Brasilia) or minutes after 17h | none |
@@ -112,7 +112,7 @@ The mock TSE serves these routes (`backend/tse_fake/main.py`). Unknown names ret
 
 **Sections, sweep (`MODO_SECOES=todas`).** After the municipality's results, `schedule_municipality_sections` queues every section of the municipality (priority 0 when watched, 2 otherwise). `_section_done` is permanent in this mode.
 
-**One section (`process_section`).** Fetches the auxiliary file without ETag (a BU that failed once must not keep answering 304). `parse_auxiliary` and `ballot_box_tallied` pick the most recent urn whose status starts with "totalizad" and has a `.bu` file. The `.bu` is fetched without ETag, archived, the section is marked done (`sections_done`, so a failed worker run is retried later), and enqueued as `TYPE_BALLOT` without key (no coalescing). `diag:section:<id>` records each step.
+**One section (`process_section`).** Fetches the auxiliary file without ETag (a BU that failed once must not keep answering 304). `parse_auxiliary` and `ballot_box_tallied` pick the most recent urn whose status starts with "totalizad" and has a BU: the `arq` entry with `tp: "bu"` (2026, e.g. `o03220ap0605000020069-bu.dat`), or a `nmarq` name ending in `.bu` (2022 layout, still read). The BU is fetched without ETag, archived, the section is marked done (`sections_done`, so a failed worker run is retried later), and enqueued as `TYPE_BALLOT` without key (no coalescing). `diag:section:<id>` records each step.
 
 **File fetch (`RequestSteps.fetch_file`).** If `TSE_USAR_JWS` is on, the process has not disabled JWS, and the URL ends in `.json`, it first asks for the `.jws`. A `200` goes to `_verify_jws`; a `404` falls back to the `.json`; any other status is returned as is. `_verify_jws` returns the payload of `jws.verify` with the key of the environment when `TSE_VERIFICAR_JWS` is on, or the unverified payload when it is off. On `JwsError` it counts `metrics.jws_failures`, drops the ETag of that URL, sets `jws_disabled = True` for the rest of the process, logs an error and uses the `.json`.
 

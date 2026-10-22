@@ -65,7 +65,7 @@ def test_tracking_and_ballot_report(div):
     assert len([i for i in a.items if i.kind == "uf"]) == 27
     i = int(np.argmin(div.scenario.section_time))
     _, aux = div.auxiliary(i, float(div.scenario.section_time[i]) + 1)
-    assert aux["st"] == "Totalizada" and aux["hashes"][0]["nmarq"][2].endswith(".bu")
+    assert aux["st"] == "Totalizada" and aux["hashes"][0]["arq"][0]["nm"].endswith("-bu.dat")
     bu = decode(div.ballot_box(i))
     pres = next(c for c in bu.offices if c.office_code == 1)
     assert pres.validos == int(div.scenario.offices[(1, "br")].votes[i].sum())

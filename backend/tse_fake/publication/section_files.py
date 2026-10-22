@@ -26,8 +26,9 @@ def section_hash(scenario: Scenario, i: int) -> str:
 def bu_name(scenario: Scenario, i: int) -> str:
     municipality = scenario.municipalities[int(scenario.section_municipality[i])]
     zone = scenario.zones[int(scenario.section_zone[i])]
+    state_code = municipality.state_code.lower()
     return (
-        f"o{ELECTION_EVENT_CODE:05d}-{municipality.tse_code:05d}{zone.number:04d}"
+        f"o{ELECTION_EVENT_CODE:05d}{state_code}{municipality.tse_code:05d}{zone.number:04d}"
         f"{int(scenario.section_number[i]):04d}"
     )
 
@@ -45,7 +46,13 @@ def auxiliary_document(scenario: Scenario, i: int, t: float) -> tuple[str, dict[
         "hr": hr,
         "st": "Totalizado",
         "ds": "",
-        "nmarq": [f"{name}.logjez", f"{name}.rdv", f"{name}.bu", f"{name}.vscmr", f"{name}.imgbu"],
+        # 2026 layout (the real TSE stopped publishing `nmarq` and the `.bu` extension)
+        "arq": [
+            {"nm": f"{name}-bu.dat", "tp": "bu"},
+            {"nm": f"{name}-log.jez", "tp": "log"},
+            {"nm": f"{name}-vota.vsc", "tp": "vota"},
+            {"nm": f"{name}-rdv.dat", "tp": "rdv"},
+        ],
     }
     return "2", {"dg": dg, "hg": hg, "f": "o", "st": "Totalizada", "ds": "", "hashes": [urn]}
 

@@ -1,8 +1,12 @@
 """Parsers of the TSE files, numbers and dates, catalog and URLs."""
 
 from datetime import UTC, datetime
+from pathlib import Path
+
+import orjson
 
 from app.infra.tse import numbers
+from app.infra.tse.ballot_box import decode
 from app.infra.tse.catalog import parse_catalog
 from app.infra.tse.parsers import (
     parse_auxiliary,
@@ -256,18 +260,24 @@ def test_parse_tracking_auxiliary_sections_municipalities():
         {
             "st": "Totalizada",
             "hashes": [
-                {"hash": "aa", "st": "Excluído", "dr": "04/10/2026", "hr": "18:00:00", "nmarq": ["x.bu"]},
+                {
+                    "hash": "aa",
+                    "st": "Excluído",
+                    "dr": "04/10/2026",
+                    "hr": "18:00:00",
+                    "arq": [{"nm": "x-bu.dat", "tp": "bu"}],
+                },
                 {
                     "hash": "bb",
                     "st": "Totalizado",
                     "dr": "04/10/2026",
                     "hr": "18:10:00",
-                    "nmarq": ["o.rdv", "o.bu"],
+                    "arq": [{"nm": "o-rdv.dat", "tp": "rdv"}, {"nm": "o-bu.dat", "tp": "bu"}],
                 },
             ],
         }
     )
-    assert aux.ballot_box_tallied().hash == "bb" and aux.ballot_box_tallied().ballot_box_name() == "o.bu"
+    assert aux.ballot_box_tallied().hash == "bb" and aux.ballot_box_tallied().ballot_box_name() == "o-bu.dat"
     assert parse_auxiliary({"st": "Não totalizada", "hashes": []}).ballot_box_tallied() is None
 
     secs = parse_sections(
@@ -349,3 +359,23 @@ def test_missing_generation_id_uses_generation_time():
     r2 = parse_result({**base, "dg": "04/10/2026", "hg": "18:00:05"}, 1)
     assert r1.generation_id and r2.generation_id and r1.generation_id != r2.generation_id
     assert parse_result(EA20, 1).generation_id == str(EA20["idg"])
+
+
+FIXTURES = Path(__file__).parent.parent / "fixtures" / "tse"
+
+
+def test_real_2026_auxiliary_and_ballot_box():
+    """Files downloaded from the official TSE (1st round 2026, AP, Macapá, zone 2, section 69)."""
+    aux = parse_auxiliary(orjson.loads((FIXTURES / "p003220-ap-m06050-z0002-s0069-aux.json").read_bytes()))
+    urn = aux.ballot_box_tallied()
+    assert urn is not None and urn.ballot_box_name() == "o03220ap0605000020069-bu.dat"
+    bu = decode((FIXTURES / urn.ballot_box_name()).read_bytes())
+    assert (bu.municipality, bu.zone, bu.section, bu.turnout) == (6050, 2, 69, 133)
+    assert {office.office_code for office in bu.offices} == {1, 3, 5, 6, 7}
+
+
+def test_auxiliary_2022_layout_still_read():
+    aux = parse_auxiliary(
+        {"hashes": [{"hash": "h", "st": "Totalizado", "nmarq": ["o.rdv", "o00406-0605000020824.bu"]}]}
+    )
+    assert aux.ballot_box_tallied().ballot_box_name() == "o00406-0605000020824.bu"

@@ -246,7 +246,7 @@ async def ballot_file(
     ):
         raise HTTPException(404)
     name = state.publication.bu_name(i)
-    if file_name == f"{name}.bu":
+    if file_name == f"{name}-bu.dat":
         return Response(content=state.publication.ballot_box(i), media_type="application/octet-stream")
     if file_name.startswith(name):
         return Response(content=b"MOCK", media_type="application/octet-stream")
