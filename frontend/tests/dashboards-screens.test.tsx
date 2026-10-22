@@ -5,6 +5,7 @@ import { useAuth } from "../src/lib/auth-store";
 import { useLocalDashboards } from "../src/modules/dashboards/repo";
 import { fakeApi, renderScreen } from "./helpers/screen";
 import { dashboardDto, plainConfig, sharedDto, storedDashboards } from "./helpers/data-dashboards";
+import { results } from "./helpers/data-results";
 
 // Widgets render only once their box has a height; jsdom has no layout, so the size is fixed here.
 vi.mock("@mantine/hooks", async (importOriginal) => {
@@ -276,6 +277,30 @@ describe("dashboard screen (one dashboard)", () => {
     ]);
     await renderScreen("/paineis/a");
     expect(await screen.findByText("Hora da apuração")).toBeInTheDocument();
+  });
+
+  it("falls back to the valid votes in a KPI widget whose saved metric is unknown", async () => {
+    fakeApi({ "GET /results": results() });
+    await seedLocal([
+      {
+        id: "a",
+        nome: "Minha eleição",
+        config: {
+          ...plainConfig("Minha eleição"),
+          widgets: [
+            {
+              id: "w1",
+              tipo: "kpi",
+              pos: { x: 0, y: 0, w: 4, h: 4 },
+              herda: true,
+              config: { compararMin: 0, metrica: "metrica_antiga" },
+            },
+          ],
+        },
+      },
+    ]);
+    await renderScreen("/paineis/a");
+    expect(await screen.findByText("Votos válidos")).toBeInTheDocument();
   });
 
   it("says when the dashboard does not exist", async () => {

@@ -113,7 +113,7 @@ function DeltaBadge({ delta, kind, minutes }: { delta: number; kind: KpiMetric["
 
 export function KpiWidget({ config }: WidgetProps) {
   const filter = useEffectiveFilter();
-  const metric = KPI_METRICS[configString(config, "metrica", "votos_validos")] ?? KPI_METRICS.valid_votes;
+  const metric = KPI_METRICS[configString(config, "metrica", "votos_validos")] ?? KPI_METRICS.votos_validos;
   const candidateId = configStringOrNull(config, "sqcand");
   const minutes = configNumber(config, "compararMin", 15);
   const reference = useMemo(
@@ -155,8 +155,8 @@ export function KpiWidget({ config }: WidgetProps) {
               </Text>
             </Group>
             <Num
-              valor={value}
-              tipo={metric.kind}
+value={value}
+kind={metric.kind}
               style={{
                 fontSize: "clamp(1.8rem, 4vw, 2.8rem)",
                 fontWeight: 800,
@@ -189,15 +189,15 @@ export function MapWidget({ config, height, onSelect, widget }: WidgetProps) {
   return (
     <Box h={height} style={{ borderRadius: 10, overflow: "hidden" }} key={widget.id}>
       <ElectoralMap
-        tipo={configString(config, "tipo", "vencedores") as MapType}
-        nivel={filter.nivel}
+kind={configString(config, "tipo", "vencedores") as MapType}
+level={filter.nivel}
         id={filter.id}
-        todosMunicipios={configString(config, "nivelFilhos", "auto") === "municipio"}
-        candidatoA={configStringOrNull(config, "candidatoA")}
-        candidatoB={configStringOrNull(config, "candidatoB")}
+allMunicipalities={configString(config, "nivelFilhos", "auto") === "municipio"}
+candidateA={configStringOrNull(config, "candidatoA")}
+candidateB={configStringOrNull(config, "candidatoB")}
         basemap={basemap === "padrao" ? undefined : basemap === "sim"}
-        onSelecionar={onSelect}
-        altura={height}
+onSelect={onSelect}
+height={height}
       />
     </Box>
   );
@@ -244,7 +244,7 @@ export function HemicycleWidget({ height, onSelect }: WidgetProps) {
     <WithResults onUf={(uf, name) => onSelect("state", uf, name)}>
       {(results) =>
         results.office.voting_system !== "proporcional" || !results.alliances.length ? (
-          <NoData titulo="Hemiciclo indisponível">
+          <NoData title="Hemiciclo indisponível">
             O hemiciclo de vagas é exibido para cargos proporcionais (deputados), depois que o TSE publica a
             distribuição de vagas.
           </NoData>
