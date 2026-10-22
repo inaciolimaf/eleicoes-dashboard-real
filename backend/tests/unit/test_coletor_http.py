@@ -70,7 +70,7 @@ async def test_jws_com_chave_errada_cai_para_o_json():
     token = jws.assinar(b'{"v": 1}', Ed25519PrivateKey.generate(), "kid-desconhecido")
     rota_jws = respx.get(f"{base}.jws").mock(return_value=httpx.Response(200, content=token.encode()))
     respx.get(f"{base}.json").mock(return_value=httpx.Response(200, content=b'{"v": 2}'))
-    c = Coletor(Settings(tse_verificar_jws=True), None, None, Fetcher(max_rps=1000))  # type: ignore[arg-type]
+    c = Coletor(Settings(tse_verify_jws=True), None, None, Fetcher(max_rps=1000))  # type: ignore[arg-type]
     assert await c.obter(f"{base}.json", arquivar=False) == (200, b'{"v": 2}', False)
     assert c.fetcher.metricas.falhas_jws == 1
     # depois da falha, nem tenta mais o .jws
@@ -113,7 +113,7 @@ async def test_secao_tenta_o_bu_de_novo_se_ele_falhou():
     from app.collector.collector import Coletor
     from app.core.config import Settings
 
-    c = Coletor(Settings(tse_verificar_jws=False), None, None, Fetcher(max_rps=1000))  # type: ignore[arg-type]
+    c = Coletor(Settings(tse_verify_jws=False), None, None, Fetcher(max_rps=1000))  # type: ignore[arg-type]
     c.urls = MagicMock()
     c.urls.auxiliar_secao.return_value = "http://tse.teste/aux.json"
     c.urls.arquivo_urna.return_value = "http://tse.teste/h/o.bu"
