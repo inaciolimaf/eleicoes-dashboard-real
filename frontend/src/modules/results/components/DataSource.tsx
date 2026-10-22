@@ -3,37 +3,45 @@ import { IconShieldCheck, IconShieldQuestion, IconShieldX } from "@tabler/icons-
 import type { ResultsWithDataDto } from "../../../api/models";
 import { fmtDateTime, fmtTime } from "../../../lib/time";
 
-/** Rodapé de transparência (RF-10): fonte, idg, horário e assinatura JWS. */
-export function DataSource({ res }: { res: ResultsWithDataDto }) {
-  const Icone =
-    res.jws_verified === true
-      ? IconShieldCheck
-      : res.jws_verified === false
-        ? IconShieldX
-        : IconShieldQuestion;
-  const cor = res.jws_verified === true ? "teal" : res.jws_verified === false ? "red" : "gray";
+function signatureIcon(verified: boolean | null | undefined) {
+  if (verified === true) return IconShieldCheck;
+  if (verified === false) return IconShieldX;
+  return IconShieldQuestion;
+}
+
+function signatureColor(verified: boolean | null | undefined): string {
+  if (verified === true) return "teal";
+  if (verified === false) return "red";
+  return "gray";
+}
+
+function signatureLabel(verified: boolean | null | undefined): string {
+  if (verified === true) return "verificada";
+  if (verified === false) return "FALHOU";
+  return "não verificada";
+}
+
+/** Transparency footer (RF-10): source, generation id, time and JWS signature. */
+export function DataSource({ result }: { result: ResultsWithDataDto }) {
+  const Icon = signatureIcon(result.jws_verified);
+  const color = signatureColor(result.jws_verified);
   return (
     <Tooltip
       label={
         <>
-          Fonte: {res.source === "tse" ? "arquivo de resultados do TSE" : "soma dos boletins de urna (BU)"}
-          {res.generation_id ? ` · idg ${res.generation_id}` : ""}
+          Fonte: {result.source === "tse" ? "arquivo de resultados do TSE" : "soma dos boletins de urna (BU)"}
+          {result.generation_id ? ` · idg ${result.generation_id}` : ""}
           <br />
-          Totalizado em {fmtDateTime(res.tallied_at)} · capturado em {fmtDateTime(res.captured_at)}
+          Totalizado em {fmtDateTime(result.tallied_at)} · capturado em {fmtDateTime(result.captured_at)}
           <br />
-          Assinatura JWS:{" "}
-          {res.jws_verified === true
-            ? "verificada"
-            : res.jws_verified === false
-              ? "FALHOU"
-              : "não verificada"}
+          Assinatura JWS: {signatureLabel(result.jws_verified)}
         </>
       }
     >
       <Group gap={4} wrap="nowrap" style={{ cursor: "help" }}>
-        <Icone size={14} color={`var(--mantine-color-${cor}-5)`} />
+        <Icon size={14} color={`var(--mantine-color-${color}-5)`} />
         <Text size="xs" c="dimmed" className="num">
-          {res.source === "tse" ? "TSE" : "BU"} · {fmtTime(res.tallied_at)}
+          {result.source === "tse" ? "TSE" : "BU"} · {fmtTime(result.tallied_at)}
         </Text>
       </Group>
     </Tooltip>

@@ -4,59 +4,62 @@ import type { CandidateStatus } from "../../../api/models";
 import { SITUATION_STYLES } from "../../../lib/palettes";
 import { fmtTime } from "../../../lib/time";
 
-interface Props {
-  situacao: CandidateStatus;
-  situacaoGeral?: CandidateStatus | null;
-  /** ex.: "no Brasil", "em SP" */
-  ondeGeral?: string;
-  totalizadoEm?: string | null;
-  size?: "xs" | "sm" | "md";
+type BadgeSize = "xs" | "sm" | "md";
+
+interface StatusBadgeProps {
+  status: CandidateStatus;
+  overallStatus?: CandidateStatus | null;
+  /** e.g. "no Brasil", "em SP" */
+  where?: string;
+  talliedAt?: string | null;
+  size?: BadgeSize;
 }
 
-function Selo({
-  s,
-  sufixo,
-  totalizadoEm,
+function StatusChip({
+  status,
+  suffix,
+  talliedAt,
   size,
 }: {
-  s: CandidateStatus;
-  sufixo?: string;
-  totalizadoEm?: string | null;
-  size: "xs" | "sm" | "md";
+  status: CandidateStatus;
+  suffix?: string;
+  talliedAt?: string | null;
+  size: BadgeSize;
 }) {
-  const est = SITUATION_STYLES[s] ?? SITUATION_STYLES.COUNTING;
-  if (s === "COUNTING" && !sufixo) return null;
-  const doTse = s !== "LEADING" && s !== "COUNTING";
+  const style = SITUATION_STYLES[status] ?? SITUATION_STYLES.COUNTING;
+  if (status === "COUNTING" && !suffix) return null;
+  // the TSE publishes these; the panel's own reading ("leading", "counting") is not a TSE declaration
+  const publishedByTse = status !== "LEADING" && status !== "COUNTING";
   const label = (
     <>
-      {est.descricao}
-      {doTse && totalizadoEm ? ` Publicado às ${fmtTime(totalizadoEm)} (Brasília).` : ""}
+      {style.descricao}
+      {publishedByTse && talliedAt ? ` Publicado às ${fmtTime(talliedAt)} (Brasília).` : ""}
     </>
   );
   return (
     <Tooltip label={label}>
       <Badge
         size={size}
-        color={est.cor}
-        variant={est.variante}
-        leftSection={s === "ELECTED" ? <IconCheck size={12} stroke={3} /> : undefined}
+        color={style.cor}
+        variant={style.variante}
+        leftSection={status === "ELECTED" ? <IconCheck size={12} stroke={3} /> : undefined}
         styles={{ root: { textTransform: "uppercase", letterSpacing: 0.3, flexShrink: 0 } }}
-        aria-label={`Situação: ${est.rotulo}${sufixo ? " " + sufixo : ""}`}
+        aria-label={`Situação: ${style.rotulo}${suffix ? " " + suffix : ""}`}
       >
-        {est.rotulo}
-        {sufixo ? ` ${sufixo}` : ""}
+        {style.rotulo}
+        {suffix ? ` ${suffix}` : ""}
       </Badge>
     </Tooltip>
   );
 }
 
-/** Selo de situação (RF-03). Mostra também a situação geral quando difere da local. */
-export function StatusBadge({ situacao, situacaoGeral, ondeGeral, totalizadoEm, size = "sm" }: Props) {
-  const mostrarGeral = situacaoGeral && situacaoGeral !== situacao && situacaoGeral !== "COUNTING";
+/** Situation badge (RF-03). Also shows the overall situation when it differs from the local one. */
+export function StatusBadge({ status, overallStatus, where, talliedAt, size = "sm" }: StatusBadgeProps) {
+  const showOverall = overallStatus && overallStatus !== status && overallStatus !== "COUNTING";
   return (
     <Group gap={4} wrap="wrap">
-      <Selo s={situacao} totalizadoEm={totalizadoEm} size={size} />
-      {mostrarGeral && <Selo s={situacaoGeral} sufixo={ondeGeral} totalizadoEm={totalizadoEm} size={size} />}
+      <StatusChip status={status} talliedAt={talliedAt} size={size} />
+      {showOverall && <StatusChip status={overallStatus} suffix={where} talliedAt={talliedAt} size={size} />}
     </Group>
   );
 }

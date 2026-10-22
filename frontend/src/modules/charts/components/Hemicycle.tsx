@@ -1,81 +1,16 @@
 import { useMemo } from "react";
-import type { EChartsOption } from "echarts";
 import type { AllianceDto } from "../../../api/models";
+import { buildHemicycleOption } from "../hemicycleOption";
 import { EChart } from "./EChart";
-import { fmtInt } from "../../../lib/formatting";
 
-/** Distribui `total` assentos em fileiras concêntricas de um semicírculo (parlamento). */
-function posicoes(total: number): { x: number; y: number }[] {
-  if (total <= 0) return [];
-  let fileiras = 1;
-  while (true) {
-    let cap = 0;
-    for (let i = 0; i < fileiras; i++) cap += Math.floor((Math.PI * (fileiras + i)) / 1.0);
-    if (cap >= total || fileiras > 30) break;
-    fileiras++;
-  }
-  const raios = Array.from({ length: fileiras }, (_, i) => fileiras + i);
-  const somaR = raios.reduce((a, b) => a + b, 0);
-  const pontos: { x: number; y: number; ang: number }[] = [];
-  let restante = total;
-  raios.forEach((r, idx) => {
-    const n = idx === raios.length - 1 ? restante : Math.round((total * r) / somaR);
-    restante -= n;
-    for (let k = 0; k < n; k++) {
-      const ang = n === 1 ? Math.PI / 2 : Math.PI - (Math.PI * k) / (n - 1);
-      pontos.push({ x: r * Math.cos(ang), y: r * Math.sin(ang), ang });
-    }
-  });
-  // ordena da esquerda para a direita pelo ângulo para pintar blocos contíguos
-  return pontos.sort((a, b) => b.ang - a.ang).map(({ x, y }) => ({ x, y }));
-}
-
+/** Parliament chart: one dot per seat, grouped by alliance. */
 export function Hemicycle({
-  agremiacoes,
+  alliances,
   height = 260,
 }: {
-  agremiacoes: AllianceDto[];
+  alliances: AllianceDto[];
   height?: number | string;
 }) {
-  const option = useMemo<EChartsOption>(() => {
-    const comVagas = agremiacoes
-      .filter((a) => (a.seats ?? 0) > 0)
-      .sort((a, b) => (b.seats ?? 0) - (a.seats ?? 0));
-    const total = comVagas.reduce((s, a) => s + (a.seats ?? 0), 0);
-    const pts = posicoes(total);
-    let i = 0;
-    const series = comVagas.map((a) => {
-      const data = pts.slice(i, i + (a.seats ?? 0)).map((p) => [p.x, p.y]);
-      i += a.seats ?? 0;
-      return {
-        type: "scatter" as const,
-        name: a.name,
-        data,
-        symbolSize: Math.max(5, Math.min(18, 260 / Math.sqrt(Math.max(total, 1) * 3))),
-        itemStyle: { color: a.color },
-        emphasis: { scale: 1.4 },
-        tooltip: {
-          formatter: () =>
-            `<b>${a.name}</b><br/>${a.parties.join(" · ")}<br/>${a.seats} vaga(s) · ${fmtInt(a.votes)} votos`,
-        },
-      };
-    });
-    const r = pts.reduce((m, p) => Math.max(m, Math.abs(p.x), p.y), 1);
-    return {
-      tooltip: { trigger: "item" },
-      grid: { left: 4, right: 4, top: 4, bottom: 28 },
-      xAxis: { show: false, min: -r - 1, max: r + 1 },
-      yAxis: { show: false, min: -0.5, max: r + 1 },
-      graphic: [
-        {
-          type: "text",
-          left: "center",
-          bottom: 4,
-          style: { text: `${total} vagas`, fontSize: 14, fontWeight: 700, fill: "#8592AD" },
-        },
-      ],
-      series,
-    } as EChartsOption;
-  }, [agremiacoes]);
+  const option = useMemo(() => buildHemicycleOption(alliances), [alliances]);
   return <EChart option={option} height={height} />;
 }

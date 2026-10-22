@@ -28,10 +28,16 @@ export function useElections() {
   });
 }
 
-export function useResults(
-  p: { turno: number; cargo: number; nivel: Level; id: string; t: string | null },
-  enabled = true,
-) {
+/** Area selection shared by the result hooks: the round, office, geo area and the time (`null` = now). */
+export interface ResultsParams {
+  turno: number;
+  cargo: number;
+  nivel: Level;
+  id: string;
+  t: string | null;
+}
+
+export function useResults(p: ResultsParams, enabled = true) {
   const ws = useWsOpen();
   return useQuery({
     queryKey: qk.resultados(p.turno, p.cargo, p.nivel, p.id, p.t),
@@ -45,22 +51,18 @@ export function useResults(
   });
 }
 
-export function useChildren(
-  p: {
-    turno: number;
-    cargo: number;
-    nivel: Level;
-    id: string;
-    t: string | null;
-    filhos?: Level | null;
-    candidatos?: string[];
-  },
-  enabled = true,
-) {
+export interface ChildrenParams extends ResultsParams {
+  /** Level of the rows; the API picks the natural one when absent. */
+  childLevel?: Level | null;
+  /** Candidates whose values are asked for each row. */
+  candidates?: string[];
+}
+
+export function useChildren(p: ChildrenParams, enabled = true) {
   const ws = useWsOpen();
-  const cands = (p.candidatos ?? []).filter(Boolean).join(",");
+  const candidateList = (p.candidates ?? []).filter(Boolean).join(",");
   return useQuery({
-    queryKey: qk.filhos(p.turno, p.cargo, p.nivel, p.id, p.filhos ?? null, cands, p.t),
+    queryKey: qk.filhos(p.turno, p.cargo, p.nivel, p.id, p.childLevel ?? null, candidateList, p.t),
     queryFn: ({ signal }) =>
       api<ChildrenDto>("/geo-areas/children", {
         params: {
@@ -69,8 +71,8 @@ export function useChildren(
           level: p.nivel,
           id: p.id,
           at: p.t,
-          child_level: p.filhos ?? undefined,
-          candidates: cands || undefined,
+          child_level: p.childLevel ?? undefined,
+          candidates: candidateList || undefined,
         },
         signal,
       }),
@@ -79,27 +81,27 @@ export function useChildren(
   });
 }
 
-export function useCandidates(turno: number, cargo: number, uf: string | null, enabled = true) {
+export function useCandidates(round: number, office: number, state: string | null, enabled = true) {
   return useQuery({
-    queryKey: qk.candidatos(turno, cargo, uf),
+    queryKey: qk.candidatos(round, office, state),
     queryFn: ({ signal }) =>
-      api<CandidateDto[]>("/candidates", { params: { round: turno, office: cargo, state_code: uf }, signal }),
+      api<CandidateDto[]>("/candidates", { params: { round, office, state_code: state }, signal }),
     staleTime: 5 * 60_000,
     enabled,
   });
 }
 
-export function useCandidate(sq: string | null | undefined, turno: number, t: string | null) {
+export function useCandidate(tseCandidateId: string | null | undefined, round: number, at: string | null) {
   return useQuery({
-    queryKey: qk.candidato(sq ?? "", turno, t),
+    queryKey: qk.candidato(tseCandidateId ?? "", round, at),
     queryFn: ({ signal }) =>
-      api<CandidateDetailDto>(`/candidates/${encodeURIComponent(sq ?? "")}`, {
-        params: { round: turno, at: t },
+      api<CandidateDetailDto>(`/candidates/${encodeURIComponent(tseCandidateId ?? "")}`, {
+        params: { round, at },
         signal,
       }),
-    enabled: !!sq,
-    staleTime: t ? Infinity : 20_000,
-    refetchInterval: t ? false : 30_000,
+    enabled: !!tseCandidateId,
+    staleTime: at ? Infinity : 20_000,
+    refetchInterval: at ? false : 30_000,
     placeholderData: keepPreviousData,
   });
 }

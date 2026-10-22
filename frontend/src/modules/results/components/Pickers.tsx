@@ -4,77 +4,86 @@ import { useMemo, useState } from "react";
 import { useSearch } from "../../shell";
 import { useCandidates } from "../hooks";
 import type { Level, SearchType } from "../../../api/models";
-import { UFS, defaultGeoAreaName } from "../../../lib/geo-areas";
-import { asLevel, segmentOfLevel, levelOfSegment } from "../../../lib/geo-areas";
+import { UFS, defaultGeoAreaName, asLevel, segmentOfLevel, levelOfSegment } from "../../../lib/geo-areas";
 
-/** Valor "nivel:id" */
-export const geoAreaValue = (nivel: Level, id: string) => `${segmentOfLevel(nivel)}:${id}`;
-export function readGeoArea(v: string | null | undefined): { nivel: Level; id: string } | null {
-  if (!v) return null;
-  const i = v.indexOf(":");
-  if (i < 0) return null;
-  const nivel = levelOfSegment(v.slice(0, i));
-  return nivel ? { nivel, id: v.slice(i + 1) } : null;
+/** Office code of the president: the only one with a single national result. */
+const PRESIDENT_OFFICE = 1;
+
+/** Value "level:id" of a geo area option. */
+export const geoAreaValue = (level: Level, id: string) => `${segmentOfLevel(level)}:${id}`;
+
+export function readGeoArea(value: string | null | undefined): { nivel: Level; id: string } | null {
+  if (!value) return null;
+  const separator = value.indexOf(":");
+  if (separator < 0) return null;
+  const level = levelOfSegment(value.slice(0, separator));
+  return level ? { nivel: level, id: value.slice(separator + 1) } : null;
 }
 
 interface GeoAreaPickerProps extends Omit<SelectProps, "data" | "value" | "onChange"> {
   value: string | null;
-  onChange: (v: string | null, nome?: string) => void;
-  tipos?: SearchType[];
-  incluirBrasil?: boolean;
-  incluirUfs?: boolean;
+  onChange: (value: string | null, name?: string) => void;
+  types?: SearchType[];
+  includeBrazil?: boolean;
+  includeStates?: boolean;
 }
 
-/** Seleção de recorte com busca (/busca). */
+/** Geo area picker with search (the /busca endpoint). */
 export function GeoAreaPicker({
   value,
   onChange,
-  tipos,
-  incluirBrasil = true,
-  incluirUfs = true,
+  types,
+  includeBrazil = true,
+  includeStates = true,
   ...rest
 }: GeoAreaPickerProps) {
-  const [busca, setBusca] = useState("");
-  const [deb] = useDebouncedValue(busca, 250);
-  const q = useSearch(deb);
-  const [rotulos, setRotulos] = useState<Record<string, string>>({});
+  const [search, setSearch] = useState("");
+  const [debounced] = useDebouncedValue(search, 250);
+  const query = useSearch(debounced);
+  const [labels, setLabels] = useState<Record<string, string>>({});
   const data = useMemo(() => {
     const base: { value: string; label: string }[] = [];
-    const permite = (t: SearchType) => !tipos || tipos.includes(t);
-    if (incluirBrasil && !tipos) base.push({ value: geoAreaValue("country", "br"), label: "Brasil" });
-    if (incluirUfs && permite("state"))
-      for (const u of UFS)
-        base.push({ value: geoAreaValue("state", u.uf), label: `${u.nome} (${u.uf.toUpperCase()})` });
-    const remotos = (q.data?.items ?? [])
-      .filter((i) => i.type !== "candidate" && permite(i.type as SearchType))
-      .map((i) => ({
-        value: geoAreaValue(asLevel(i.level ?? i.type), i.id),
-        label: `${i.title}${i.subtitle ? ` — ${i.subtitle}` : ""}`,
+    const allows = (type: SearchType) => !types || types.includes(type);
+    if (includeBrazil && !types) base.push({ value: geoAreaValue("country", "br"), label: "Brasil" });
+    if (includeStates && allows("state"))
+      for (const state of UFS)
+        base.push({
+          value: geoAreaValue("state", state.uf),
+          label: `${state.nome} (${state.uf.toUpperCase()})`,
+        });
+    const remote = (query.data?.items ?? [])
+      .filter((item) => item.type !== "candidate" && allows(item.type as SearchType))
+      .map((item) => ({
+        value: geoAreaValue(asLevel(item.level ?? item.type), item.id),
+        label: `${item.title}${item.subtitle ? ` — ${item.subtitle}` : ""}`,
       }));
-    const todos = [...remotos, ...base];
-    if (value && !todos.some((d) => d.value === value)) {
-      const r = readGeoArea(value);
-      todos.unshift({ value, label: rotulos[value] ?? (r ? defaultGeoAreaName(r.nivel, r.id) : value) });
+    const all = [...remote, ...base];
+    if (value && !all.some((option) => option.value === value)) {
+      const area = readGeoArea(value);
+      all.unshift({
+        value,
+        label: labels[value] ?? (area ? defaultGeoAreaName(area.nivel, area.id) : value),
+      });
     }
-    const vistos = new Set<string>();
-    return todos.filter((d) => (vistos.has(d.value) ? false : (vistos.add(d.value), true)));
-  }, [q.data, tipos, incluirBrasil, incluirUfs, value, rotulos]);
+    const seen = new Set<string>();
+    return all.filter((option) => (seen.has(option.value) ? false : (seen.add(option.value), true)));
+  }, [query.data, types, includeBrazil, includeStates, value, labels]);
   return (
     <Select
       searchable
       clearable
       placeholder="Digite para buscar (município, zona, escola…)"
-      nothingFoundMessage={deb.length < 2 ? "Digite ao menos 2 letras" : "Nada encontrado"}
+      nothingFoundMessage={debounced.length < 2 ? "Digite ao menos 2 letras" : "Nada encontrado"}
       {...rest}
       data={data}
       value={value}
-      searchValue={busca}
-      onSearchChange={setBusca}
+      searchValue={search}
+      onSearchChange={setSearch}
       filter={({ options }) => options}
-      onChange={(v) => {
-        const label = data.find((d) => d.value === v)?.label;
-        if (v && label) setRotulos((r) => ({ ...r, [v]: label }));
-        onChange(v, label?.split(" — ")[0]);
+      onChange={(next) => {
+        const label = data.find((option) => option.value === next)?.label;
+        if (next && label) setLabels((current) => ({ ...current, [next]: label }));
+        onChange(next, label?.split(" — ")[0]);
       }}
     />
   );
@@ -82,27 +91,29 @@ export function GeoAreaPicker({
 
 interface CandidatePickerProps extends Omit<SelectProps, "data" | "value" | "onChange"> {
   value: string | null;
-  onChange: (v: string | null) => void;
-  turno: number;
-  cargo: number;
-  uf?: string | null;
+  onChange: (value: string | null) => void;
+  round: number;
+  office: number;
+  state?: string | null;
 }
 
-export function CandidatePicker({ value, onChange, turno, cargo, uf, ...rest }: CandidatePickerProps) {
-  const q = useCandidates(turno, cargo, cargo === 1 ? null : (uf ?? null));
+/** Candidate of the round and office (and state, for state offices). */
+export function CandidatePicker({ value, onChange, round, office, state, ...rest }: CandidatePickerProps) {
+  const query = useCandidates(round, office, office === PRESIDENT_OFFICE ? null : (state ?? null));
   const data = useMemo(() => {
-    const d = (q.data ?? []).map((c) => ({
-      value: c.tse_candidate_id,
-      label: `${c.ballot_name} (${c.ballot_number}) · ${c.party_abbreviation}${c.state_code ? ` · ${c.state_code.toUpperCase()}` : ""}`,
+    const options = (query.data ?? []).map((candidate) => ({
+      value: candidate.tse_candidate_id,
+      label: `${candidate.ballot_name} (${candidate.ballot_number}) · ${candidate.party_abbreviation}${candidate.state_code ? ` · ${candidate.state_code.toUpperCase()}` : ""}`,
     }));
-    if (value && !d.some((x) => x.value === value)) d.unshift({ value, label: `Candidato ${value}` });
-    return d;
-  }, [q.data, value]);
+    if (value && !options.some((option) => option.value === value))
+      options.unshift({ value, label: `Candidato ${value}` });
+    return options;
+  }, [query.data, value]);
   return (
     <Select
       searchable
       clearable
-      placeholder={q.isLoading ? "Carregando…" : "Escolha um candidato"}
+      placeholder={query.isLoading ? "Carregando…" : "Escolha um candidato"}
       nothingFoundMessage="Nenhum candidato"
       {...rest}
       data={data}
