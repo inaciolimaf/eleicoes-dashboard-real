@@ -1,4 +1,4 @@
-import { useAuth } from "../store/auth";
+import { useAuth } from "../lib/auth-store";
 
 export const BASE = "/api/v1";
 

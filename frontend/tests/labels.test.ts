@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CandidateStatus, EventType, TallyStatus } from "../src/api/models";
-import { COR_STATUS, ROTULO_STATUS, SITUACAO } from "../src/lib/cores";
-import { COR_EVENTO, ROTULO_EVENTO } from "../src/lib/eventos";
+import { STATUS_COLORS, STATUS_LABELS, SITUATION_STYLES } from "../src/lib/palettes";
+import { EVENT_COLORS, EVENT_LABELS } from "../src/modules/events";
 
 // The API sends English values; the labels the user reads stay in Portuguese and live in src/lib.
 describe("candidate status labels", () => {
@@ -17,13 +17,13 @@ describe("candidate status labels", () => {
   ];
 
   it.each(cases)("maps %s to %s", (status, rotulo) => {
-    expect(SITUACAO[status].rotulo).toBe(rotulo);
+    expect(SITUATION_STYLES[status].rotulo).toBe(rotulo);
   });
 
   it("gives every status a description and a colour", () => {
     for (const [status] of cases) {
-      expect(SITUACAO[status].descricao.length).toBeGreaterThan(0);
-      expect(SITUACAO[status].cor.length).toBeGreaterThan(0);
+      expect(SITUATION_STYLES[status].descricao.length).toBeGreaterThan(0);
+      expect(SITUATION_STYLES[status].cor.length).toBeGreaterThan(0);
     }
   });
 });
@@ -36,8 +36,8 @@ describe("tally status labels", () => {
   ];
 
   it.each(cases)("maps %s to %s", (status, rotulo) => {
-    expect(ROTULO_STATUS[status]).toBe(rotulo);
-    expect(COR_STATUS[status]).toMatch(/^#[0-9a-fA-F]{6}$/);
+    expect(STATUS_LABELS[status]).toBe(rotulo);
+    expect(STATUS_COLORS[status]).toMatch(/^#[0-9a-fA-F]{6}$/);
   });
 });
 
@@ -53,9 +53,9 @@ describe("event labels", () => {
 
   it("has a label and a colour for every event type", () => {
     for (const tipo of tipos) {
-      expect(ROTULO_EVENTO[tipo]).toBeTruthy();
-      expect(COR_EVENTO[tipo]).toBeTruthy();
+      expect(EVENT_LABELS[tipo]).toBeTruthy();
+      expect(EVENT_COLORS[tipo]).toBeTruthy();
     }
-    expect(ROTULO_EVENTO.lead_change).toBe("Virada");
+    expect(EVENT_LABELS.lead_change).toBe("Virada");
   });
 });

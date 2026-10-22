@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { fmtCompact, fmtInt, fmtNum, fmtPct, fmtPP, iniciais, semAcento, slug } from "../src/lib/format";
+import {
+  fmtCompact,
+  fmtInt,
+  fmtNum,
+  fmtPct,
+  fmtPP,
+  initials,
+  stripAccents,
+  slug,
+} from "../src/lib/formatting";
 
 // Intl pt-BR separators: "." for thousands, "," for decimals; compact notation uses a non-breaking space.
 describe("fmtInt", () => {
@@ -74,17 +83,17 @@ describe("fmtNum", () => {
 
 describe("iniciais", () => {
   it("returns the first letters of the first and last names", () => {
-    expect(iniciais("Maria da Silva Souza")).toBe("MS");
+    expect(initials("Maria da Silva Souza")).toBe("MS");
   });
   it("returns the first two letters of a single name, in upper case", () => {
-    expect(iniciais("ana")).toBe("AN");
+    expect(initials("ana")).toBe("AN");
   });
   it("ignores extra spaces around the name", () => {
-    expect(iniciais("   João   Pedro  ")).toBe("JP");
+    expect(initials("   João   Pedro  ")).toBe("JP");
   });
   it("returns ? for an empty or blank name", () => {
-    expect(iniciais("")).toBe("?");
-    expect(iniciais("   ")).toBe("?");
+    expect(initials("")).toBe("?");
+    expect(initials("   ")).toBe("?");
   });
 });
 
@@ -102,9 +111,9 @@ describe("slug", () => {
 
 describe("semAcento", () => {
   it("removes accents and lower-cases without touching other characters", () => {
-    expect(semAcento("Ação ÉTICA 2026")).toBe("acao etica 2026");
+    expect(stripAccents("Ação ÉTICA 2026")).toBe("acao etica 2026");
   });
   it("keeps the string as is when there are no accents", () => {
-    expect(semAcento("abc")).toBe("abc");
+    expect(stripAccents("abc")).toBe("abc");
   });
 });

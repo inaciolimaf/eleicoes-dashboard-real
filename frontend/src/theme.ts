@@ -27,7 +27,7 @@ const eleicao: MantineColorsTuple = [
   "#0039AD",
 ];
 
-export function criarTema(scale = 1): MantineThemeOverride {
+export function buildTheme(scale = 1): MantineThemeOverride {
   return createTheme({
     scale,
     primaryColor: "eleicao",

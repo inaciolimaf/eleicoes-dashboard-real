@@ -1,23 +1,23 @@
 import { lazy } from "react";
 import { createBrowserRouter, Navigate, RouterProvider } from "react-router-dom";
-import { AppLayout } from "./components/layout/AppLayout";
+import { AppLayout } from "./modules/shell";
 
-const HomePage = lazy(() => import("./pages/HomePage"));
-const PainelPage = lazy(() => import("./pages/PainelPage"));
-const PaineisPage = lazy(() => import("./pages/PaineisPage"));
-const SharedPage = lazy(() => import("./pages/SharedPage"));
-const TvPage = lazy(() => import("./pages/TvPage"));
-const ExplorarPage = lazy(() => import("./pages/ExplorarPage"));
-const MapasPage = lazy(() => import("./pages/MapasPage"));
-const LocalPage = lazy(() => import("./pages/LocalPage"));
-const SecaoPage = lazy(() => import("./pages/SecaoPage"));
-const CandidatosPage = lazy(() => import("./pages/CandidatosPage"));
-const CandidatoPage = lazy(() => import("./pages/CandidatoPage"));
-const EventosPage = lazy(() => import("./pages/EventosPage"));
-const AlertasPage = lazy(() => import("./pages/AlertasPage"));
-const ContaPage = lazy(() => import("./pages/ContaPage"));
-const AdminPage = lazy(() => import("./pages/AdminPage"));
-const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
+const HomePage = lazy(() => import("./routes/HomePage"));
+const DashboardPage = lazy(() => import("./routes/DashboardPage"));
+const DashboardsPage = lazy(() => import("./routes/DashboardsPage"));
+const SharedPage = lazy(() => import("./routes/SharedPage"));
+const TvPage = lazy(() => import("./routes/TvPage"));
+const ExplorePage = lazy(() => import("./routes/ExplorePage"));
+const MapsPage = lazy(() => import("./routes/MapsPage"));
+const PollingPlacePage = lazy(() => import("./routes/PollingPlacePage"));
+const PollingSectionPage = lazy(() => import("./routes/PollingSectionPage"));
+const CandidatesPage = lazy(() => import("./routes/CandidatesPage"));
+const CandidatePage = lazy(() => import("./routes/CandidatePage"));
+const EventsPage = lazy(() => import("./routes/EventsPage"));
+const AlertsPage = lazy(() => import("./routes/AlertsPage"));
+const AccountPage = lazy(() => import("./routes/AccountPage"));
+const AdminPage = lazy(() => import("./routes/AdminPage"));
+const NotFoundPage = lazy(() => import("./routes/NotFoundPage"));
 
 const router = createBrowserRouter(
   [
@@ -28,20 +28,20 @@ const router = createBrowserRouter(
       element: <AppLayout />,
       children: [
         { index: true, element: <HomePage /> },
-        { path: "paineis", element: <PaineisPage /> },
-        { path: "paineis/:id", element: <PainelPage /> },
-        { path: "explorar", element: <ExplorarPage /> },
-        { path: "explorar/:nivel", element: <ExplorarPage /> },
-        { path: "explorar/:nivel/:id", element: <ExplorarPage /> },
-        { path: "mapas", element: <MapasPage /> },
-        { path: "locais/:id", element: <LocalPage /> },
-        { path: "secoes/:id", element: <SecaoPage /> },
-        { path: "secoes/:uf/:mun/:zona/:secao", element: <SecaoPage /> },
-        { path: "candidatos", element: <CandidatosPage /> },
-        { path: "candidatos/:sqcand", element: <CandidatoPage /> },
-        { path: "eventos", element: <EventosPage /> },
-        { path: "alertas", element: <AlertasPage /> },
-        { path: "conta", element: <ContaPage /> },
+        { path: "paineis", element: <DashboardsPage /> },
+        { path: "paineis/:id", element: <DashboardPage /> },
+        { path: "explorar", element: <ExplorePage /> },
+        { path: "explorar/:nivel", element: <ExplorePage /> },
+        { path: "explorar/:nivel/:id", element: <ExplorePage /> },
+        { path: "mapas", element: <MapsPage /> },
+        { path: "locais/:id", element: <PollingPlacePage /> },
+        { path: "secoes/:id", element: <PollingSectionPage /> },
+        { path: "secoes/:uf/:mun/:zona/:secao", element: <PollingSectionPage /> },
+        { path: "candidatos", element: <CandidatesPage /> },
+        { path: "candidatos/:sqcand", element: <CandidatePage /> },
+        { path: "eventos", element: <EventsPage /> },
+        { path: "alertas", element: <AlertsPage /> },
+        { path: "conta", element: <AccountPage /> },
         { path: "entrar", element: <Navigate to="/conta" replace /> },
         { path: "admin", element: <AdminPage /> },
         { path: "*", element: <NotFoundPage /> },

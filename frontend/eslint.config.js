@@ -3,6 +3,7 @@ import globals from "globals";
 import prettier from "eslint-config-prettier";
 import reactHooks from "eslint-plugin-react-hooks";
 import tseslint from "typescript-eslint";
+import { readdirSync } from "node:fs";
 
 // Reuse rules: what already has a helper or token is not written by hand again.
 // Each group is allowed in the one file that implements it (see `syntax` below).
@@ -10,12 +11,12 @@ const HEX = "#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})";
 const REUSE = {
   color: {
     selector: `Literal[value=/^${HEX}$/], TemplateElement[value.raw=/^${HEX}$/]`,
-    message: "Use a color token or a palette from src/lib/cores.ts instead of a hex literal.",
+    message: "Use a color token or a palette from src/lib/palettes.ts instead of a hex literal.",
   },
   number: {
     selector: "CallExpression[callee.property.name='toLocaleString']",
     message:
-      "Use fmtInt, fmtPct, fmtPP, fmtCompact or fmtNum from src/lib/format.ts instead of toLocaleString.",
+      "Use fmtInt, fmtPct, fmtPP, fmtCompact or fmtNum from src/lib/formatting.ts instead of toLocaleString.",
   },
 };
 
@@ -29,44 +30,60 @@ function syntax(...allowed) {
   ];
 }
 
+// Module boundaries: a module is imported only through its index.ts, and components/, lib/ and
+// api/ (shared by every module) never import a module.
+const MODULES = readdirSync(new URL("./src/modules", import.meta.url), { withFileTypes: true })
+  .filter((entry) => entry.isDirectory())
+  .map((entry) => entry.name);
+const MODULE_MESSAGE = "Import a module only through its index.ts (src/modules/<domain>).";
+const MODULE_IMPORTS = [
+  { regex: "(^|/)modules/[^/]+/(?!index(\\.tsx?)?$)", message: MODULE_MESSAGE },
+  { regex: `^(\\.\\./)+(${MODULES.join("|")})/(?!index(\\.tsx?)?$)`, message: MODULE_MESSAGE },
+];
+const SHARED_IMPORTS = [
+  {
+    regex: "(^|/)modules(/|$)",
+    message: "components/, lib/ and api/ are shared: they do not import a module.",
+  },
+];
+
 // TEMPORARY (refactoring of 2026-10-22): files that do not comply with the new rules yet. To check a file: ESLINT_STRICT=1 npx eslint <file>.
 const PENDING = [
-  "src/api/hooks.ts",
-  "src/components/graficos/EChart.tsx",
-  "src/components/graficos/Evolucao.tsx",
-  "src/components/graficos/HeatmapProgresso.tsx",
-  "src/components/graficos/Hemiciclo.tsx",
-  "src/components/graficos/Rosca.tsx",
-  "src/components/layout/FilterBar.tsx",
-  "src/components/layout/Navbar.tsx",
-  "src/components/layout/TimeSlider.tsx",
-  "src/components/locais/DetalheLocal.tsx",
-  "src/components/mapas/Legenda.tsx",
-  "src/components/mapas/MapaEleitoral.tsx",
-  "src/components/resultados/BlocoTotais.tsx",
-  "src/components/resultados/CardCandidato.tsx",
-  "src/components/resultados/Placar.tsx",
-  "src/components/secoes/DetalheSecao.tsx",
-  "src/components/tabelas/TabelaRecortes.tsx",
-  "src/lib/exportar.ts",
-  "src/lib/useCor.ts",
-  "src/pages/AdminPage.tsx",
-  "src/pages/AlertasPage.tsx",
-  "src/pages/CandidatoPage.tsx",
-  "src/pages/CandidatosPage.tsx",
-  "src/pages/ExplorarPage.tsx",
-  "src/pages/MapasPage.tsx",
-  "src/pages/PaineisPage.tsx",
-  "src/pages/TvPage.tsx",
-  "src/paineis/CompartilharModal.tsx",
-  "src/paineis/GavetaConfig.tsx",
-  "src/paineis/GavetaWidgets.tsx",
-  "src/paineis/NovoPainelModal.tsx",
-  "src/paineis/PainelView.tsx",
-  "src/paineis/repo.ts",
-  "src/realtime/aplicar.ts",
-  "src/widgets/componentes.tsx",
-  "src/widgets/registro.tsx",
+  "src/modules/charts/components/Donut.tsx",
+  "src/modules/charts/components/EChart.tsx",
+  "src/modules/charts/components/Evolution.tsx",
+  "src/modules/charts/components/Hemicycle.tsx",
+  "src/modules/charts/components/ProgressHeatmap.tsx",
+  "src/modules/shell/components/FilterBar.tsx",
+  "src/modules/shell/components/Navbar.tsx",
+  "src/modules/shell/components/TimeSlider.tsx",
+  "src/modules/polling-places/components/PollingPlaceDetail.tsx",
+  "src/modules/maps/components/Legend.tsx",
+  "src/modules/maps/components/ElectoralMapView.tsx",
+  "src/modules/results/components/TotalsBlock.tsx",
+  "src/modules/results/components/CandidateCard.tsx",
+  "src/modules/results/components/Scoreboard.tsx",
+  "src/modules/sections/components/SectionDetail.tsx",
+  "src/modules/results/components/GeoAreaTable.tsx",
+  "src/lib/export.ts",
+  "src/lib/useColor.ts",
+  "src/modules/admin/components/AdminScreen.tsx",
+  "src/modules/alerts/components/AlertsScreen.tsx",
+  "src/modules/results/components/CandidateScreen.tsx",
+  "src/modules/results/components/CandidatesScreen.tsx",
+  "src/modules/results/components/ExploreScreen.tsx",
+  "src/modules/maps/components/MapsScreen.tsx",
+  "src/modules/dashboards/components/DashboardsScreen.tsx",
+  "src/modules/dashboards/components/TvScreen.tsx",
+  "src/modules/dashboards/components/ShareModal.tsx",
+  "src/modules/dashboards/components/ConfigDrawer.tsx",
+  "src/modules/dashboards/components/WidgetDrawer.tsx",
+  "src/modules/dashboards/components/NewDashboardModal.tsx",
+  "src/modules/dashboards/components/DashboardView.tsx",
+  "src/modules/dashboards/repo.ts",
+  "src/modules/realtime/apply.ts",
+  "src/modules/dashboards/widgets/components.tsx",
+  "src/modules/dashboards/widgets/registry.tsx",
 ];
 const STRICT = process.env.ESLINT_STRICT === "1";
 
@@ -102,10 +119,15 @@ export default tseslint.config(
       "max-lines-per-function": ["error", { max: 100, skipBlankLines: true, skipComments: true }],
       "max-lines": ["error", { max: 300, skipBlankLines: true, skipComments: true }],
       "no-restricted-syntax": syntax(),
+      "no-restricted-imports": ["error", { patterns: MODULE_IMPORTS }],
     },
   },
-  { files: ["src/lib/cores.ts", "src/theme.ts"], rules: { "no-restricted-syntax": syntax("color") } },
-  { files: ["src/lib/format.ts"], rules: { "no-restricted-syntax": syntax("number") } },
+  {
+    files: ["src/components/**/*.{ts,tsx}", "src/lib/**/*.{ts,tsx}", "src/api/**/*.{ts,tsx}"],
+    rules: { "no-restricted-imports": ["error", { patterns: SHARED_IMPORTS }] },
+  },
+  { files: ["src/lib/palettes.ts", "src/theme.ts"], rules: { "no-restricted-syntax": syntax("color") } },
+  { files: ["src/lib/formatting.ts"], rules: { "no-restricted-syntax": syntax("number") } },
   ...(STRICT || PENDING.length === 0
     ? []
     : [
