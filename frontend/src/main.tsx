@@ -13,11 +13,11 @@ import { Notifications } from "@mantine/notifications";
 import { DatesProvider } from "@mantine/dates";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ApiError } from "./api/client";
-import { criarTema } from "./theme";
-import { usePrefs } from "./store/prefs";
-import { useUi } from "./store/ui";
-import { liveSocket } from "./realtime/socket";
-import { PrefsSync } from "./PrefsSync";
+import { buildTheme } from "./theme";
+import { usePrefs } from "./lib/prefs-store";
+import { useUi } from "./lib/ui-store";
+import { liveSocket } from "./modules/realtime";
+import { PrefsSync } from "./modules/accounts";
 import App from "./App";
 
 const queryClient = new QueryClient({
@@ -35,7 +35,7 @@ function Raiz() {
   const densidade = usePrefs((s) => s.densidade);
   const modoTv = useUi((s) => s.modoTv);
   const tema = useMemo(
-    () => criarTema(modoTv ? 1.3 : densidade === "compacta" ? 0.92 : 1),
+    () => buildTheme(modoTv ? 1.3 : densidade === "compacta" ? 0.92 : 1),
     [densidade, modoTv],
   );
   return (
