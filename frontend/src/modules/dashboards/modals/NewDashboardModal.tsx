@@ -239,9 +239,9 @@ function TemplateOptions({ template, name, onNameChange, areaId, onArea }: Templ
         {template.needs && (
           <GeoAreaPicker
             label={NEEDS_LABEL[template.needs]}
-types={[template.needs]}
-includeBrazil={false}
-includeStates={template.needs === "state"}
+            types={[template.needs]}
+            includeBrazil={false}
+            includeStates={template.needs === "state"}
             value={areaId}
             onChange={onArea}
           />
@@ -257,7 +257,7 @@ function TemplateCard({ template, selected }: { template: Template; selected: bo
       withBorder
       p="sm"
       h="100%"
-      style={{ borderColor: selected ? "var(--mantine-color-eleicao-4)" : undefined }}
+      style={{ borderColor: selected ? "var(--mantine-color-election-4)" : undefined }}
     >
       <Group gap="sm" wrap="nowrap" align="flex-start">
         <ThemeIcon size="lg" variant={selected ? "filled" : "light"} radius="md">

@@ -49,8 +49,8 @@ function ComparisonColumn({ level, id }: { level: string; id: string }) {
                           {candidate.ballot_name}
                         </Text>
                         <Num
-value={candidate.valid_pct}
-kind="pct"
+                          value={candidate.valid_pct}
+                          kind="pct"
                           style={{ fontSize: 12, fontWeight: 700 }}
                         />
                       </Group>

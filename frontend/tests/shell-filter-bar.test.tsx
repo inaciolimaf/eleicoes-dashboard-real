@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { fakeApi, renderScreen } from "./helpers/screen";
 import { minutesAgo, resetStores } from "./helpers/data-shell";
 import { useTime } from "../src/lib/time-store";
-import { useLocalFavorites } from "../src/modules/accounts/store";
+import { useBrowserFavorites } from "../src/modules/accounts/store";
 
 beforeEach(resetStores);
 
@@ -28,7 +28,7 @@ describe("shell filter bar", () => {
 
   it("lists the favorites saved by an older browser, linking to the candidate", async () => {
     saveLegacyFavorites();
-    await useLocalFavorites.persist.rehydrate();
+    await useBrowserFavorites.persist.rehydrate();
     fakeApi({});
     await renderScreen("/conta");
     const chip = await screen.findByRole("link", { name: /Ana Lima/ });
@@ -53,7 +53,7 @@ describe("shell filter bar", () => {
         version: 0,
       }),
     );
-    await useLocalFavorites.persist.rehydrate();
+    await useBrowserFavorites.persist.rehydrate();
     fakeApi({});
     const { user } = await renderScreen("/conta");
     await user.click(await screen.findByRole("button", { name: "Favoritar recorte" }));

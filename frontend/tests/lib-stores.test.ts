@@ -19,7 +19,7 @@ beforeEach(() => {
 
 describe("filter store", () => {
   it("sets the geo area with its name", () => {
-    useFilter.getState().setRecorte("state", "sp", "São Paulo");
+    useFilter.getState().setGeoArea("state", "sp", "São Paulo");
     expect(useFilter.getState()).toMatchObject({ nivel: "state", id: "sp", nome: "São Paulo" });
   });
 

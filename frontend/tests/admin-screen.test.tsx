@@ -8,7 +8,7 @@ import {
   VOTER_USER,
   liveStatus,
   resetStores,
-  } from "./helpers/data-shell";
+} from "./helpers/data-shell";
 import type { StatusDto } from "../src/api/models";
 import { useAuth } from "../src/lib/auth-store";
 
@@ -51,21 +51,20 @@ describe("admin screen", () => {
   });
 
   it("resumes a paused collector", async () => {
-    const api = fakeApi(
-      {
-        ...ADMIN_ANSWERS,
-        "GET /status": liveStatus({
-          collector: { paused: true, requests_per_second: 0 } as StatusDto["collector"],
-        }),
-      },
-    );
+    const api = fakeApi({
+      ...ADMIN_ANSWERS,
+      "GET /status": liveStatus({
+        collector: { paused: true, requests_per_second: 0 } as StatusDto["collector"],
+      }),
+    });
     const { user } = await renderScreen("/admin");
     await user.click(await screen.findByRole("button", { name: "Retomar" }));
     await waitFor(() => expect(api.calls("POST /admin/collector/resume")).toHaveLength(1));
   });
 
   it("shows the API's reason when a command fails", async () => {
-    fakeApi({ ...ADMIN_ANSWERS,
+    fakeApi({
+      ...ADMIN_ANSWERS,
       ["POST /admin/collector/pause"]: { status: 409, body: problem(409, "o coletor já está pausado") },
     });
     const { user } = await renderScreen("/admin");

@@ -50,7 +50,7 @@ export function Search() {
       }
       const level = (hit.level ?? hit.type) as Level;
       if (level !== "polling_place" && level !== "section")
-        useFilter.getState().setRecorte(level, hit.id, hit.title);
+        useFilter.getState().setGeoArea(level, hit.id, hit.title);
       navigate(geoAreaLink(level, hit.id));
     },
     [navigate],

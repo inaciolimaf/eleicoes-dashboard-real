@@ -58,7 +58,7 @@ export function Loading() {
   );
 }
 
-/** AppShell: header, navbar recolhível, barra de filtro, conteúdo e slider de tempo fixo no rodapé. */
+/** AppShell: header, collapsible navbar, filter bar, content and the time slider fixed at the bottom. */
 export function AppLayout() {
   const navbarOpen = useUi((s) => s.navbarOpen);
   const desktopNavOpen = useDesktopNav((s) => s.aberta);

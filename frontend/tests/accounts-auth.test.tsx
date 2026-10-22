@@ -36,7 +36,10 @@ describe("sign-in modal", () => {
 
   it("asks the user to wait when the API answers 429", async () => {
     fakeApi({
-      [LOGIN_PATH]: { status: 429, body: problem(429, "Muitas tentativas de login. Tente de novo em um minuto.") },
+      [LOGIN_PATH]: {
+        status: 429,
+        body: problem(429, "Muitas tentativas de login. Tente de novo em um minuto."),
+      },
     });
     const { user } = await renderScreen("/conta");
     const dialog = await openAuthDialog(user);

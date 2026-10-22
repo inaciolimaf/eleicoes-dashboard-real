@@ -70,7 +70,7 @@ export function MapSidePanel(p: MapSidePanelProps) {
               p="xs"
               withBorder
               style={{
-                borderColor: p.type === t.value ? "var(--mantine-color-eleicao-4)" : undefined,
+                borderColor: p.type === t.value ? "var(--mantine-color-election-4)" : undefined,
                 background: p.type === t.value ? "var(--mantine-color-default-hover)" : undefined,
               }}
             >

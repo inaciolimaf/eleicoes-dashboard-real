@@ -15,7 +15,7 @@ export function PollingPlaceScreen({ id }: { id: string }) {
   const query = usePollingPlace(id, filter.turno);
   const { isFavorite, toggle } = useFavorites();
   useEffect(() => {
-    if (id) useFilter.getState().setRecorte("polling_place", id, query.data?.name);
+    if (id) useFilter.getState().setGeoArea("polling_place", id, query.data?.name);
   }, [id, query.data?.name]);
   const favorite = isFavorite("polling_place", id);
   return (

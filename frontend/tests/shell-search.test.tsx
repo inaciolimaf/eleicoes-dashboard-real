@@ -52,22 +52,20 @@ describe("shell search", () => {
   });
 
   it("lists the hits the API found", async () => {
-    fakeApi(
-      {
-        "GET /search": {
-          items: [
-            {
-              type: "municipality",
-              id: "3550308",
-              title: "São Paulo",
-              subtitle: "SP",
-              level: "municipality",
-            },
-            { type: "state", id: "sp", title: "São Paulo (estado)", subtitle: null, level: "state" },
-          ],
-        },
+    fakeApi({
+      "GET /search": {
+        items: [
+          {
+            type: "municipality",
+            id: "3550308",
+            title: "São Paulo",
+            subtitle: "SP",
+            level: "municipality",
+          },
+          { type: "state", id: "sp", title: "São Paulo (estado)", subtitle: null, level: "state" },
+        ],
       },
-    );
+    });
     await renderScreen("/conta");
     const input = await openSpotlight();
     fireEvent.change(input, { target: { value: "sao" } });

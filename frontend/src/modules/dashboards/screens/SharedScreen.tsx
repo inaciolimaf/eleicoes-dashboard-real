@@ -92,7 +92,7 @@ function SharedHeader({
     <AppShell.Header>
       <Group h="100%" px="md" justify="space-between" wrap="nowrap">
         <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
-          <IconChartBar size={22} color="var(--mantine-color-eleicao-4)" />
+          <IconChartBar size={22} color="var(--mantine-color-election-4)" />
           <Title order={4} lineClamp={1}>
             {title ?? "Painel compartilhado"}
           </Title>

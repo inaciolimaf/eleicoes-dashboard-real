@@ -95,7 +95,7 @@ export function MapsScreen({ sp, setSp }: { sp: URLSearchParams; setSp: SetURLSe
 
   const selectArea = (level: Level, id: string, name: string) => {
     if (level === "polling_place" || level === "section") navigate(geoAreaLink(level, id));
-    else globalFilter.setRecorte(level, id, name);
+    else globalFilter.setGeoArea(level, id, name);
   };
 
   const panel = (
@@ -112,7 +112,7 @@ export function MapsScreen({ sp, setSp }: { sp: URLSearchParams; setSp: SetURLSe
       onBasemapChange={(on) => setPrefs({ basemap: on })}
       noBrResult={noBrResult}
       parent={parent}
-      onUp={(up) => globalFilter.setRecorte(asLevel(up.level), up.id, up.name)}
+      onUp={(up) => globalFilter.setGeoArea(asLevel(up.level), up.id, up.name)}
       onExplore={() => navigate(geoAreaLink(filter.nivel, filter.id))}
     />
   );
@@ -130,12 +130,12 @@ export function MapsScreen({ sp, setSp }: { sp: URLSearchParams; setSp: SetURLSe
           }}
         >
           <ElectoralMap
-kind={type}
-level={mapLevel}
+            kind={type}
+            level={mapLevel}
             id={mapId}
-allMunicipalities={allMunicipalities}
-onSelect={selectArea}
-height="100%"
+            allMunicipalities={allMunicipalities}
+            onSelect={selectArea}
+            height="100%"
           />
         </Box>
         {!phone && (

@@ -44,15 +44,15 @@ function CandidateMap({
   return (
     <Box h={{ base: 380, md: 520 }} style={{ borderRadius: 12, overflow: "hidden" }}>
       <ElectoralMap
-kind="desempenho"
-level={level}
+        kind="desempenho"
+        level={level}
         id={id}
-allMunicipalities={allMunicipalities}
-candidateA={candidateId}
-candidateSelector={false}
+        allMunicipalities={allMunicipalities}
+        candidateA={candidateId}
+        candidateSelector={false}
         cargo={office}
-onSelect={(selectedLevel, selectedId, name) => {
-          useFilter.getState().setRecorte(selectedLevel, selectedId, name);
+        onSelect={(selectedLevel, selectedId, name) => {
+          useFilter.getState().setGeoArea(selectedLevel, selectedId, name);
           navigate(geoAreaLink(selectedLevel, selectedId));
         }}
       />

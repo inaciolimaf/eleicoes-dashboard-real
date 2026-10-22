@@ -41,7 +41,7 @@ export function WidgetFrame({
   const { ref, height } = useElementSize();
   const cardRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-  const setArea = useFilter((s) => s.setRecorte);
+  const setArea = useFilter((s) => s.setGeoArea);
   const fixedFilter = widgetFilter(widget);
 
   const select = useCallback(
@@ -73,7 +73,7 @@ export function WidgetFrame({
       style={{
         display: "flex",
         flexDirection: "column",
-        outline: editing ? "1px dashed var(--mantine-color-eleicao-4)" : undefined,
+        outline: editing ? "1px dashed var(--mantine-color-election-4)" : undefined,
         overflow: "hidden",
       }}
       aria-label={title}

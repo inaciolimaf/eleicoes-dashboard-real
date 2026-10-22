@@ -71,17 +71,15 @@ describe("preferences screen", () => {
 describe("preferences sync", () => {
   it("loads the account's preferences from the API", async () => {
     useAuth.setState({ token: "token-abc", user: VOTER_USER });
-    fakeApi(
-      {
-        "GET /preferences": {
-          theme: "claro",
-          density: "compacta",
-          animations: true,
-          candidate_colors: {},
-          notifications: { toasts: [], push: false },
-        },
+    fakeApi({
+      "GET /preferences": {
+        theme: "claro",
+        density: "compacta",
+        animations: true,
+        candidate_colors: {},
+        notifications: { toasts: [], push: false },
       },
-    );
+    });
     await renderScreen("/conta");
     await waitFor(() => expect(usePrefs.getState().tema).toBe("claro"));
     expect(usePrefs.getState().densidade).toBe("compacta");

@@ -22,13 +22,13 @@ export function EventsWidget({ config, height }: WidgetProps) {
   const onlyArea = configBool(config, "soRecorte", false);
   return (
     <EventFeed
-types={configArray(config, "tipos")}
-limit={configNumber(config, "limite", 50)}
-office={configBool(config, "soCargo", false) ? filter.cargo : null}
-level={onlyArea ? filter.nivel : null}
+      types={configArray(config, "tipos")}
+      limit={configNumber(config, "limite", 50)}
+      office={configBool(config, "soCargo", false) ? filter.cargo : null}
+      level={onlyArea ? filter.nivel : null}
       id={onlyArea ? filter.id : null}
-compact={height < 220}
-maxHeight={height}
+      compact={height < 220}
+      maxHeight={height}
     />
   );
 }

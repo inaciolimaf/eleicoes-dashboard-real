@@ -46,9 +46,9 @@ export function CandidateColors() {
               <Table.Tr key={candidate.tse_candidate_id}>
                 <Table.Td w={50}>
                   <CandidateAvatar
-photoUrl={candidate.photo_url}
-name={candidate.ballot_name}
-color={colors[candidate.tse_candidate_id] ?? candidate.color}
+                    photoUrl={candidate.photo_url}
+                    name={candidate.ballot_name}
+                    color={colors[candidate.tse_candidate_id] ?? candidate.color}
                     size={32}
                   />
                 </Table.Td>

@@ -27,10 +27,10 @@ export function GeoCrumbs({ crumbs }: { crumbs: GeoAreaRefDto[] }) {
     const isLocalLevel = crumb.level === "polling_place" || crumb.level === "section";
     const onGeoPage = GEO_PAGE_PREFIXES.some((prefix) => pathname.startsWith(prefix));
     if (!isLocalLevel && !onGeoPage) {
-      filter.setRecorte(asLevel(crumb.level), crumb.id, crumb.name);
+      filter.setGeoArea(asLevel(crumb.level), crumb.id, crumb.name);
       return;
     }
-    if (!isLocalLevel) filter.setRecorte(asLevel(crumb.level), crumb.id, crumb.name);
+    if (!isLocalLevel) filter.setGeoArea(asLevel(crumb.level), crumb.id, crumb.name);
     navigate(geoAreaLink(asLevel(crumb.level), crumb.id));
   };
   const lastIndex = crumbs.length - 1;

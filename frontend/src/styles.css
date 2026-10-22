@@ -131,7 +131,7 @@ body {
   will-change: transform;
 }
 .react-grid-item.react-grid-placeholder {
-  background: var(--mantine-color-eleicao-4);
+  background: var(--mantine-color-election-4);
   opacity: 0.18;
   border-radius: 12px;
   transition-duration: 100ms;

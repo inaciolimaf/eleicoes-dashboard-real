@@ -83,7 +83,9 @@ function DashboardLinks() {
           label={dashboard.name}
           leftSection={<IconLayoutDashboard size={18} stroke={1.6} />}
           rightSection={
-            dashboard.isDefault ? <IconStarFilled size={12} color="var(--mantine-color-yellow-5)" /> : undefined
+            dashboard.isDefault ? (
+              <IconStarFilled size={12} color="var(--mantine-color-yellow-5)" />
+            ) : undefined
           }
           active={pathname === `/paineis/${dashboard.id}` || (pathname === "/" && dashboard.isDefault)}
           onClick={() => closeNavbar(false)}

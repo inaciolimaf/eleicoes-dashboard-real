@@ -1,12 +1,7 @@
 import { screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeApi, problem, renderScreen } from "./helpers/screen";
-import {
-  ALERT_RULE,
-  CANDIDATES,
-  VOTER_USER,
-  resetStores,
-  } from "./helpers/data-shell";
+import { ALERT_RULE, CANDIDATES, VOTER_USER, resetStores } from "./helpers/data-shell";
 import { useAuth } from "../src/lib/auth-store";
 import { usePrefs } from "../src/lib/prefs-store";
 
@@ -116,7 +111,8 @@ describe("alerts screen, account", () => {
   });
 
   it("shows the API's reason when the rule cannot be saved", async () => {
-    fakeApi({ "GET /candidates": CANDIDATES,
+    fakeApi({
+      "GET /candidates": CANDIDATES,
       ["POST /alerts"]: { status: 422, body: problem(422, "limite fora da faixa") },
     });
     const { user } = await renderScreen("/alertas");

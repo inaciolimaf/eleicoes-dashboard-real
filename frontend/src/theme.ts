@@ -1,6 +1,6 @@
 import { createTheme, rem, type MantineColorsTuple, type MantineThemeOverride } from "@mantine/core";
 
-/** "Noite da eleição": fundo azul-ardósia profundo, superfícies #111A2E, bordas sutis. */
+/** "Noite da eleição" palette: deep slate-blue background, #111A2E surfaces, subtle borders. */
 const dark: MantineColorsTuple = [
   "#D5DCEB", // 0 texto
   "#AEB8CE", // 1
@@ -14,7 +14,7 @@ const dark: MantineColorsTuple = [
   "#050911", // 9
 ];
 
-const eleicao: MantineColorsTuple = [
+const election: MantineColorsTuple = [
   "#E8F0FF",
   "#CFDDFF",
   "#9DBAFF",
@@ -30,9 +30,9 @@ const eleicao: MantineColorsTuple = [
 export function buildTheme(scale = 1): MantineThemeOverride {
   return createTheme({
     scale,
-    primaryColor: "eleicao",
+    primaryColor: "election",
     primaryShade: { light: 6, dark: 4 },
-    colors: { dark, eleicao },
+    colors: { dark, election },
     fontFamily: "Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
     fontFamilyMonospace: "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace",
     headings: { fontFamily: "Inter, system-ui, sans-serif", fontWeight: "700" },

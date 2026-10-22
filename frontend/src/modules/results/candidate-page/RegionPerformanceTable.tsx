@@ -29,7 +29,7 @@ function RegionRow({ item, candidateId }: { item: ChildItemDto; candidateId: str
   const value = item.values?.[candidateId];
   const isLeader = item.leader?.tse_candidate_id === candidateId;
   const open = () => {
-    useFilter.getState().setRecorte(asLevel(item.level), item.id, item.name);
+    useFilter.getState().setGeoArea(asLevel(item.level), item.id, item.name);
     navigate(geoAreaLink(asLevel(item.level), item.id));
   };
   return (

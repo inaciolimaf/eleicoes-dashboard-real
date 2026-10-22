@@ -37,13 +37,13 @@ export const ROUTES: { pattern: string; path: string }[] = [
 
 /** Opens a route and fails on an uncaught error, the error screen or an empty `#root`. */
 export async function abrirRota(page: Page, path: string): Promise<void> {
-  const erros: string[] = [];
-  page.on("pageerror", (erro) => erros.push(erro.message));
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
   await page.goto(path, { waitUntil: "load" });
   await page.waitForLoadState("networkidle").catch(() => undefined);
   await expect(page.locator("#root")).not.toBeEmpty();
   await expect(page.getByText(ERROR_SCREEN_TITLE)).toHaveCount(0);
-  expect(erros, `erros de página em ${path}`).toEqual([]);
+  expect(errors, `page errors in ${path}`).toEqual([]);
 }
 
 /** Logs in through the form at `/conta`, the way the user does. */

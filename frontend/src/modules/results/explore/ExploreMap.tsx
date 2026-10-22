@@ -56,11 +56,11 @@ export function ExploreMap({ state, level, id }: { state: ExploreState; level: L
     >
       <Box h={{ base: 380, md: 520 }} style={{ borderRadius: 12, overflow: "hidden" }}>
         <ElectoralMap
-kind={state.mapType}
-level={level}
+          kind={state.mapType}
+          level={level}
           id={id}
-allMunicipalities={state.allMunicipalities}
-onSelect={state.openArea}
+          allMunicipalities={state.allMunicipalities}
+          onSelect={state.openArea}
         />
       </Box>
     </ExploreBlock>

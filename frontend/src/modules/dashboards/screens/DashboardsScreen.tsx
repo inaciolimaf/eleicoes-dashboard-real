@@ -79,7 +79,7 @@ export function DashboardsScreen() {
             <Button
               size="xs"
               onClick={async () => {
-                const count = await repo.migrateLocal();
+                const count = await repo.migrateBrowser();
                 notifications.show({
                   color: "teal",
                   message: `${count} painel(is) enviados para a sua conta.`,

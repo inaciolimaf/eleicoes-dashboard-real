@@ -10,7 +10,7 @@ export interface EffectiveFilter {
   cargo: number;
   nivel: Level;
   id: string;
-  /** ISO ou null (= ao vivo) */
+  /** ISO instant, or null (= live) */
   t: string | null;
 }
 

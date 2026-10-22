@@ -11,7 +11,7 @@ import type {
 import { DEFAULT_FILTER, useFilter } from "../../src/lib/filter-store";
 import { DEFAULT_PREFS, usePrefs } from "../../src/lib/prefs-store";
 import { useAuth } from "../../src/lib/auth-store";
-import { useLocalFavorites } from "../../src/modules/accounts/store";
+import { useBrowserFavorites } from "../../src/modules/accounts/store";
 import { useTime } from "../../src/lib/time-store";
 import { useUi } from "../../src/lib/ui-store";
 
@@ -135,5 +135,5 @@ export function resetStores(): void {
   useTime.setState({ t: null, playing: false, updates: 0 });
   useFilter.setState(DEFAULT_FILTER);
   usePrefs.setState(DEFAULT_PREFS);
-  useLocalFavorites.setState({ favorites: [] });
+  useBrowserFavorites.setState({ favorites: [] });
 }

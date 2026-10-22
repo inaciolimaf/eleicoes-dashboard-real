@@ -2,7 +2,7 @@ import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { downloadJson } from "../src/lib/export";
 import { useAuth } from "../src/lib/auth-store";
-import { useLocalDashboards } from "../src/modules/dashboards/repo";
+import { useBrowserDashboards } from "../src/modules/dashboards/repo";
 import { fakeApi, renderScreen } from "./helpers/screen";
 import { dashboardDto, plainConfig, sharedDto, storedDashboards } from "./helpers/data-dashboards";
 import { results } from "./helpers/data-results";
@@ -22,11 +22,11 @@ vi.mock("../src/lib/export", async (importOriginal) => ({
 const STORAGE_KEY = "eleicoes.paineis";
 
 /** Seeds the browser copy of the dashboards before the screen opens (as a returning user has it). */
-function seedLocal(list: Parameters<typeof storedDashboards>[0]) {
+function seedBrowser(list: Parameters<typeof storedDashboards>[0]) {
   // clear the store first: its own writes would otherwise overwrite the seed
-  useLocalDashboards.setState({ dashboards: [] });
+  useBrowserDashboards.setState({ dashboards: [] });
   localStorage.setItem(STORAGE_KEY, storedDashboards(list));
-  return useLocalDashboards.persist.rehydrate();
+  return useBrowserDashboards.persist.rehydrate();
 }
 
 function logIn() {
@@ -38,7 +38,7 @@ function logIn() {
 
 beforeEach(() => {
   localStorage.clear();
-  useLocalDashboards.setState({ dashboards: [] });
+  useBrowserDashboards.setState({ dashboards: [] });
   useAuth.setState({ token: null, user: null });
   vi.mocked(downloadJson).mockClear();
 });
@@ -68,7 +68,7 @@ describe("home screen", () => {
   });
 
   it("shows the user's default dashboard, and the first one when none is default", async () => {
-    await seedLocal([
+    await seedBrowser([
       { id: "a", nome: "Primeiro" },
       { id: "b", nome: "Padrão", padrao: true },
     ]);
@@ -77,7 +77,7 @@ describe("home screen", () => {
   });
 
   it("opens the first dashboard when none is the default", async () => {
-    await seedLocal([{ id: "a", nome: "Primeiro" }]);
+    await seedBrowser([{ id: "a", nome: "Primeiro" }]);
     await renderScreen("/");
     expect(await screen.findByRole("heading", { name: "Primeiro", hidden: true })).toBeInTheDocument();
   });
@@ -85,7 +85,7 @@ describe("home screen", () => {
 
 describe("dashboards list", () => {
   it("lists the browser's dashboards and explains they are kept only in this browser", async () => {
-    await seedLocal([
+    await seedBrowser([
       { id: "a", nome: "Eleição A", padrao: true },
       { id: "b", nome: "Eleição B", ordem: 1 },
     ]);
@@ -105,7 +105,7 @@ describe("dashboards list", () => {
   });
 
   it("makes another dashboard the default from the card menu", async () => {
-    await seedLocal([
+    await seedBrowser([
       { id: "a", nome: "Eleição A", padrao: true },
       { id: "b", nome: "Eleição B", ordem: 1 },
     ]);
@@ -120,7 +120,7 @@ describe("dashboards list", () => {
   });
 
   it("moves a dashboard down and saves the new order", async () => {
-    await seedLocal([
+    await seedBrowser([
       { id: "a", nome: "Eleição A" },
       { id: "b", nome: "Eleição B", ordem: 1 },
     ]);
@@ -136,7 +136,7 @@ describe("dashboards list", () => {
   });
 
   it("exports a dashboard as a JSON file", async () => {
-    await seedLocal([{ id: "a", nome: "Eleição A" }]);
+    await seedBrowser([{ id: "a", nome: "Eleição A" }]);
     const { user } = await renderScreen("/paineis");
     await user.click(await screen.findByRole("button", { name: "Opções", hidden: true }));
     await user.click(await screen.findByRole("menuitem", { name: "Exportar JSON", hidden: true }));
@@ -147,7 +147,7 @@ describe("dashboards list", () => {
   });
 
   it("deletes a dashboard after the user confirms", async () => {
-    await seedLocal([{ id: "a", nome: "Eleição A" }]);
+    await seedBrowser([{ id: "a", nome: "Eleição A" }]);
     const { user } = await renderScreen("/paineis");
     await user.click(await screen.findByRole("button", { name: "Opções", hidden: true }));
     await user.click(await screen.findByRole("menuitem", { name: "Apagar", hidden: true }));
@@ -157,7 +157,7 @@ describe("dashboards list", () => {
   });
 
   it("duplicates a dashboard as a copy and opens it", async () => {
-    await seedLocal([{ id: "a", nome: "Eleição A" }]);
+    await seedBrowser([{ id: "a", nome: "Eleição A" }]);
     const { user } = await renderScreen("/paineis");
     await user.click(await screen.findByRole("button", { name: "Opções", hidden: true }));
     await user.click(await screen.findByRole("menuitem", { name: "Duplicar", hidden: true }));
@@ -172,7 +172,7 @@ describe("dashboards list", () => {
     await user.click(await screen.findByText("Painel em branco"));
     await user.click(screen.getByRole("button", { name: "Criar painel", hidden: true }));
     expect(await screen.findByText("Painel vazio")).toBeInTheDocument();
-    expect(useLocalDashboards.getState().dashboards[0].name).toBe("Painel em branco");
+    expect(useBrowserDashboards.getState().dashboards[0].name).toBe("Painel em branco");
   });
 
   it("asks for the area a template needs before it creates the dashboard", async () => {
@@ -208,7 +208,7 @@ describe("dashboards list", () => {
 
   it("shows the browser dashboards pending a move to the account, once logged in", async () => {
     logIn();
-    await seedLocal([{ id: "a", nome: "Só aqui" }]);
+    await seedBrowser([{ id: "a", nome: "Só aqui" }]);
     fakeApi({ "GET /dashboards": [dashboardDto({ id: "r1", name: "Da conta" })] });
     await renderScreen("/paineis");
     expect((await screen.findAllByRole("link", { name: "Da conta", hidden: true })).length).toBeGreaterThan(
@@ -220,7 +220,7 @@ describe("dashboards list", () => {
 
   it("sends the browser dashboards to the account", async () => {
     logIn();
-    await seedLocal([{ id: "a", nome: "Só aqui" }]);
+    await seedBrowser([{ id: "a", nome: "Só aqui" }]);
     const api = fakeApi({
       "GET /dashboards": [],
       "POST /dashboards": (call: { body: unknown }) => ({ ...dashboardDto({ id: "n1" }), body: call.body }),
@@ -236,7 +236,7 @@ describe("dashboards list", () => {
 
 describe("dashboard screen (one dashboard)", () => {
   it("opens a dashboard from the browser copy with its widgets", async () => {
-    await seedLocal([{ id: "a", nome: "Minha eleição", config: plainConfig("Minha eleição") }]);
+    await seedBrowser([{ id: "a", nome: "Minha eleição", config: plainConfig("Minha eleição") }]);
     await renderScreen("/paineis/a");
     expect(await screen.findByRole("heading", { name: "Minha eleição", hidden: true })).toBeInTheDocument();
     expect(screen.getByText("neste navegador")).toBeInTheDocument();
@@ -245,7 +245,7 @@ describe("dashboard screen (one dashboard)", () => {
   });
 
   it("shows the title typed for a widget in its settings", async () => {
-    await seedLocal([
+    await seedBrowser([
       {
         id: "a",
         nome: "Minha eleição",
@@ -269,7 +269,7 @@ describe("dashboard screen (one dashboard)", () => {
 
   it("falls back to the valid votes in a KPI widget whose saved metric is unknown", async () => {
     fakeApi({ "GET /results": results() });
-    await seedLocal([
+    await seedBrowser([
       {
         id: "a",
         nome: "Minha eleição",
@@ -297,7 +297,7 @@ describe("dashboard screen (one dashboard)", () => {
   });
 
   it("edits the widgets: adds a widget from the catalog, then undoes it", async () => {
-    await seedLocal([{ id: "a", nome: "Minha eleição", config: plainConfig("Minha eleição") }]);
+    await seedBrowser([{ id: "a", nome: "Minha eleição", config: plainConfig("Minha eleição") }]);
     const { user } = await renderScreen("/paineis/a");
     await user.click(await screen.findByRole("button", { name: "Editar painel", hidden: true }));
     await user.click(screen.getByRole("button", { name: "Adicionar widget", hidden: true }));
@@ -313,7 +313,7 @@ describe("dashboard screen (one dashboard)", () => {
   });
 
   it("configures a widget: fixes its filter and applies the change", async () => {
-    await seedLocal([{ id: "a", nome: "Minha eleição", config: plainConfig("Minha eleição") }]);
+    await seedBrowser([{ id: "a", nome: "Minha eleição", config: plainConfig("Minha eleição") }]);
     const { user } = await renderScreen("/paineis/a");
     await user.click(await screen.findByRole("button", { name: "Editar painel", hidden: true }));
     const [menu] = await screen.findAllByRole("button", { name: "Opções do widget", hidden: true });
@@ -330,7 +330,7 @@ describe("dashboard screen (one dashboard)", () => {
   });
 
   it("duplicates and removes a widget while editing", async () => {
-    await seedLocal([{ id: "a", nome: "Minha eleição", config: plainConfig("Minha eleição") }]);
+    await seedBrowser([{ id: "a", nome: "Minha eleição", config: plainConfig("Minha eleição") }]);
     const { user } = await renderScreen("/paineis/a");
     await user.click(await screen.findByRole("button", { name: "Editar painel", hidden: true }));
     const [menu] = await screen.findAllByRole("button", { name: "Opções do widget", hidden: true });
@@ -349,7 +349,7 @@ describe("dashboard screen (one dashboard)", () => {
   });
 
   it("renames the dashboard from the menu", async () => {
-    await seedLocal([{ id: "a", nome: "Minha eleição", config: plainConfig("Minha eleição") }]);
+    await seedBrowser([{ id: "a", nome: "Minha eleição", config: plainConfig("Minha eleição") }]);
     const { user } = await renderScreen("/paineis/a");
     await user.click(await screen.findByRole("button", { name: "Menu do painel", hidden: true }));
     await user.click(await screen.findByRole("menuitem", { name: "Renomear", hidden: true }));
@@ -362,7 +362,7 @@ describe("dashboard screen (one dashboard)", () => {
   });
 
   it("explains how to share a dashboard that is still only in the browser", async () => {
-    await seedLocal([{ id: "a", nome: "Minha eleição", config: plainConfig("Minha eleição") }]);
+    await seedBrowser([{ id: "a", nome: "Minha eleição", config: plainConfig("Minha eleição") }]);
     const { user } = await renderScreen("/paineis/a");
     await user.click(await screen.findByRole("button", { name: "Menu do painel", hidden: true }));
     await user.click(await screen.findByRole("menuitem", { name: "Compartilhar…", hidden: true }));
@@ -405,7 +405,7 @@ describe("dashboard screen (one dashboard)", () => {
   });
 
   it("opens the TV mode for the dashboard", async () => {
-    await seedLocal([{ id: "a", nome: "Minha eleição", config: plainConfig("Minha eleição") }]);
+    await seedBrowser([{ id: "a", nome: "Minha eleição", config: plainConfig("Minha eleição") }]);
     const { user } = await renderScreen("/paineis/a");
     await user.click(await screen.findByRole("button", { name: "Menu do painel", hidden: true }));
     await user.click(await screen.findByRole("menuitem", { name: "Modo TV", hidden: true }));
@@ -413,7 +413,7 @@ describe("dashboard screen (one dashboard)", () => {
   });
 
   it("deletes the dashboard from its menu and returns to the list", async () => {
-    await seedLocal([{ id: "a", nome: "Minha eleição", config: plainConfig("Minha eleição") }]);
+    await seedBrowser([{ id: "a", nome: "Minha eleição", config: plainConfig("Minha eleição") }]);
     const { user } = await renderScreen("/paineis/a");
     await user.click(await screen.findByRole("button", { name: "Menu do painel", hidden: true }));
     await user.click(await screen.findByRole("menuitem", { name: "Apagar painel", hidden: true }));
@@ -423,7 +423,7 @@ describe("dashboard screen (one dashboard)", () => {
   });
 
   it("shows the empty state of a dashboard without widgets, with a way to add one", async () => {
-    await seedLocal([{ id: "a", nome: "Vazio", config: { ...plainConfig("Vazio"), widgets: [] } }]);
+    await seedBrowser([{ id: "a", nome: "Vazio", config: { ...plainConfig("Vazio"), widgets: [] } }]);
     const { user } = await renderScreen("/paineis/a");
     expect(await screen.findByText("Painel vazio")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Adicionar widget", hidden: true }));
@@ -431,7 +431,7 @@ describe("dashboard screen (one dashboard)", () => {
   });
 
   it("exports the open dashboard as JSON", async () => {
-    await seedLocal([{ id: "a", nome: "Minha eleição", config: plainConfig("Minha eleição") }]);
+    await seedBrowser([{ id: "a", nome: "Minha eleição", config: plainConfig("Minha eleição") }]);
     const { user } = await renderScreen("/paineis/a");
     await user.click(await screen.findByRole("button", { name: "Menu do painel", hidden: true }));
     await user.click(await screen.findByRole("menuitem", { name: "Exportar JSON", hidden: true }));
@@ -440,7 +440,7 @@ describe("dashboard screen (one dashboard)", () => {
 
   it("saves the edited dashboard a moment after the last change", async () => {
     // the drawer opens on real timers (its transition needs them); only the save delay is faked
-    await seedLocal([{ id: "a", nome: "Minha eleição", config: plainConfig("Minha eleição") }]);
+    await seedBrowser([{ id: "a", nome: "Minha eleição", config: plainConfig("Minha eleição") }]);
     const { user } = await renderScreen("/paineis/a");
     await user.click(await screen.findByRole("button", { name: "Editar painel", hidden: true }));
     await user.click(screen.getByRole("button", { name: "Adicionar widget", hidden: true }));
@@ -465,7 +465,7 @@ describe("TV screen", () => {
   });
 
   it("rotates between the dashboards and pauses on request", async () => {
-    await seedLocal([
+    await seedBrowser([
       { id: "a", nome: "Primeiro", ordem: 0 },
       { id: "b", nome: "Segundo", ordem: 1 },
     ]);
@@ -496,7 +496,7 @@ describe("TV screen", () => {
   });
 
   it("starts on the dashboard named in the link", async () => {
-    await seedLocal([
+    await seedBrowser([
       { id: "a", nome: "Primeiro", ordem: 0 },
       { id: "b", nome: "Segundo", ordem: 1 },
     ]);

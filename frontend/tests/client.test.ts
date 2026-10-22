@@ -25,11 +25,11 @@ describe("api errors", () => {
       }),
     );
 
-    const erro = await api("/auth/register", { method: "POST", body: {} }).catch((e: unknown) => e);
+    const error = await api("/auth/register", { method: "POST", body: {} }).catch((e: unknown) => e);
 
-    expect(erro).toBeInstanceOf(ApiError);
-    expect(erro).toMatchObject({ status: 409, title: "Conflito", detail: "e-mail já cadastrado" });
-    expect((erro as ApiError).message).toBe("e-mail já cadastrado");
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error).toMatchObject({ status: 409, title: "Conflito", detail: "e-mail já cadastrado" });
+    expect((error as ApiError).message).toBe("e-mail já cadastrado");
   });
 
   it("calls the versioned route", async () => {
@@ -50,26 +50,26 @@ describe("api errors", () => {
       }),
     );
 
-    const erro = await api("/status").catch((e: unknown) => e);
+    const error = await api("/status").catch((e: unknown) => e);
 
-    expect(erro).toBeInstanceOf(ApiError);
-    expect(erro).toMatchObject({ status: 502 });
-    expect((erro as ApiError).title).toBe("Erro");
-    expect((erro as ApiError).detail).toBe("O servidor encontrou um erro. Tente de novo em instantes.");
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error).toMatchObject({ status: 502 });
+    expect((error as ApiError).title).toBe("Erro");
+    expect((error as ApiError).detail).toBe("O servidor encontrou um erro. Tente de novo em instantes.");
   });
 
   it("reads a problem with no JSON body using the status defaults", async () => {
-    const erro = await readProblem(new Response("", { status: 404 }));
+    const error = await readProblem(new Response("", { status: 404 }));
 
-    expect(erro).toMatchObject({ status: 404, title: "Não encontrado", detail: "Não encontrado." });
+    expect(error).toMatchObject({ status: 404, title: "Não encontrado", detail: "Não encontrado." });
   });
 
   it("uses the first validation message when the body is a FastAPI error list", async () => {
-    const corpo = { detail: [{ loc: ["query", "round"], msg: "valor inválido", type: "int" }] };
-    const erro = await readProblem(
-      new Response(JSON.stringify(corpo), { status: 422, headers: { "content-type": "application/json" } }),
+    const body = { detail: [{ loc: ["query", "round"], msg: "valor inválido", type: "int" }] };
+    const error = await readProblem(
+      new Response(JSON.stringify(body), { status: 422, headers: { "content-type": "application/json" } }),
     );
 
-    expect(erro).toMatchObject({ status: 422, detail: "valor inválido" });
+    expect(error).toMatchObject({ status: 422, detail: "valor inválido" });
   });
 });

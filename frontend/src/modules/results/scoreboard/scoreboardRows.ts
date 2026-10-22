@@ -15,7 +15,7 @@ const PRESIDENT_OFFICE = 1;
 /** Office code of the governor, the other office with a majority rule and a 50% line. */
 const GOVERNOR_OFFICE = 3;
 
-/** Where the candidate's situation applies: "no Brasil" for the president, "em UF" otherwise. */
+/** Where the candidate's situation applies: "no Brasil" (nationwide) for the president, "em UF" (per state) otherwise. */
 export function whereLabel(result: ResultsWithDataDto): string {
   if (Number(result.office.office_code) === PRESIDENT_OFFICE) return "no Brasil";
   const state = result.geo_area.state_code ?? result.geo_area.breadcrumb.find((b) => b.level === "state")?.id;

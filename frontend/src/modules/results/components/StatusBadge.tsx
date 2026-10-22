@@ -9,7 +9,7 @@ type BadgeSize = "xs" | "sm" | "md";
 interface StatusBadgeProps {
   status: CandidateStatus;
   overallStatus?: CandidateStatus | null;
-  /** e.g. "no Brasil", "em SP" */
+  /** e.g. "no Brasil" (nationwide), "em SP" (per state) */
   where?: string;
   talliedAt?: string | null;
   size?: BadgeSize;

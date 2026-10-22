@@ -34,7 +34,7 @@ function TallyBar({ result }: { result: ResultsWithDataDto }) {
         value={pct}
         size="md"
         radius="xl"
-        color={pct >= 100 ? "green" : "eleicao"}
+        color={pct >= 100 ? "green" : "election"}
         striped={inProgress}
         animated={inProgress}
         aria-label="Percentual de seções totalizadas"
@@ -53,7 +53,7 @@ function ValidVotesSummary({ result, compact }: { result: ResultsWithDataDto; co
           Votos válidos
         </Text>
         <Num
-value={totals.valid_votes}
+          value={totals.valid_votes}
           style={{ fontSize: compact ? "1.6rem" : "2.3rem", fontWeight: 800, lineHeight: 1.1 }}
         />
         <Text size="sm" c="dimmed">

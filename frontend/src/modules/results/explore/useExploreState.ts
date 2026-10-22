@@ -38,7 +38,7 @@ export function useExploreState(level: Level, id: string) {
   /** Opens an area: the filter store follows it, except for the places and sections, which have their own pages. */
   const openArea = (areaLevel: Level, areaId: string, areaName?: string) => {
     if (areaLevel !== "polling_place" && areaLevel !== "section")
-      useFilter.getState().setRecorte(areaLevel, areaId, areaName);
+      useFilter.getState().setGeoArea(areaLevel, areaId, areaName);
     navigate(geoAreaLink(areaLevel, areaId));
   };
 

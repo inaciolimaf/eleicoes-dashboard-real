@@ -21,7 +21,7 @@ export function ExploreScreen({ params }: { params: Params }) {
   // the URL is the source of truth: the filter follows it when the area changes
   useEffect(() => {
     const current = useFilter.getState();
-    if (level && id && (current.nivel !== level || current.id !== id)) current.setRecorte(level, id);
+    if (level && id && (current.nivel !== level || current.id !== id)) current.setGeoArea(level, id);
   }, [level, id]);
 
   if (!level || !id) return <Navigate to={fallbackPath(filter)} replace />;

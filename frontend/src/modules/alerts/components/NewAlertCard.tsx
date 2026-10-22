@@ -78,9 +78,9 @@ export function NewAlertCard() {
               label="Candidato"
               value={candidateCode}
               onChange={setCandidateCode}
-round={filter.turno}
-office={officeCode}
-state={geoArea ? stateOfId(geoArea.nivel, geoArea.id) : null}
+              round={filter.turno}
+              office={officeCode}
+              state={geoArea ? stateOfId(geoArea.nivel, geoArea.id) : null}
             />
           )}
           {fields.limit && (
@@ -97,9 +97,9 @@ state={geoArea ? stateOfId(geoArea.nivel, geoArea.id) : null}
         {fields.pollingPlace && (
           <GeoAreaPicker
             label="Local de votação"
-types={["polling_place"]}
-includeBrazil={false}
-includeStates={false}
+            types={["polling_place"]}
+            includeBrazil={false}
+            includeStates={false}
             value={pollingPlace}
             onChange={setPollingPlace}
           />

@@ -36,7 +36,7 @@ function ShareCell({ item }: { item: ChildItemDto }) {
       <Text size="xs" className="num" ta="right">
         {fmtPct(item.pct_sections, 1)}
       </Text>
-      <Progress value={item.pct_sections} size={4} color={item.pct_sections >= 100 ? "green" : "eleicao"} />
+      <Progress value={item.pct_sections} size={4} color={item.pct_sections >= 100 ? "green" : "election"} />
     </Stack>
   );
 }

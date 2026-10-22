@@ -97,12 +97,12 @@ const storedFormat: StateStorage = {
   removeItem: (name) => localStorage.removeItem(name),
 };
 
-interface LocalDashboardsState {
+interface BrowserDashboardsState {
   dashboards: Dashboard[];
   setDashboards: (update: (list: Dashboard[]) => Dashboard[]) => void;
 }
 
-export const useLocalDashboards = create<LocalDashboardsState>()(
+export const useBrowserDashboards = create<BrowserDashboardsState>()(
   persist(
     (set) => ({
       dashboards: [],
@@ -114,7 +114,7 @@ export const useLocalDashboards = create<LocalDashboardsState>()(
       storage: createJSONStorage(() => storedFormat),
       // dashboards saved in the browser with the old level vocabulary: reading normalizes them
       merge: (saved, current) => {
-        const read = (saved as Partial<LocalDashboardsState>).dashboards ?? [];
+        const read = (saved as Partial<BrowserDashboardsState>).dashboards ?? [];
         return {
           ...current,
           dashboards: read.map((d) => ({ ...d, config: migrate(d.config) ?? d.config })),

@@ -64,7 +64,7 @@ function LiveButton({
   );
 }
 
-/** Slider global de tempo ("máquina do tempo") com replay e marcadores de eventos. */
+/** Global time slider ("time machine") with replay and event markers. */
 export function TimeSlider() {
   const round = useFilter((s) => s.turno);
   const timeline = useTimeline(round);

@@ -75,8 +75,8 @@ function ResultStats({ candidate, large }: { candidate: CandidateDetailDto; larg
           % válidos
         </Text>
         <Num
-value={result.valid_pct}
-kind="pct"
+          value={result.valid_pct}
+          kind="pct"
           style={{ fontSize: large ? "2rem" : "1.4rem", fontWeight: 800 }}
         />
       </Stack>
@@ -144,7 +144,9 @@ export function CandidateCard({
           <Text size="sm">
             {[
               candidate.party_abbreviation,
-              candidate.alliance && candidate.alliance !== candidate.party_abbreviation ? candidate.alliance : null,
+              candidate.alliance && candidate.alliance !== candidate.party_abbreviation
+                ? candidate.alliance
+                : null,
               candidate.state_code
                 ? (STATE_BY_CODE[candidate.state_code]?.name ?? candidate.state_code.toUpperCase())
                 : null,

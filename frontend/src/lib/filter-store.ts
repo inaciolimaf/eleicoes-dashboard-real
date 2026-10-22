@@ -15,7 +15,7 @@ export interface GlobalFilter {
 
 interface FilterState extends GlobalFilter {
   setFiltro: (f: Partial<GlobalFilter>) => void;
-  setRecorte: (nivel: Level, id: string, nome?: string) => void;
+  setGeoArea: (nivel: Level, id: string, nome?: string) => void;
 }
 
 export const DEFAULT_FILTER: GlobalFilter = {
@@ -32,7 +32,7 @@ export const useFilter = create<FilterState>()(
     (set) => ({
       ...DEFAULT_FILTER,
       setFiltro: (f) => set(f),
-      setRecorte: (nivel, id, nome) => set({ nivel, id, nome }),
+      setGeoArea: (nivel, id, nome) => set({ nivel, id, nome }),
     }),
     {
       name: "eleicoes.filtro",

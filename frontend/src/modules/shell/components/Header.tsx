@@ -24,10 +24,10 @@ function Brand() {
       style={{ textDecoration: "none", color: "inherit" }}
       wrap="nowrap"
     >
-      <IconChartBar size={24} color="var(--mantine-color-eleicao-4)" />
+      <IconChartBar size={24} color="var(--mantine-color-election-4)" />
       <Text fw={800} size="lg" visibleFrom="md" style={{ letterSpacing: -0.4, whiteSpace: "nowrap" }}>
         Apuração
-        <Text span c="eleicao.4" inherit>
+        <Text span c="election.4" inherit>
           {" "}
           2026
         </Text>

@@ -8,7 +8,7 @@ import { useFilter } from "../../../lib/filter-store";
 /** Section screen (`/secoes/:id`): the ballot box of the section and the totals of the selected office. */
 export function SectionScreen({ id }: { id: string }) {
   useEffect(() => {
-    if (id) useFilter.getState().setRecorte("section", id);
+    if (id) useFilter.getState().setGeoArea("section", id);
   }, [id]);
   return (
     <FilterProvider value={{ nivel: "section", id }}>

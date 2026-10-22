@@ -137,7 +137,7 @@ function CatalogItem({
       p="xs"
       radius="md"
       style={{
-        borderColor: selected ? "var(--mantine-color-eleicao-4)" : undefined,
+        borderColor: selected ? "var(--mantine-color-election-4)" : undefined,
         height: "100%",
       }}
     >

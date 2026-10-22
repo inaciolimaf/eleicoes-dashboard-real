@@ -85,7 +85,7 @@ function IndicatorDetails({
   );
 }
 
-/** Indicador AO VIVO (status + ws), com "Desatualizado há X min" e modo replay. */
+/** LIVE indicator (status + websocket), with "Desatualizado há X min" (stale) and the replay mode. */
 export function LiveIndicator({ compact }: { compact?: boolean }) {
   const statusQuery = useStatus();
   useLive([topic.status()]);

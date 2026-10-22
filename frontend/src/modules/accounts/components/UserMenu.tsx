@@ -39,7 +39,7 @@ export function UserMenu() {
         <Avatar
           component="button"
           radius="xl"
-          color="eleicao"
+          color="election"
           variant="filled"
           style={{ cursor: "pointer", border: 0 }}
           aria-label="Menu do usuário"

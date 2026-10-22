@@ -36,11 +36,9 @@ describe("shell header", () => {
   });
 
   it("warns when the data is more than five minutes old", async () => {
-    fakeApi(
-      {
-        "GET /status": liveStatus({ last_tally: minutesAgo(9), last_collection: minutesAgo(9) }),
-      },
-    );
+    fakeApi({
+      "GET /status": liveStatus({ last_tally: minutesAgo(9), last_collection: minutesAgo(9) }),
+    });
     await renderScreen("/conta");
     expect(await screen.findByRole("button", { name: /^Desatualizado há 9 min$/ })).toBeInTheDocument();
   });

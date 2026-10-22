@@ -25,7 +25,7 @@ interface SavedFavorite {
   label?: string;
 }
 
-interface LocalFavoritesState {
+interface BrowserFavoritesState {
   favorites: FavoriteDto[];
   setFavorites: (update: (current: FavoriteDto[]) => FavoriteDto[]) => void;
 }
@@ -34,8 +34,8 @@ interface LocalFavoritesState {
  * Favorites of a visitor without an account. The storage key and its `favoritos` field keep the
  * names already written in browsers, so the saved data stays readable.
  */
-export const useLocalFavorites = create<LocalFavoritesState>()(
-  persist<LocalFavoritesState, [], [], { favoritos: FavoriteDto[] }>(
+export const useBrowserFavorites = create<BrowserFavoritesState>()(
+  persist<BrowserFavoritesState, [], [], { favoritos: FavoriteDto[] }>(
     (set) => ({
       favorites: [],
       setFavorites: (update) => set((state) => ({ favorites: update(state.favorites) })),
@@ -64,8 +64,8 @@ export const useLocalFavorites = create<LocalFavoritesState>()(
 export function useFavorites() {
   const loggedIn = !!useAuth((s) => s.token);
   const remote = useFavoritesApi();
-  const local = useLocalFavorites((s) => s.favorites);
-  const setLocal = useLocalFavorites((s) => s.setFavorites);
+  const local = useBrowserFavorites((s) => s.favorites);
+  const setBrowser = useBrowserFavorites((s) => s.setFavorites);
   const queryClient = useQueryClient();
   const add = useMutation({
     mutationFn: (favorite: FavoriteDto) => api<FavoriteDto>("/favorites", { method: "POST", body: favorite }),
@@ -91,13 +91,13 @@ export function useFavorites() {
         else add.mutate(favorite);
         return;
       }
-      setLocal((current) =>
+      setBrowser((current) =>
         exists
           ? current.filter((x) => !(x.type === favorite.type && x.ref === favorite.ref))
           : [...current, favorite],
       );
     },
-    [list, loggedIn, add, remove, setLocal],
+    [list, loggedIn, add, remove, setBrowser],
   );
   return { favorites: list, isFavorite, toggle };
 }

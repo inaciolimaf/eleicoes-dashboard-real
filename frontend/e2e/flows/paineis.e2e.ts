@@ -5,27 +5,27 @@ const NOME = `E2E ${Date.now()}`;
 
 /** Removes the dashboards this flow named `E2E ...` (a failed run may leave them behind). */
 async function limparPaineisE2e(token: string, request: APIRequestContext) {
-  const cabecalho = { Authorization: `Bearer ${token}` };
-  const lista = await request.get(`${API_URL}/api/v1/dashboards`, { headers: cabecalho });
-  const paineis = (await lista.json()) as { id: number; name: string }[];
-  for (const painel of paineis.filter((p) => p.name.startsWith("E2E "))) {
-    await request.delete(`${API_URL}/api/v1/dashboards/${painel.id}`, { headers: cabecalho });
+  const headers = { Authorization: `Bearer ${token}` };
+  const list = await request.get(`${API_URL}/api/v1/dashboards`, { headers: headers });
+  const dashboards = (await list.json()) as { id: number; name: string }[];
+  for (const dashboard of dashboards.filter((p) => p.name.startsWith("E2E "))) {
+    await request.delete(`${API_URL}/api/v1/dashboards/${dashboard.id}`, { headers: headers });
   }
 }
 
 test("cria um painel em branco e apaga", async ({ page, request }) => {
-  const sessao = await request.post(`${API_URL}/api/v1/auth/login`, {
+  const session = await request.post(`${API_URL}/api/v1/auth/login`, {
     data: { email: E2E_EMAIL, password: E2E_SENHA },
   });
-  const { access_token: token } = (await sessao.json()) as { access_token: string };
+  const { access_token: token } = (await session.json()) as { access_token: string };
   try {
     await entrarPeloFormulario(page);
     await page.goto("/paineis");
     await page.getByRole("button", { name: "Novo painel", exact: true }).click();
-    const dialogo = page.getByRole("dialog");
-    await dialogo.getByText("Painel em branco").click();
-    await dialogo.getByLabel("Nome do painel").fill(NOME);
-    await dialogo.getByRole("button", { name: "Criar painel" }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByText("Painel em branco").click();
+    await dialog.getByLabel("Nome do painel").fill(NOME);
+    await dialog.getByRole("button", { name: "Criar painel" }).click();
     await expect(page).toHaveURL(/\/paineis\/\d+$/);
     await expect(page.getByText(NOME).first()).toBeVisible();
 

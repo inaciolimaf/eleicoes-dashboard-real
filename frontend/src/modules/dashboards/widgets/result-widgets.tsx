@@ -35,8 +35,8 @@ export function ScoreboardWidget({ config, height, onSelect }: WidgetProps) {
       <WithResults onSelectState={(uf, name) => onSelect("state", uf, name)}>
         {(results) => (
           <Scoreboard
-result={results}
-options={{
+            result={results}
+            options={{
               topN: configNumber(config, "topN", 0),
               onlyElected: configBool(config, "soEleitos", false),
               showPhotos: configBool(config, "mostrarFotos", true),
@@ -143,9 +143,9 @@ export function KpiWidget({ config }: WidgetProps) {
             <Group gap={6}>
               {candidate && (
                 <CandidateAvatar
-photoUrl={candidate.photo_url}
-name={candidate.ballot_name}
-color={candidate.color}
+                  photoUrl={candidate.photo_url}
+                  name={candidate.ballot_name}
+                  color={candidate.color}
                   size={26}
                 />
               )}
@@ -155,8 +155,8 @@ color={candidate.color}
               </Text>
             </Group>
             <Num
-value={value}
-kind={metric.kind}
+              value={value}
+              kind={metric.kind}
               style={{
                 fontSize: "clamp(1.8rem, 4vw, 2.8rem)",
                 fontWeight: 800,
@@ -189,15 +189,15 @@ export function MapWidget({ config, height, onSelect, widget }: WidgetProps) {
   return (
     <Box h={height} style={{ borderRadius: 10, overflow: "hidden" }} key={widget.id}>
       <ElectoralMap
-kind={configString(config, "tipo", "vencedores") as MapType}
-level={filter.nivel}
+        kind={configString(config, "tipo", "vencedores") as MapType}
+        level={filter.nivel}
         id={filter.id}
-allMunicipalities={configString(config, "nivelFilhos", "auto") === "municipio"}
-candidateA={configStringOrNull(config, "candidatoA")}
-candidateB={configStringOrNull(config, "candidatoB")}
+        allMunicipalities={configString(config, "nivelFilhos", "auto") === "municipio"}
+        candidateA={configStringOrNull(config, "candidatoA")}
+        candidateB={configStringOrNull(config, "candidatoB")}
         basemap={basemap === "padrao" ? undefined : basemap === "sim"}
-onSelect={onSelect}
-height={height}
+        onSelect={onSelect}
+        height={height}
       />
     </Box>
   );
@@ -207,11 +207,11 @@ height={height}
 export function EvolutionWidget({ config, height }: WidgetProps) {
   return (
     <Evolution
-xAxis={configString(config, "eixoX", "t") as "t" | "pct_secoes"}
-metric={configString(config, "metrica", "pct") as "pct" | "votos" | "diferenca"}
-style={configString(config, "estilo", "linha") as "linha" | "area"}
+      xAxis={configString(config, "eixoX", "t") as "t" | "pct_secoes"}
+      metric={configString(config, "metrica", "pct") as "pct" | "votos" | "diferenca"}
+      style={configString(config, "estilo", "linha") as "linha" | "area"}
       topN={configNumber(config, "topN", 6)}
-height={height}
+      height={height}
     />
   );
 }
@@ -224,15 +224,15 @@ export function TableWidget({ config, height, onSelect }: WidgetProps) {
   return (
     <ScrollBody height={height}>
       <GeoAreaTable
-level={filter.nivel}
+        level={filter.nivel}
         id={filter.id}
-childLevel={childrenSetting === "municipio" && filter.nivel === "country" ? "municipality" : null}
-columns={columns.length ? columns : undefined}
+        childLevel={childrenSetting === "municipio" && filter.nivel === "country" ? "municipality" : null}
+        columns={columns.length ? columns : undefined}
         topN={configNumber(config, "topN", 0) || undefined}
-showFilters={configBool(config, "mostrarFiltros", true)}
-onSelect={onSelect}
-maxHeight={Math.max(160, height - 110)}
-pageSize={25}
+        showFilters={configBool(config, "mostrarFiltros", true)}
+        onSelect={onSelect}
+        maxHeight={Math.max(160, height - 110)}
+        pageSize={25}
       />
     </ScrollBody>
   );
@@ -275,10 +275,10 @@ export function DonutWidget({ config, height, onSelect }: WidgetProps) {
     <WithResults onSelectState={(uf, name) => onSelect("state", uf, name)}>
       {(results) => (
         <Donut
-result={results}
+          result={results}
           topN={configNumber(config, "topN", 6)}
-includeBlankNull={configBool(config, "incluirBrancosNulos", false)}
-height={height}
+          includeBlankNull={configBool(config, "incluirBrancosNulos", false)}
+          height={height}
         />
       )}
     </WithResults>
@@ -290,8 +290,8 @@ export function HeatmapWidget({ config, height, onSelect }: WidgetProps) {
   return (
     <ScrollBody height={height}>
       <ProgressHeatmap
-metric={configString(config, "metrica", "pct_secoes") as "pct_secoes" | "pct_comparecimento"}
-onSelectState={(uf, name) => onSelect("state", uf, name)}
+        metric={configString(config, "metrica", "pct_secoes") as "pct_secoes" | "pct_comparecimento"}
+        onSelectState={(uf, name) => onSelect("state", uf, name)}
       />
     </ScrollBody>
   );

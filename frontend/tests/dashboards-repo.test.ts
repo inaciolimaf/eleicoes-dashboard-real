@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { dashboardDto, plainConfig, storedDashboards } from "./helpers/data-dashboards";
 import { useEditor } from "../src/modules/dashboards/editor";
-import { toDashboard, useLocalDashboards, type Dashboard } from "../src/modules/dashboards/repo";
+import { toDashboard, useBrowserDashboards, type Dashboard } from "../src/modules/dashboards/repo";
 import { TEMPLATES, defaultTemplate } from "../src/modules/dashboards/templates";
 import { migrate } from "../src/modules/dashboards/schema";
 
@@ -10,7 +10,7 @@ const STORAGE_KEY = "eleicoes.paineis";
 /** The typed config a screen would hold: the schema applied to the fixture. */
 const cfg = (name: string) => migrate(plainConfig(name))!;
 
-function localDashboard(overrides: Partial<Dashboard> = {}): Dashboard {
+function browserDashboard(overrides: Partial<Dashboard> = {}): Dashboard {
   return {
     id: "local-1",
     name: "Local um",
@@ -26,11 +26,13 @@ function localDashboard(overrides: Partial<Dashboard> = {}): Dashboard {
 describe("local dashboards (browser copy)", () => {
   beforeEach(() => {
     localStorage.clear();
-    useLocalDashboards.setState({ dashboards: [] });
+    useBrowserDashboards.setState({ dashboards: [] });
   });
 
   it("writes the browser copy with the Portuguese keys the app always used", () => {
-    useLocalDashboards.getState().setDashboards(() => [localDashboard({ name: "Gravado", isDefault: true })]);
+    useBrowserDashboards
+      .getState()
+      .setDashboards(() => [browserDashboard({ name: "Gravado", isDefault: true })]);
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "null");
     expect(stored.version).toBe(1);
     expect(stored.state.paineis).toHaveLength(1);
@@ -54,8 +56,8 @@ describe("local dashboards (browser copy)", () => {
       STORAGE_KEY,
       storedDashboards([{ id: "a", nome: "Antigo", padrao: true, config: oldConfig }]),
     );
-    await useLocalDashboards.persist.rehydrate();
-    const [restored] = useLocalDashboards.getState().dashboards;
+    await useBrowserDashboards.persist.rehydrate();
+    const [restored] = useBrowserDashboards.getState().dashboards;
     expect(restored).toMatchObject({ id: "a", name: "Antigo", isDefault: true, remote: false });
     expect(restored.config.filtroGlobal.nivel).toBe("state");
   });
@@ -63,8 +65,8 @@ describe("local dashboards (browser copy)", () => {
   it("keeps a stored dashboard whose config no longer matches (it is shown as it was saved)", async () => {
     const broken = { widgets: "quebrado" };
     localStorage.setItem(STORAGE_KEY, storedDashboards([{ id: "b", nome: "Quebrado", config: broken }]));
-    await useLocalDashboards.persist.rehydrate();
-    const [restored] = useLocalDashboards.getState().dashboards;
+    await useBrowserDashboards.persist.rehydrate();
+    const [restored] = useBrowserDashboards.getState().dashboards;
     expect(restored.name).toBe("Quebrado");
     expect(restored.config).toEqual(broken);
   });

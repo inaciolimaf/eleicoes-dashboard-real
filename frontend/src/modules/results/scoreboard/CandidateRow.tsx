@@ -58,10 +58,10 @@ function RowTitle({
         />
       </Group>
       <Num
-value={candidate.valid_pct}
-kind="pct"
+        value={candidate.valid_pct}
+        kind="pct"
         style={{ fontWeight: 800, fontSize: "1.05rem" }}
-glow={false}
+        glow={false}
       />
     </Group>
   );
@@ -99,9 +99,9 @@ function VoteBar({
         )}
       </Box>
       <Num
-value={candidate.votes}
+        value={candidate.votes}
         style={{ fontSize: "0.8rem", minWidth: 90, textAlign: "right" }}
-glow={false}
+        glow={false}
       />
     </Group>
   );

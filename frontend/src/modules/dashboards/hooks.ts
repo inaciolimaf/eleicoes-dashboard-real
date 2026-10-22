@@ -5,7 +5,7 @@ import { qk } from "../../api/query-keys";
 import type { DashboardCreate, DashboardDto, DashboardUpdate } from "../../api/models";
 import { useAuth } from "../../lib/auth-store";
 import { SCHEMA_VERSION, type DashboardConfig } from "./schema";
-import { toDashboard, useLocalDashboards, type Dashboard, type DashboardChange } from "./repo";
+import { toDashboard, useBrowserDashboards, type Dashboard, type DashboardChange } from "./repo";
 
 /**
  * Dashboard repository: the account's dashboards (API) when logged in, the browser's copy
@@ -14,8 +14,8 @@ import { toDashboard, useLocalDashboards, type Dashboard, type DashboardChange }
 export function useDashboards() {
   const token = useAuth((s) => s.token);
   const isLoggedIn = !!token;
-  const localDashboards = useLocalDashboards((s) => s.dashboards);
-  const setLocalDashboards = useLocalDashboards((s) => s.setDashboards);
+  const browserDashboards = useBrowserDashboards((s) => s.dashboards);
+  const setBrowserDashboards = useBrowserDashboards((s) => s.setDashboards);
 
   const remoteQuery = useQuery({
     queryKey: qk.paineis(),
@@ -27,10 +27,10 @@ export function useDashboards() {
 
   const list = useMemo(
     () =>
-      [...(isLoggedIn ? (remoteQuery.data ?? []) : localDashboards)].sort(
+      [...(isLoggedIn ? (remoteQuery.data ?? []) : browserDashboards)].sort(
         (a, b) => a.position - b.position || a.name.localeCompare(b.name),
       ),
-    [isLoggedIn, remoteQuery.data, localDashboards],
+    [isLoggedIn, remoteQuery.data, browserDashboards],
   );
 
   const mutations = useDashboardMutations();
@@ -38,7 +38,7 @@ export function useDashboards() {
     isLoggedIn,
     list,
     mutations,
-    setLocalDashboards,
+    setBrowserDashboards,
   });
 
   return {
@@ -47,7 +47,7 @@ export function useDashboards() {
     isLoading: isLoggedIn && remoteQuery.isLoading,
     error: isLoggedIn ? remoteQuery.error : null,
     ...actions,
-    pendingLocalCount: isLoggedIn ? localDashboards.length : 0,
+    pendingLocalCount: isLoggedIn ? browserDashboards.length : 0,
     isSaving: mutations.saveMutation.isPending || mutations.createMutation.isPending,
   };
 }
@@ -100,14 +100,14 @@ interface ActionContext {
   isLoggedIn: boolean;
   list: Dashboard[];
   mutations: Mutations;
-  setLocalDashboards: (update: (items: Dashboard[]) => Dashboard[]) => void;
+  setBrowserDashboards: (update: (items: Dashboard[]) => Dashboard[]) => void;
 }
 
 /**
  * The operations the screens call. Each one goes to the API when logged in and to the browser's
  * copy otherwise (the "remote" flag marks the dashboards that live in the account).
  */
-function makeDashboardActions({ isLoggedIn, list, mutations, setLocalDashboards }: ActionContext) {
+function makeDashboardActions({ isLoggedIn, list, mutations, setBrowserDashboards }: ActionContext) {
   const { createMutation, saveMutation, deleteMutation } = mutations;
 
   const create = async (name: string, config: DashboardConfig, isDefault?: boolean): Promise<Dashboard> => {
@@ -129,7 +129,7 @@ function makeDashboardActions({ isLoggedIn, list, mutations, setLocalDashboards 
       updatedAt: new Date().toISOString(),
       remote: false,
     };
-    setLocalDashboards((items) => [
+    setBrowserDashboards((items) => [
       ...(dashboard.isDefault ? items.map((x) => ({ ...x, isDefault: false })) : items),
       dashboard,
     ]);
@@ -143,7 +143,7 @@ function makeDashboardActions({ isLoggedIn, list, mutations, setLocalDashboards 
       await saveMutation.mutateAsync({ dashboard, change });
       return;
     }
-    setLocalDashboards((items) =>
+    setBrowserDashboards((items) =>
       items.map((x) => (x.id === id ? { ...x, ...change, updatedAt: new Date().toISOString() } : x)),
     );
   };
@@ -155,12 +155,12 @@ function makeDashboardActions({ isLoggedIn, list, mutations, setLocalDashboards 
           await saveMutation.mutateAsync({ dashboard, change: { isDefault: dashboard.id === id } });
       return;
     }
-    setLocalDashboards((items) => items.map((x) => ({ ...x, isDefault: x.id === id })));
+    setBrowserDashboards((items) => items.map((x) => ({ ...x, isDefault: x.id === id })));
   };
 
   const remove = async (id: string) => {
     if (isLoggedIn) await deleteMutation.mutateAsync(id);
-    else setLocalDashboards((items) => items.filter((x) => x.id !== id));
+    else setBrowserDashboards((items) => items.filter((x) => x.id !== id));
   };
 
   const reorder = async (ids: string[]) => {
@@ -172,7 +172,7 @@ function makeDashboardActions({ isLoggedIn, list, mutations, setLocalDashboards 
       }
       return;
     }
-    setLocalDashboards((items) =>
+    setBrowserDashboards((items) =>
       items.map((x) => {
         const index = ids.indexOf(x.id);
         return { ...x, position: index >= 0 ? index : x.position };
@@ -181,16 +181,16 @@ function makeDashboardActions({ isLoggedIn, list, mutations, setLocalDashboards 
   };
 
   /** Sends the dashboards saved in the browser to the account (migration after login). */
-  const migrateLocal = async () => {
+  const migrateBrowser = async () => {
     if (!isLoggedIn) return 0;
     let count = 0;
-    for (const dashboard of useLocalDashboards.getState().dashboards) {
+    for (const dashboard of useBrowserDashboards.getState().dashboards) {
       await createMutation.mutateAsync({ name: dashboard.name, config: dashboard.config, isDefault: false });
       count++;
     }
-    setLocalDashboards(() => []);
+    setBrowserDashboards(() => []);
     return count;
   };
 
-  return { create, save, remove, setDefault, reorder, migrateLocal };
+  return { create, save, remove, setDefault, reorder, migrateBrowser };
 }
