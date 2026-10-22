@@ -1,3 +1,3 @@
-export * from "./components/SectionDetail";
-export * from "./components/SectionScreen";
-export * from "./hooks";
+export { SectionDetail } from "./components/SectionDetail";
+export { SectionScreen } from "./components/SectionScreen";
+export { useSection } from "./hooks";

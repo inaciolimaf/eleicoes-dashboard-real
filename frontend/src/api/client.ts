@@ -2,7 +2,7 @@ import { useAuth } from "../lib/auth-store";
 
 export const BASE = "/api/v1";
 
-/** Erro da API: o `application/problem+json` (RFC 9457) do backend. `detail` é o texto para o usuário. */
+/** API error: the backend's `application/problem+json` (RFC 9457). `detail` is the text shown to the user. */
 export class ApiError extends Error {
   readonly status: number;
   readonly title: string;
@@ -39,7 +39,7 @@ interface Opts {
   signal?: AbortSignal;
 }
 
-const TITULO_PADRAO: Record<number, string> = {
+const DEFAULT_TITLES: Record<number, string> = {
   401: "Não autenticado",
   403: "Acesso negado",
   404: "Não encontrado",
@@ -48,43 +48,44 @@ const TITULO_PADRAO: Record<number, string> = {
   429: "Muitas tentativas",
 };
 
-const DETALHE_PADRAO: Record<number, string> = {
+const DEFAULT_DETAILS: Record<number, string> = {
   401: "Sessão expirada ou credenciais inválidas.",
   403: "Acesso negado.",
   404: "Não encontrado.",
 };
 
-/** Lê o erro de uma resposta. Aceita problem+json; corpo que não é JSON (HTML de proxy, texto) vira o padrão do status. */
+/** Reads the error of a response. Accepts problem+json; a body that is not JSON (a proxy's HTML, plain text) gets the default for its status. */
 export async function readProblem(resp: Response): Promise<ApiError> {
-  const texto = await resp.text().catch(() => "");
-  let corpo: Record<string, unknown> = {};
+  const text = await resp.text().catch(() => "");
+  let body: Record<string, unknown> = {};
   try {
-    const lido: unknown = JSON.parse(texto);
-    if (lido && typeof lido === "object") corpo = lido as Record<string, unknown>;
+    const parsed: unknown = JSON.parse(text);
+    if (parsed && typeof parsed === "object") body = parsed as Record<string, unknown>;
   } catch {
-    corpo = {};
+    body = {};
   }
-  const titulo =
-    typeof corpo.title === "string" && corpo.title ? corpo.title : (TITULO_PADRAO[resp.status] ?? "Erro");
-  const detalhe = detalheDe(corpo.detail) ?? detalhePadrao(resp.status);
-  return new ApiError(resp.status, titulo, detalhe);
+  const title =
+    typeof body.title === "string" && body.title ? body.title : (DEFAULT_TITLES[resp.status] ?? "Erro");
+  const detail = detailOf(body.detail) ?? defaultDetail(resp.status);
+  return new ApiError(resp.status, title, detail);
 }
 
-function detalheDe(detail: unknown): string | null {
+/** The message of a `detail`: a string, or the first message of FastAPI's validation list. */
+function detailOf(detail: unknown): string | null {
   if (typeof detail === "string" && detail.trim()) return detail;
-  // validação do FastAPI (lista de erros): a primeira mensagem
   if (Array.isArray(detail) && detail.length) {
-    const primeiro = detail[0] as { msg?: unknown } | null;
-    if (primeiro && typeof primeiro.msg === "string") return primeiro.msg;
+    const first = detail[0] as { msg?: unknown } | null;
+    if (first && typeof first.msg === "string") return first.msg;
   }
   return null;
 }
 
-function detalhePadrao(status: number): string {
+function defaultDetail(status: number): string {
   if (status >= 500) return "O servidor encontrou um erro. Tente de novo em instantes.";
-  return DETALHE_PADRAO[status] ?? `Erro ${status}`;
+  return DEFAULT_DETAILS[status] ?? `Erro ${status}`;
 }
 
+/** Calls the API (JSON in and out). Errors are thrown as `ApiError`; a 401 on a session call ends the session. */
 export async function api<T>(path: string, opts: Opts = {}): Promise<T> {
   const { method = "GET", body, params, signal } = opts;
   const headers: Record<string, string> = { Accept: "application/json" };
@@ -104,9 +105,9 @@ export async function api<T>(path: string, opts: Opts = {}): Promise<T> {
     throw new ApiError(0, "Sem conexão", "Sem conexão com o servidor.");
   }
   if (!resp.ok) {
-    const erro = await readProblem(resp);
+    const error = await readProblem(resp);
     if (resp.status === 401 && token && !path.startsWith("/auth/")) useAuth.getState().sair();
-    throw erro;
+    throw error;
   }
   if (resp.status === 204) return undefined as T;
   return (await resp.json()) as T;

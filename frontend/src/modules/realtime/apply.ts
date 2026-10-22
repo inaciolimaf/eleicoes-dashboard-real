@@ -17,78 +17,84 @@ import { usePrefs } from "../../lib/prefs-store";
 import { childLevel } from "../../lib/geo-areas";
 import { EVENT_COLORS, EVENT_LABELS } from "../events";
 
-function recontarVitorias(r: ChildrenDto): ChildrenDto {
-  const cont = new Map<string, number>();
-  for (const it of r.items) {
-    if (it.leader) cont.set(it.leader.tse_candidate_id, (cont.get(it.leader.tse_candidate_id) ?? 0) + 1);
+/** Recounts each candidate's wins from the leaders of the children. */
+function recountWins(data: ChildrenDto): ChildrenDto {
+  const counts = new Map<string, number>();
+  for (const item of data.items) {
+    if (item.leader)
+      counts.set(item.leader.tse_candidate_id, (counts.get(item.leader.tse_candidate_id) ?? 0) + 1);
   }
   return {
-    ...r,
-    candidates: r.candidates.map((c) => ({ ...c, wins: cont.get(c.tse_candidate_id) ?? 0 })),
+    ...data,
+    candidates: data.candidates.map((c) => ({ ...c, wins: counts.get(c.tse_candidate_id) ?? 0 })),
   };
 }
 
-function patchFilho(old: ChildrenDto | undefined, item: ChildItemDto): ChildrenDto | undefined {
+/** Merges one child into the cached list (appended when new), then recounts the wins. */
+function patchChildren(old: ChildrenDto | undefined, item: ChildItemDto): ChildrenDto | undefined {
   if (!old) return old;
-  let achou = false;
+  let found = false;
   const items = old.items.map((i) => {
     if (i.id !== item.id) return i;
-    achou = true;
+    found = true;
     return { ...i, ...item, values: item.values ?? i.values };
   });
-  if (!achou) items.push(item);
-  return recontarVitorias({ ...old, items });
+  if (!found) items.push(item);
+  return recountWins({ ...old, items });
 }
 
-function patchLocal(
+/** Merges one polling place into the cached map list; unknown places are ignored. */
+function patchPollingPlaces(
   old: MapPollingPlacesDto | undefined,
   item: MapPollingPlaceDto,
 ): MapPollingPlacesDto | undefined {
   if (!old) return old;
-  let achou = false;
+  let found = false;
   const items = old.items.map((i) => {
     if (i.id !== item.id) return i;
-    achou = true;
+    found = true;
     return { ...i, ...item };
   });
-  return achou ? { ...old, items } : old;
+  return found ? { ...old, items } : old;
 }
 
-function eventoCasa(e: EventDto, f: EventFilter): boolean {
-  if (f.cargo && e.office_code && Number(e.office_code) !== f.cargo) return false;
-  if (f.tipos?.length && !f.tipos.includes(e.type as EventType)) return false;
-  if (f.nivel && f.id && (e.level !== f.nivel || e.geo_area_id !== f.id)) return false;
+/** Whether an event belongs to the list a cached query asks for. */
+function eventMatches(e: EventDto, filter: EventFilter): boolean {
+  if (filter.office && e.office_code && Number(e.office_code) !== filter.office) return false;
+  if (filter.types?.length && !filter.types.includes(e.type as EventType)) return false;
+  if (filter.level && filter.id && (e.level !== filter.level || e.geo_area_id !== filter.id)) return false;
   return true;
 }
 
-export function notifyBrowser(titulo: string, corpo: string) {
+/** Browser notification, only when the user turned it on and the permission was granted. */
+export function notifyBrowser(title: string, body: string) {
   if (!usePrefs.getState().push) return;
   if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
   try {
-    new Notification(titulo, { body: corpo, icon: "/favicon.svg", tag: titulo });
+    new Notification(title, { body, icon: "/favicon.svg", tag: title });
   } catch {
-    /* alguns navegadores só aceitam via service worker */
+    /* some browsers only accept notifications through a service worker */
   }
 }
 
-function applyEvent(qc: QueryClient, e: EventDto, turno: number, congelado: boolean) {
-  for (const q of qc.getQueryCache().findAll({ queryKey: ["eventos", turno] })) {
-    const f = (q.queryKey[2] ?? {}) as EventFilter;
-    if (!eventoCasa(e, f)) continue;
-    qc.setQueryData<EventDto[]>(q.queryKey, (old) =>
+function applyEvent(qc: QueryClient, e: EventDto, round: number, frozen: boolean) {
+  for (const query of qc.getQueryCache().findAll({ queryKey: ["eventos", round] })) {
+    const filter = (query.queryKey[2] ?? {}) as EventFilter;
+    if (!eventMatches(e, filter)) continue;
+    qc.setQueryData<EventDto[]>(query.queryKey, (old) =>
       old
         ? old.some((x) => x.id === e.id)
           ? old
-          : [e, ...old].slice(0, Math.max(f.limite ?? 100, 100))
+          : [e, ...old].slice(0, Math.max(filter.limit ?? 100, 100))
         : old,
     );
   }
   if (e.level === "country" || e.level === "state") {
-    qc.setQueryData(qk.linha(turno), (old: TimelineDto | undefined) =>
+    qc.setQueryData(qk.linha(round), (old: TimelineDto | undefined) =>
       old && !old.events.some((x) => x.id === e.id) ? { ...old, events: [...old.events, e] } : old,
     );
   }
-  if (congelado) useTime.getState().incNovidades();
+  if (frozen) useTime.getState().incNovidades();
   const prefs = usePrefs.getState();
   if (prefs.toasts.includes(e.type)) {
     notifications.show({
@@ -108,18 +114,19 @@ function applyAlert(data: { title: string; description: string }) {
     color: "grape",
     autoClose: 10000,
   });
-  const p = usePrefs.getState();
-  if (typeof Notification !== "undefined" && Notification.permission === "granted" && p.push !== false) {
+  const prefs = usePrefs.getState();
+  if (typeof Notification !== "undefined" && Notification.permission === "granted" && prefs.push !== false) {
     try {
       new Notification(data.title, { body: data.description, icon: "/favicon.svg" });
     } catch {
-      /* ignora */
+      /* ignored */
     }
   }
 }
 
+/** Applies one WebSocket message to the query cache (and to the notifications). */
 export function applyMessage(qc: QueryClient, msg: WsServerMessage) {
-  const congelado = useTime.getState().t !== null;
+  const frozen = useTime.getState().t !== null;
   switch (msg.type) {
     case "status":
       qc.setQueryData(qk.status(), msg.data);
@@ -128,53 +135,56 @@ export function applyMessage(qc: QueryClient, msg: WsServerMessage) {
       applyAlert(msg.data);
       return;
     case "event":
-      applyEvent(qc, msg.data, Number(msg.topic.split(":")[1] ?? 1), congelado);
+      applyEvent(qc, msg.data, Number(msg.topic.split(":")[1] ?? 1), frozen);
       return;
     case "results": {
-      if (congelado) {
+      if (frozen) {
         useTime.getState().incNovidades();
         return;
       }
-      const [, turno, cargo, nivel, ...resto] = msg.topic.split(":");
+      const [, round, office, level, ...rest] = msg.topic.split(":");
       qc.setQueryData(
-        qk.resultados(Number(turno), Number(cargo), nivel as Level, resto.join(":"), null),
+        qk.resultados(Number(round), Number(office), level as Level, rest.join(":"), null),
         msg.data,
       );
       return;
     }
     case "children": {
-      if (congelado) return;
-      const [, turno, cargo, nivel, id, filhosNivel] = msg.topic.split(":");
-      const nv = nivel as Level;
-      const alvo = (filhosNivel as Level | undefined) ?? childLevel(nv);
-      for (const q of qc
+      if (frozen) return;
+      const [, round, office, level, id, childrenLevel] = msg.topic.split(":");
+      const parentLevel = level as Level;
+      const targetLevel = (childrenLevel as Level | undefined) ?? childLevel(parentLevel);
+      for (const query of qc
         .getQueryCache()
-        .findAll({ queryKey: ["filhos", Number(turno), Number(cargo), nv, id] })) {
-        const k = q.queryKey;
-        const kFilhos = (k[5] as Level | null) ?? childLevel(nv);
-        if (k[7] !== null || kFilhos !== alvo) continue;
-        qc.setQueryData<ChildrenDto>(k, (old) => patchFilho(old, msg.data));
+        .findAll({ queryKey: ["filhos", Number(round), Number(office), parentLevel, id] })) {
+        const key = query.queryKey;
+        const keyChildLevel = (key[5] as Level | null) ?? childLevel(parentLevel);
+        if (key[7] !== null || keyChildLevel !== targetLevel) continue;
+        qc.setQueryData<ChildrenDto>(key, (old) => patchChildren(old, msg.data));
       }
       return;
     }
     case "polling_place": {
-      if (congelado) return;
-      const [, turno, cargo, municipio] = msg.topic.split(":");
-      const uf = municipio.slice(0, 2);
-      for (const q of qc.getQueryCache().findAll({ queryKey: ["locais", Number(turno), Number(cargo)] })) {
-        const k = q.queryKey;
-        if (k[5] !== null) continue;
-        const kUf = k[3] as string | null;
-        const kMun = k[4] as string | null;
-        if (kMun ? kMun !== municipio : kUf ? kUf !== uf : false) continue;
-        qc.setQueryData<MapPollingPlacesDto>(k, (old) => patchLocal(old, msg.data));
+      if (frozen) return;
+      const [, round, office, municipality] = msg.topic.split(":");
+      const state = municipality.slice(0, 2);
+      for (const query of qc
+        .getQueryCache()
+        .findAll({ queryKey: ["locais", Number(round), Number(office)] })) {
+        const key = query.queryKey;
+        if (key[5] !== null) continue;
+        const keyState = key[3] as string | null;
+        const keyMunicipality = key[4] as string | null;
+        if (keyMunicipality ? keyMunicipality !== municipality : keyState ? keyState !== state : false)
+          continue;
+        qc.setQueryData<MapPollingPlacesDto>(key, (old) => patchPollingPlaces(old, msg.data));
       }
       return;
     }
     case "progress": {
-      if (congelado) return;
-      const turno = Number(msg.topic.split(":")[1] ?? 1);
-      qc.setQueryData(qk.progresso(turno, null), msg.data);
+      if (frozen) return;
+      const round = Number(msg.topic.split(":")[1] ?? 1);
+      qc.setQueryData(qk.progresso(round, null), msg.data);
       return;
     }
     case "error":

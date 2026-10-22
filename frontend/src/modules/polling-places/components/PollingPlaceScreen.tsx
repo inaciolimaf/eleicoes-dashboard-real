@@ -3,22 +3,21 @@ import { IconStar, IconStarFilled } from "@tabler/icons-react";
 import { useEffect } from "react";
 import { usePollingPlace } from "../hooks";
 import { PollingPlaceDetail } from "./PollingPlaceDetail";
-import { TotalsBlock } from "../../results";
-import { Scoreboard } from "../../results";
-import { WithResults } from "../../results";
+import { TotalsBlock, Scoreboard, WithResults } from "../../results";
 import { Evolution } from "../../charts";
 import { FilterProvider, useEffectiveFilter } from "../../../lib/effective-filter";
 import { useFilter } from "../../../lib/filter-store";
 import { useFavorites } from "../../accounts";
 
+/** Polling place screen (`/locais/:id`): header with favorite toggle, the place, results and evolution. */
 export function PollingPlaceScreen({ id }: { id: string }) {
-  const f = useEffectiveFilter();
-  const q = usePollingPlace(id, f.turno);
+  const filter = useEffectiveFilter();
+  const query = usePollingPlace(id, filter.turno);
   const { eFavorito, alternar } = useFavorites();
   useEffect(() => {
-    if (id) useFilter.getState().setRecorte("polling_place", id, q.data?.name);
-  }, [id, q.data?.name]);
-  const fav = eFavorito("polling_place", id);
+    if (id) useFilter.getState().setRecorte("polling_place", id, query.data?.name);
+  }, [id, query.data?.name]);
+  const isFavorite = eFavorito("polling_place", id);
   return (
     <FilterProvider value={{ nivel: "polling_place", id }}>
       <Stack gap="md">
@@ -27,17 +26,17 @@ export function PollingPlaceScreen({ id }: { id: string }) {
             <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
               Local de votação
             </Text>
-            <Title order={2}>{q.data?.name ?? "Local de votação"}</Title>
+            <Title order={2}>{query.data?.name ?? "Local de votação"}</Title>
           </Stack>
-          <Tooltip label={fav ? "Remover dos favoritos" : "Favoritar (meu colégio)"}>
+          <Tooltip label={isFavorite ? "Remover dos favoritos" : "Favoritar (meu colégio)"}>
             <ActionIcon
               variant="subtle"
               color="yellow"
               size="lg"
-              onClick={() => alternar({ type: "polling_place", ref: id, label: q.data?.name ?? id })}
+              onClick={() => alternar({ type: "polling_place", ref: id, label: query.data?.name ?? id })}
               aria-label="Favoritar local"
             >
-              {fav ? <IconStarFilled size={20} /> : <IconStar size={20} />}
+              {isFavorite ? <IconStarFilled size={20} /> : <IconStar size={20} />}
             </ActionIcon>
           </Tooltip>
         </Group>

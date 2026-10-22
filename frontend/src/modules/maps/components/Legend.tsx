@@ -1,258 +1,82 @@
-import {
-  ActionIcon,
-  Box,
-  Collapse,
-  Group,
-  Paper,
-  ScrollArea,
-  Stack,
-  Text,
-  Tooltip,
-  UnstyledButton,
-} from "@mantine/core";
+import { ActionIcon, Collapse, Group, Paper, ScrollArea, Text } from "@mantine/core";
 import { useDisclosure, useMediaQuery } from "@mantine/hooks";
 import { IconChevronDown, IconChevronUp } from "@tabler/icons-react";
-import {
-  STATUS_COLORS,
-  MARGIN_BANDS,
-  STATUS_LABELS,
-  sequentialColor,
-  cssGradient,
-  divergingColor,
-} from "../../../lib/palettes";
-import { fmtInt, fmtNum } from "../../../lib/formatting";
 import type { TallyStatus } from "../../../api/models";
+import type { LegendItem } from "../legendData";
+import type { MapScale } from "../mapScale";
 import type { MapType } from "../types";
+import { ComparativeBody, PartyBody, ScaleBody, StatusBody, WinnersBody } from "./LegendBodies";
 
-export interface LegendItem {
-  sqcand: string;
-  rotulo: string;
-  cor: string;
-  vitorias: number;
+export interface LegendProps {
+  type: MapType;
+  candidates: LegendItem[];
+  highlight: string | null;
+  onHighlight: (candidateId: string | null) => void;
+  /** unit of the regions: "UFs" | "municípios" | "locais" */
+  unit: string;
+  scale?: MapScale;
+  labelA?: string;
+  labelB?: string;
+  colorA?: string;
+  colorB?: string;
+  statusCounts?: Partial<Record<TallyStatus, number>>;
+  municipalityWins?: Map<string, number> | null;
+  parties?: { abbreviation: string; color: string; count: number }[];
 }
 
-interface Props {
-  tipo: MapType;
-  candidatos: LegendItem[];
-  destaque: string | null;
-  onDestaque: (sq: string | null) => void;
-  unidade: string; // "UFs" | "municípios" | "locais"
-  escala?: { min: number; max: number; sufixo: string };
-  rotuloA?: string;
-  rotuloB?: string;
-  corA?: string;
-  corB?: string;
-  contagemStatus?: Partial<Record<TallyStatus, number>>;
-  vitoriasMunicipios?: Map<string, number> | null;
-  partidos?: { sigla: string; cor: string; n: number }[];
-}
+const DEFAULT_SCALE: MapScale = { min: 0, max: 100, suffix: "%" };
+const DEFAULT_COMPARATIVE_SCALE: MapScale = { min: -20, max: 20, suffix: " p.p." };
+/** Kinds that have a legend: the others draw without one. */
+const LEGEND_TYPES: MapType[] = [
+  "vencedores",
+  "desempenho",
+  "progresso",
+  "comparecimento",
+  "comparativo",
+  "locais",
+  "partido",
+];
 
-function Gradiente({
-  fn,
-  min,
-  max,
-  sufixo,
-  esq,
-  dir,
-}: {
-  fn: (t: number) => [number, number, number];
-  min: number;
-  max: number;
-  sufixo: string;
-  esq?: string;
-  dir?: string;
-}) {
-  return (
-    <Stack gap={2}>
-      <Box h={10} style={{ borderRadius: 4, background: cssGradient(fn) }} />
-      <Group justify="space-between">
-        <Text size="xs" c="dimmed" className="num">
-          {esq ?? `${fmtNum(min, 1)}${sufixo}`}
-        </Text>
-        <Text size="xs" c="dimmed" className="num">
-          {dir ?? `${fmtNum(max, 1)}${sufixo}`}
-        </Text>
-      </Group>
-    </Stack>
-  );
-}
-
-const Hachura = () => (
-  <Group gap={6}>
-    <Box
-      w={16}
-      h={10}
-      className="hachurado"
-      style={{ borderRadius: 3, border: "1px solid var(--mantine-color-default-border)" }}
-    />
-    <Text size="xs" c="dimmed">
-      Sem dados
-    </Text>
-  </Group>
-);
-
-export function Legend(p: Props) {
-  const celular = useMediaQuery("(max-width: 48em)");
-  const [aberta, { toggle }] = useDisclosure(!celular);
-  let corpo: React.ReactNode = null;
-
-  if (p.tipo === "vencedores") {
-    corpo = (
-      <Stack gap={6}>
-        <Text size="xs" c="dimmed">
-          Clique em um candidato para destacar onde venceu
-        </Text>
-        <Stack gap={2}>
-          {p.candidatos.slice(0, 12).map((c) => {
-            const ativo = p.destaque === c.sqcand;
-            const mun = p.vitoriasMunicipios?.get(c.sqcand);
-            return (
-              <UnstyledButton
-                key={c.sqcand}
-                onClick={() => p.onDestaque(ativo ? null : c.sqcand)}
-                px={6}
-                py={3}
-                style={{
-                  borderRadius: 6,
-                  background: ativo ? "var(--mantine-color-default-hover)" : undefined,
-                  opacity: p.destaque && !ativo ? 0.55 : 1,
-                }}
-              >
-                <Group gap={8} wrap="nowrap" justify="space-between">
-                  <Group gap={6} wrap="nowrap">
-                    <Box w={12} h={12} style={{ borderRadius: 3, background: c.cor, flexShrink: 0 }} />
-                    <Text size="xs" fw={600} lineClamp={1}>
-                      {c.rotulo}
-                    </Text>
-                  </Group>
-                  <Text size="xs" c="dimmed" className="num" style={{ whiteSpace: "nowrap" }}>
-                    {fmtInt(c.vitorias)}
-                  </Text>
-                </Group>
-                {ativo && (
-                  <Text size="xs" c="dimmed" mt={2}>
-                    venceu em {fmtInt(c.vitorias)} {p.unidade}
-                    {mun !== undefined && p.unidade === "UFs" ? ` / ${fmtInt(mun)} municípios` : ""}
-                  </Text>
-                )}
-              </UnstyledButton>
-            );
-          })}
-        </Stack>
-        <Tooltip
-          label={`Opacidade proporcional à margem de vitória do líder: ${MARGIN_BANDS.map((f) => f.rotulo).join(" · ")}`}
-        >
-          <Stack gap={2}>
-            <Group gap={3} wrap="nowrap">
-              {MARGIN_BANDS.map((f) => (
-                <Box
-                  key={f.rotulo}
-                  h={8}
-                  style={{ flex: 1, background: `rgba(140,150,175,${f.alpha})`, borderRadius: 2 }}
-                />
-              ))}
-            </Group>
-            <Group justify="space-between">
-              <Text fz={10} c="dimmed">
-                margem &lt; 2 p.p.
-              </Text>
-              <Text fz={10} c="dimmed">
-                ≥ 20 p.p.
-              </Text>
-            </Group>
-          </Stack>
-        </Tooltip>
-      </Stack>
-    );
-  } else if (p.tipo === "desempenho" || p.tipo === "progresso" || p.tipo === "comparecimento") {
-    const e = p.escala ?? { min: 0, max: 100, sufixo: "%" };
-    corpo = (
-      <Stack gap={6}>
-        {p.tipo === "desempenho" && p.rotuloA && (
-          <Text size="xs" fw={600}>
-            {p.rotuloA} · % dos válidos
-          </Text>
-        )}
-        {p.tipo === "progresso" && (
-          <Text size="xs" fw={600}>
-            % das seções totalizadas
-          </Text>
-        )}
-        {p.tipo === "comparecimento" && (
-          <Text size="xs" fw={600}>
-            % de comparecimento
-          </Text>
-        )}
-        <Gradiente fn={sequentialColor} min={e.min} max={e.max} sufixo={e.sufixo} />
-        <Hachura />
-      </Stack>
-    );
-  } else if (p.tipo === "comparativo") {
-    const e = p.escala ?? { min: -20, max: 20, sufixo: " p.p." };
-    corpo = (
-      <Stack gap={6}>
-        <Text size="xs" fw={600}>
-          Diferença em p.p.
-        </Text>
-        <Gradiente
-          fn={(t) => divergingColor(1 - 2 * t, p.corA, p.corB)}
-          min={e.min}
-          max={e.max}
-          sufixo=""
-          esq={`${p.rotuloA ?? "A"} +${fmtNum(e.max, 0)}`}
-          dir={`${p.rotuloB ?? "B"} +${fmtNum(e.max, 0)}`}
+/** The legend body of the current map kind; null when the kind has no legend. */
+function LegendBody(p: LegendProps) {
+  switch (p.type) {
+    case "vencedores":
+      return (
+        <WinnersBody
+          items={p.candidates}
+          highlight={p.highlight}
+          onHighlight={p.onHighlight}
+          unit={p.unit}
+          municipalityWins={p.municipalityWins ?? null}
         />
-        <Hachura />
-      </Stack>
-    );
-  } else if (p.tipo === "locais") {
-    corpo = (
-      <Stack gap={4}>
-        <Text size="xs" fw={600}>
-          Locais de votação
-        </Text>
-        {(["not_received", "partial", "tallied"] as TallyStatus[]).map((s) => (
-          <Group key={s} gap={6} justify="space-between" wrap="nowrap">
-            <Group gap={6} wrap="nowrap">
-              <Box w={10} h={10} style={{ borderRadius: 99, background: STATUS_COLORS[s] }} />
-              <Text size="xs">{STATUS_LABELS[s]}</Text>
-            </Group>
-            {p.contagemStatus && (
-              <Text size="xs" c="dimmed" className="num">
-                {fmtInt(p.contagemStatus[s] ?? 0)}
-              </Text>
-            )}
-          </Group>
-        ))}
-        <Text fz={10} c="dimmed">
-          Em zoom baixo: hexágonos com a % de locais apurados
-        </Text>
-      </Stack>
-    );
-  } else if (p.tipo === "partido") {
-    corpo = (
-      <Stack gap={2}>
-        <Text size="xs" fw={600}>
-          Partido mais votado
-        </Text>
-        {(p.partidos ?? []).slice(0, 12).map((x) => (
-          <Group key={x.sigla} gap={6} justify="space-between" wrap="nowrap">
-            <Group gap={6} wrap="nowrap">
-              <Box w={12} h={12} style={{ borderRadius: 3, background: x.cor }} />
-              <Text size="xs" fw={600}>
-                {x.sigla}
-              </Text>
-            </Group>
-            <Text size="xs" c="dimmed" className="num">
-              {fmtInt(x.n)} {p.unidade}
-            </Text>
-          </Group>
-        ))}
-      </Stack>
-    );
+      );
+    case "desempenho":
+    case "progresso":
+    case "comparecimento":
+      return <ScaleBody type={p.type} scale={p.scale ?? DEFAULT_SCALE} candidateLabel={p.labelA} />;
+    case "comparativo":
+      return (
+        <ComparativeBody
+          scale={p.scale ?? DEFAULT_COMPARATIVE_SCALE}
+          labelA={p.labelA}
+          labelB={p.labelB}
+          colorA={p.colorA}
+          colorB={p.colorB}
+        />
+      );
+    case "locais":
+      return <StatusBody statusCounts={p.statusCounts} />;
+    case "partido":
+      return <PartyBody parties={p.parties ?? []} unit={p.unit} />;
   }
+  return null;
+}
 
-  if (!corpo) return null;
+/** Floating legend of the map (bottom left), collapsible; collapsed by default on phones. */
+export function Legend(p: LegendProps) {
+  const phone = useMediaQuery("(max-width: 48em)");
+  const [open, { toggle }] = useDisclosure(!phone);
+  if (!LEGEND_TYPES.includes(p.type)) return null;
   return (
     <Paper
       withBorder
@@ -269,7 +93,7 @@ export function Legend(p: Props) {
         backdropFilter: "blur(6px)",
       }}
     >
-      <Group justify="space-between" gap={4} mb={aberta ? 4 : 0}>
+      <Group justify="space-between" gap={4} mb={open ? 4 : 0}>
         <Text size="xs" fw={700} tt="uppercase" c="dimmed">
           Legenda
         </Text>
@@ -277,14 +101,14 @@ export function Legend(p: Props) {
           size="xs"
           variant="subtle"
           onClick={toggle}
-          aria-label={aberta ? "Recolher legenda" : "Expandir legenda"}
+          aria-label={open ? "Recolher legenda" : "Expandir legenda"}
         >
-          {aberta ? <IconChevronDown size={14} /> : <IconChevronUp size={14} />}
+          {open ? <IconChevronDown size={14} /> : <IconChevronUp size={14} />}
         </ActionIcon>
       </Group>
-      <Collapse in={aberta}>
+      <Collapse in={open}>
         <ScrollArea.Autosize mah={260} className="scroll-fino" offsetScrollbars>
-          {corpo}
+          <LegendBody {...p} />
         </ScrollArea.Autosize>
       </Collapse>
     </Paper>

@@ -1,152 +1,120 @@
-import {
-  ActionIcon,
-  Badge,
-  Box,
-  Button,
-  Card,
-  Drawer,
-  Group,
-  ScrollArea,
-  Stack,
-  Switch,
-  Text,
-  ThemeIcon,
-  Tooltip,
-  UnstyledButton,
-} from "@mantine/core";
+import { Badge, Box, Button, Card, Drawer, Group, ScrollArea, ThemeIcon, Text } from "@mantine/core";
 import { useDisclosure, useMediaQuery } from "@mantine/hooks";
-import { IconAdjustments, IconArrowUp, IconCompass } from "@tabler/icons-react";
-import { useMemo } from "react";
+import { IconAdjustments } from "@tabler/icons-react";
+import { useMemo, type ReactNode } from "react";
 import { useNavigate, type SetURLSearchParams } from "react-router-dom";
-import { useResults } from "../../results";
-import { Level } from "../../../api/models";
-import { ElectoralMap } from "./ElectoralMap";
-import { MAP_TYPES, type MapType } from "../types";
-import { WithResults, useOfficeWithoutBrResult } from "../../results";
-import { Scoreboard } from "../../results";
+import type { Level } from "../../../api/models";
+import { asLevel, defaultGeoAreaName, geoAreaLink, zoneOfId } from "../../../lib/geo-areas";
 import { useEffectiveFilter } from "../../../lib/effective-filter";
-import { geoAreaLink, defaultGeoAreaName, zoneOfId } from "../../../lib/geo-areas";
-import { defaultSystem } from "../../../lib/offices";
-import { fmtPct } from "../../../lib/formatting";
 import { useFilter } from "../../../lib/filter-store";
+import { defaultSystem } from "../../../lib/offices";
 import { usePrefs } from "../../../lib/prefs-store";
-import { asLevel } from "../../../lib/geo-areas";
+import { useOfficeWithoutBrResult, useResults } from "../../results";
+import { MAP_TYPES, type MapType } from "../types";
+import { ElectoralMap } from "./ElectoralMap";
+import { MapSidePanel } from "./MapSidePanel";
 
-/** Mapa em tela cheia com seletor de tipo (RF-05) e painel lateral. */
+/** Phone layout: the side panel opens from a button at the bottom right. */
+function PhoneDrawer({
+  opened,
+  onOpen,
+  onClose,
+  typeLabel,
+  level,
+  children,
+}: {
+  opened: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+  typeLabel: string | undefined;
+  level: Level;
+  children: ReactNode;
+}) {
+  return (
+    <>
+      <Button
+        leftSection={<IconAdjustments size={16} />}
+        onClick={onOpen}
+        style={{ position: "absolute", bottom: 12, right: 12, zIndex: 20 }}
+        radius="xl"
+        size="sm"
+        variant="filled"
+      >
+        {typeLabel}
+      </Button>
+      <Drawer
+        opened={opened}
+        onClose={onClose}
+        position="bottom"
+        size="75%"
+        title={
+          <Group gap={6}>
+            <ThemeIcon size="sm" variant="light">
+              <IconAdjustments size={14} />
+            </ThemeIcon>
+            <Text fw={700}>Mapa</Text>
+            <Badge size="xs">{level}</Badge>
+          </Group>
+        }
+      >
+        {children}
+      </Drawer>
+    </>
+  );
+}
+
+/** Maps screen (`/mapas`): the full-height map with the kind selector and the side panel (a drawer on phones). */
 export function MapsScreen({ sp, setSp }: { sp: URLSearchParams; setSp: SetURLSearchParams }) {
-  const f = useEffectiveFilter();
-  const g = useFilter();
+  const filter = useEffectiveFilter();
+  const globalFilter = useFilter();
   const navigate = useNavigate();
   const basemap = usePrefs((s) => s.basemap);
   const setPrefs = usePrefs((s) => s.set);
-  const celular = useMediaQuery("(max-width: 62em)");
-  const [painelAberto, { open, close }] = useDisclosure(false);
-  const tipo = (sp.get("tipo") as MapType) || "vencedores";
-  const todosMun = sp.get("mun") === "1";
-  const semBr = useOfficeWithoutBrResult(f.cargo, f.nivel);
-  const res = useResults({ turno: f.turno, cargo: f.cargo, nivel: f.nivel, id: f.id, t: f.t }, !semBr);
-  const proporcional = (res.data?.office.voting_system ?? defaultSystem(f.cargo)) === "proporcional";
-  const nivelMapa: Level = f.nivel === "section" ? "zone" : f.nivel;
-  const idMapa = f.nivel === "section" ? (zoneOfId("section", f.id) ?? f.id) : f.id;
-  const pai = res.data?.geo_area.breadcrumb?.[res.data.geo_area.breadcrumb.length - 2];
+  const phone = useMediaQuery("(max-width: 62em)");
+  const [panelOpen, { open, close }] = useDisclosure(false);
+  const type = (sp.get("tipo") as MapType) || "vencedores";
+  const allMunicipalities = sp.get("mun") === "1";
+  const noBrResult = useOfficeWithoutBrResult(filter.cargo, filter.nivel);
+  const results = useResults(
+    { turno: filter.turno, cargo: filter.cargo, nivel: filter.nivel, id: filter.id, t: filter.t },
+    !noBrResult,
+  );
+  const proportional = (results.data?.office.voting_system ?? defaultSystem(filter.cargo)) === "proporcional";
+  const mapLevel: Level = filter.nivel === "section" ? "zone" : filter.nivel;
+  const mapId = filter.nivel === "section" ? (zoneOfId("section", filter.id) ?? filter.id) : filter.id;
+  const breadcrumb = results.data?.geo_area.breadcrumb;
+  const parent = breadcrumb?.[breadcrumb.length - 2];
+  const types = useMemo(() => MAP_TYPES.filter((t) => !t.proporcional || proportional), [proportional]);
 
-  const setParam = (k: string, v: string | null) => {
-    const n = new URLSearchParams(sp);
-    if (v === null) n.delete(k);
-    else n.set(k, v);
-    setSp(n, { replace: true });
+  const setParam = (key: string, value: string | null) => {
+    const next = new URLSearchParams(sp);
+    if (value === null) next.delete(key);
+    else next.set(key, value);
+    setSp(next, { replace: true });
   };
 
-  const selecionar = (nivel: Level, id: string, nome: string) => {
-    if (nivel === "polling_place" || nivel === "section") navigate(geoAreaLink(nivel, id));
-    else g.setRecorte(nivel, id, nome);
+  const selectArea = (level: Level, id: string, name: string) => {
+    if (level === "polling_place" || level === "section") navigate(geoAreaLink(level, id));
+    else globalFilter.setRecorte(level, id, name);
   };
 
-  const tipos = useMemo(() => MAP_TYPES.filter((t) => !t.proporcional || proporcional), [proporcional]);
-
-  const lateral = (
-    <Stack gap="sm">
-      <Group justify="space-between">
-        <Stack gap={0}>
-          <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
-            Recorte
-          </Text>
-          <Text fw={800} size="lg" lineClamp={1}>
-            {res.data?.geo_area.name ?? g.nome ?? defaultGeoAreaName(f.nivel, f.id)}
-          </Text>
-          {res.data && !res.data.no_data && (
-            <Text size="xs" c="dimmed">
-              {fmtPct(res.data.totals.pct_sections)} das seções apuradas
-            </Text>
-          )}
-        </Stack>
-        <Group gap={4}>
-          {pai && (
-            <Tooltip label={`Subir para ${pai.name}`}>
-              <ActionIcon
-                variant="default"
-                onClick={() => g.setRecorte(asLevel(pai.level), pai.id, pai.name)}
-                aria-label="Subir um nível"
-              >
-                <IconArrowUp size={16} />
-              </ActionIcon>
-            </Tooltip>
-          )}
-          <Tooltip label="Explorar este recorte">
-            <ActionIcon
-              variant="default"
-              onClick={() => navigate(geoAreaLink(f.nivel, f.id))}
-              aria-label="Explorar"
-            >
-              <IconCompass size={16} />
-            </ActionIcon>
-          </Tooltip>
-        </Group>
-      </Group>
-      <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
-        Tipo de mapa
-      </Text>
-      <Stack gap={4}>
-        {tipos.map((t) => (
-          <UnstyledButton key={t.valor} onClick={() => setParam("tipo", t.valor)}>
-            <Card
-              p="xs"
-              withBorder
-              style={{
-                borderColor: tipo === t.valor ? "var(--mantine-color-eleicao-4)" : undefined,
-                background: tipo === t.valor ? "var(--mantine-color-default-hover)" : undefined,
-              }}
-            >
-              <Text size="sm" fw={700}>
-                {t.rotulo}
-              </Text>
-              <Text size="xs" c="dimmed">
-                {t.descricao}
-              </Text>
-            </Card>
-          </UnstyledButton>
-        ))}
-      </Stack>
-      {f.nivel === "country" && (
-        <Switch
-          label="Todos os municípios do Brasil"
-          checked={todosMun}
-          onChange={(e) => setParam("mun", e.currentTarget.checked ? "1" : null)}
-        />
-      )}
-      <Switch
-        label="Mapa de fundo"
-        checked={basemap}
-        onChange={(e) => setPrefs({ basemap: e.currentTarget.checked })}
-      />
-      {!semBr && (
-        <Card p="sm" withBorder>
-          <WithResults linhasSkeleton={3}>
-            {(r) => <Scoreboard res={r} opcoes={{ topN: 5, mostrarFotos: false }} />}
-          </WithResults>
-        </Card>
-      )}
-    </Stack>
+  const panel = (
+    <MapSidePanel
+      results={results.data}
+      fallbackName={globalFilter.nome ?? defaultGeoAreaName(filter.nivel, filter.id)}
+      type={type}
+      types={types}
+      onTypeChange={(value) => setParam("tipo", value)}
+      atCountry={filter.nivel === "country"}
+      allMunicipalities={allMunicipalities}
+      onAllMunicipalitiesChange={(on) => setParam("mun", on ? "1" : null)}
+      basemap={basemap}
+      onBasemapChange={(on) => setPrefs({ basemap: on })}
+      noBrResult={noBrResult}
+      parent={parent}
+      onUp={(up) => globalFilter.setRecorte(asLevel(up.level), up.id, up.name)}
+      onExplore={() => navigate(geoAreaLink(filter.nivel, filter.id))}
+    />
   );
 
   return (
@@ -162,52 +130,32 @@ export function MapsScreen({ sp, setSp }: { sp: URLSearchParams; setSp: SetURLSe
           }}
         >
           <ElectoralMap
-            tipo={tipo}
-            nivel={nivelMapa}
-            id={idMapa}
-            todosMunicipios={todosMun}
-            onSelecionar={selecionar}
+            tipo={type}
+            nivel={mapLevel}
+            id={mapId}
+            todosMunicipios={allMunicipalities}
+            onSelecionar={selectArea}
             altura="100%"
           />
         </Box>
-        {!celular && (
+        {!phone && (
           <Card w={330} p="sm" style={{ flexShrink: 0 }}>
             <ScrollArea h="100%" className="scroll-fino">
-              {lateral}
+              {panel}
             </ScrollArea>
           </Card>
         )}
       </Group>
-      {celular && (
-        <>
-          <Button
-            leftSection={<IconAdjustments size={16} />}
-            onClick={open}
-            style={{ position: "absolute", bottom: 12, right: 12, zIndex: 20 }}
-            radius="xl"
-            size="sm"
-            variant="filled"
-          >
-            {MAP_TYPES.find((t) => t.valor === tipo)?.rotulo}
-          </Button>
-          <Drawer
-            opened={painelAberto}
-            onClose={close}
-            position="bottom"
-            size="75%"
-            title={
-              <Group gap={6}>
-                <ThemeIcon size="sm" variant="light">
-                  <IconAdjustments size={14} />
-                </ThemeIcon>
-                <Text fw={700}>Mapa</Text>
-                <Badge size="xs">{f.nivel}</Badge>
-              </Group>
-            }
-          >
-            {lateral}
-          </Drawer>
-        </>
+      {phone && (
+        <PhoneDrawer
+          opened={panelOpen}
+          onOpen={open}
+          onClose={close}
+          typeLabel={MAP_TYPES.find((t) => t.valor === type)?.rotulo}
+          level={filter.nivel}
+        >
+          {panel}
+        </PhoneDrawer>
       )}
     </Box>
   );

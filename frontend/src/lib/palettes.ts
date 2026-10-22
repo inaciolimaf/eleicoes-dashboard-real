@@ -1,6 +1,6 @@
 import type { CandidateStatus } from "../api/models";
 
-/** Paleta categórica neutra de 12 cores (sem associação ideológica), boa separação em dark/light. */
+/** Neutral categorical palette of 12 colors (no ideological meaning), well separated in dark and light themes. */
 export const PALETTE = [
   "#3D7BFF",
   "#F5A524",
@@ -16,8 +16,13 @@ export const PALETTE = [
   "#EAB308",
 ];
 
+/** Color that a candidate or party gets when it has none of its own. */
+export const FALLBACK_CANDIDATE_COLOR = "#8592AD";
+/** Background of the dark theme (also the background of exported images). */
+export const DARK_BACKGROUND = "#0B1220";
+
 export const colorByIndex = (i: number) => PALETTE[((i % PALETTE.length) + PALETTE.length) % PALETTE.length];
-/** Cor tradicional de cada partido, pelo número (mesma tabela do backend). */
+/** Traditional color of each party, by its number (same table as the backend). */
 export const PARTY_COLORS: Record<number, string> = {
   10: "#1F6FB2",
   11: "#5DA9E9",
@@ -53,7 +58,7 @@ export const PARTY_COLORS: Record<number, string> = {
   90: "#F57C00",
 };
 
-/** Cor pelo número do partido ou do candidato (os 2 primeiros dígitos são o partido). */
+/** Color by party or candidate number (the first two digits are the party). */
 export const colorByNumber = (n: number) => {
   let p = Math.abs(Math.floor(n));
   while (p >= 100) p = Math.floor(p / 10);
@@ -158,7 +163,7 @@ function interp(stops: RGB[], t: number): RGB {
   return [Math.round(lerp(a[0], b[0], f)), Math.round(lerp(a[1], b[1], f)), Math.round(lerp(a[2], b[2], f))];
 }
 
-/** Sequencial (azul profundo → ciano → amarelo claro), legível em fundo escuro e claro. */
+/** Sequential scale (deep blue → cyan → light yellow), readable on dark and light backgrounds. */
 const SEQ: RGB[] = [
   [30, 42, 90],
   [37, 87, 168],
@@ -169,7 +174,7 @@ const SEQ: RGB[] = [
 ];
 export const sequentialColor = (t: number): RGB => interp(SEQ, t);
 
-/** Divergente: A (azul) ← neutro → B (laranja). t em [-1, 1]. */
+/** Diverging scale: A (blue) ← neutral → B (orange). t in [-1, 1]. */
 const DIV_NEG: RGB[] = [
   [230, 232, 238],
   [120, 160, 240],
@@ -190,7 +195,7 @@ export function divergingColor(t: number, corA?: string, corB?: string): RGB {
   return v >= 0 ? interp(DIV_NEG, v) : interp(DIV_POS, -v);
 }
 
-/** 5 faixas de margem (p.p.) → opacidade */
+/** 5 bands of winning margin (p.p.) mapped to opacity. */
 export const MARGIN_BANDS = [
   { ate: 2, alpha: 0.35, rotulo: "< 2 p.p." },
   { ate: 5, alpha: 0.5, rotulo: "2–5 p.p." },

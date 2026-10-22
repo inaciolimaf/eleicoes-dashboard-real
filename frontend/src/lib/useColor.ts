@@ -1,13 +1,15 @@
 import { useCallback } from "react";
 import { usePrefs } from "./prefs-store";
-import { colorByNumber } from "./palettes";
+import { colorByNumber, FALLBACK_CANDIDATE_COLOR } from "./palettes";
 
-/** Cor de um candidato, respeitando a preferência do usuário. */
+/** Color of a candidate, honoring the user's preference (stored by candidate id). */
 export function useCandidateColor() {
-  const cores = usePrefs((s) => s.coresCandidatos);
+  const savedColors = usePrefs((s) => s.coresCandidatos);
   return useCallback(
-    (sqcand: string | null | undefined, padrao?: string | null, numero?: number | null) =>
-      (sqcand ? cores[sqcand] : undefined) ?? padrao ?? (numero != null ? colorByNumber(numero) : "#8592AD"),
-    [cores],
+    (tseCandidateId: string | null | undefined, defaultColor?: string | null, ballotNumber?: number | null) =>
+      (tseCandidateId ? savedColors[tseCandidateId] : undefined) ??
+      defaultColor ??
+      (ballotNumber != null ? colorByNumber(ballotNumber) : FALLBACK_CANDIDATE_COLOR),
+    [savedColors],
   );
 }

@@ -1,4 +1,4 @@
-/** Rótulo e cor de cada tipo de evento (valores da API em inglês; o texto é do produto). */
+/** Label and color of each event type (the API values are English; the label is product text in Portuguese). */
 export const EVENT_LABELS: Record<string, string> = {
   start: "Início da divulgação",
   milestone: "Marco da apuração",

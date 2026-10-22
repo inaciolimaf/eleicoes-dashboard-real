@@ -1,18 +1,21 @@
 import type { Feature, FeatureCollection, Geometry, Position } from "geojson";
 
+/** [minLon, minLat, maxLon, maxLat] */
 export type BBox = [number, number, number, number];
 
-// minLon, minLat, maxLon, maxLat
+/** Properties of a feature in the static GeoJSON files (`uf` is upper case; `id` is the IBGE code). */
 export interface GeoProps {
-  uf: string; // maiúscula
-  id?: string; // IBGE 7 dígitos (municípios)
+  uf: string;
+  id?: string;
   nome?: string;
 }
 
-export type FeatureGeo = Feature<Geometry, GeoProps> & { bbox: BBox; chave: string };
+/** A map feature with its bounding box and the key that joins it to the API data. */
+export type FeatureGeo = Feature<Geometry, GeoProps> & { bbox: BBox; key: string };
 
 export const BRAZIL_BBOX: BBox = [-74.2, -33.9, -34.6, 5.4];
 
+/** Grows `b` so it contains every position found in `coords` (any GeoJSON nesting). */
 export function extendBBox(b: BBox, coords: unknown) {
   if (!Array.isArray(coords)) return;
   if (typeof coords[0] === "number") {
@@ -34,10 +37,11 @@ export function bboxOfGeometry(g: Geometry): BBox {
   return b;
 }
 
-export function unionBBox(lista: BBox[]): BBox | null {
-  if (!lista.length) return null;
+/** Box that contains every box of the list; null for an empty list. */
+export function unionBBox(boxes: BBox[]): BBox | null {
+  if (!boxes.length) return null;
   const b: BBox = [Infinity, Infinity, -Infinity, -Infinity];
-  for (const x of lista) {
+  for (const x of boxes) {
     b[0] = Math.min(b[0], x[0]);
     b[1] = Math.min(b[1], x[1]);
     b[2] = Math.max(b[2], x[2]);
@@ -46,9 +50,10 @@ export function unionBBox(lista: BBox[]): BBox | null {
   return Number.isFinite(b[0]) ? b : null;
 }
 
-export function bboxOfPoints(pts: { lat: number; lon: number }[]): BBox | null {
+/** Box of a set of points, widened to at least 0.01 degrees per side so a single point still fits. */
+export function bboxOfPoints(points: { lat: number; lon: number }[]): BBox | null {
   const b: BBox = [Infinity, Infinity, -Infinity, -Infinity];
-  for (const p of pts) {
+  for (const p of points) {
     if (!Number.isFinite(p.lat) || !Number.isFinite(p.lon)) continue;
     b[0] = Math.min(b[0], p.lon);
     b[1] = Math.min(b[1], p.lat);
@@ -69,28 +74,29 @@ export function bboxOfPoints(pts: { lat: number; lon: number }[]): BBox | null {
 
 export interface StateMesh {
   features: FeatureGeo[];
-  porUf: Map<string, FeatureGeo>;
+  byKey: Map<string, FeatureGeo>;
 }
 
 export interface MunicipalityMesh {
   features: FeatureGeo[];
-  porId: Map<string, FeatureGeo>;
-  porUf: Map<string, FeatureGeo[]>;
+  byId: Map<string, FeatureGeo>;
+  byState: Map<string, FeatureGeo[]>;
 }
 
+/** Normalizes a GeoJSON collection: drops features without geometry, adds the box and the join key. */
 export function prepareMesh(
-  fc: FeatureCollection<Geometry | null, GeoProps>,
-  chave: (p: GeoProps) => string,
+  collection: FeatureCollection<Geometry | null, GeoProps>,
+  keyOf: (p: GeoProps) => string,
 ): FeatureGeo[] {
   const out: FeatureGeo[] = [];
-  for (const f of fc.features) {
-    if (!f.geometry) continue; // feições sem geometria são ignoradas
+  for (const f of collection.features) {
+    if (!f.geometry) continue;
     const props = { ...f.properties, uf: String(f.properties?.uf ?? "").toUpperCase() };
     out.push({
       ...(f as Feature<Geometry, GeoProps>),
       properties: props,
       bbox: bboxOfGeometry(f.geometry),
-      chave: chave(props),
+      key: keyOf(props),
     });
   }
   return out;

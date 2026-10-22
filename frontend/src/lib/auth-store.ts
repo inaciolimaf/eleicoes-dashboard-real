@@ -21,7 +21,7 @@ export const useAuth = create<AuthState>()(
     }),
     {
       name: "eleicoes.auth",
-      // sessões salvas antes da migração trazem `usuario` (com `nome`): a leitura passa para `user`
+      // sessions saved before the migration carry `usuario` (with `nome`): they are read as `user`
       merge: (salvo, atual) => {
         const legado = (salvo as { usuario?: { id: string; email: string; nome: string; is_admin: boolean } })
           .usuario;

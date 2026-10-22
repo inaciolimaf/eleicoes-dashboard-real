@@ -3,12 +3,13 @@ import { api } from "../../api/client";
 import type { PollingSectionDto } from "../../api/models";
 import { qk } from "../../api/query-keys";
 
-export function useSection(id: string | null | undefined, turno: number) {
+/** A polling section (its ballot results per office), for one round. */
+export function useSection(id: string | null | undefined, round: number) {
   return useQuery({
-    queryKey: qk.secao(id ?? "", turno),
+    queryKey: qk.secao(id ?? "", round),
     queryFn: ({ signal }) =>
       api<PollingSectionDto>(`/polling-sections/${encodeURIComponent(id ?? "")}`, {
-        params: { round: turno },
+        params: { round },
         signal,
       }),
     enabled: !!id,
