@@ -50,9 +50,11 @@ test: ## testes do backend em containers (pytest + cobertura >= 85%)
 	$(COMPOSE) -f docker-compose.test.yml run --rm --build api-test; \
 		status=$$?; $(COMPOSE) -f docker-compose.test.yml down -v; exit $$status
 
-lint: ## ruff + format check + function/file size + import boundaries (same as CI)
+lint: ## ruff + format check + function/file size + import boundaries + compose files parse (same as CI)
 	cd backend && uv run ruff check . && uv run ruff format --check . && \
 		uv run python -m tools.function_size && uv run lint-imports
+	@for f in docker-compose.yml docker-compose.test.yml docker-compose.coolify.yml; do \
+		docker compose -f $$f config -q 2>/dev/null || { echo "invalid compose: $$f"; exit 1; }; done
 
 test-unit: ## backend unit tests only (no database)
 	cd backend && uv run pytest -q -m "not integration"

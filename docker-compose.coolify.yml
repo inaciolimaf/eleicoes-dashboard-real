@@ -6,8 +6,6 @@
 
 x-backend: &backend
   build: ./backend
-  # tini como PID 1: repassa o SIGTERM ao Python (sem isso cada container leva 30s para parar no redeploy)
-  init: true
   environment: &backend-env
     DATABASE_URL: postgresql+asyncpg://eleicoes:${SERVICE_PASSWORD_POSTGRES}@db:5432/eleicoes
     REDIS_URL: redis://redis:6379/0
@@ -34,6 +32,8 @@ x-backend: &backend
     CORS_ORIGINS: ${SERVICE_URL_WEB}
     WORKER_CONCORRENCIA: "6"
     LOG_LEVEL: INFO
+    # Production checks on (secrets of 32+ bytes, not the .env.example value).
+    ENVIRONMENT: production
   restart: unless-stopped
   # Processo init (tini) como PID 1: repassa o SIGTERM ao Python. Sem isso, coletor e workers ignoram o
   # sinal e o Docker espera 30 s por container antes de matá-los, o que deixava o deploy ~1,5 min mais lento.
@@ -47,7 +47,7 @@ services:
       POSTGRES_USER: eleicoes
       POSTGRES_PASSWORD: ${SERVICE_PASSWORD_POSTGRES}
       POSTGRES_DB: eleicoes
-    command: ["postgres", "-c", "shared_buffers=256MB", "-c", "max_connections=200", "-c", "synchronous_commit=off"]
+    command: ["postgres", "-c", "shared_buffers=${PG_SHARED_BUFFERS:-256MB}", "-c", "max_connections=200", "-c", "synchronous_commit=off"]
     volumes: [pgdata:/var/lib/postgresql/data]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U eleicoes"]
@@ -67,10 +67,14 @@ services:
       retries: 30
     restart: unless-stopped
 
-  # A API roda as migrações antes de subir (evita um container "migrate" parado, que o Coolify marca como unhealthy)
+  # The API migrates before serving (entrypoint + MIGRAR_AO_SUBIR): no stopped "migrate" container,
+  # which Coolify would mark as unhealthy.
   api:
     <<: *backend
-    command: ["sh", "-c", "alembic upgrade head && exec uvicorn app.core.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*' --workers 2"]
+    environment:
+      <<: *backend-env
+      MIGRAR_AO_SUBIR: "true"
+    command: ["uvicorn", "app.core.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*", "--workers", "2"]
     volumes: [fotos:/data/fotos]
     depends_on:
       db: {condition: service_healthy}
