@@ -1,4 +1,4 @@
-"""Tempo real: WebSocket, registro de tópicos ativos e fan-out das publicações do worker."""
+"""Real time: WebSocket, registration of active topics and fan-out of the worker publications."""
 
 import asyncio
 import os
@@ -14,13 +14,13 @@ from app.infra.realtime import topics
 from app.infra.realtime.hub import Connection, Hub
 
 
-class WsFalso:
+class FakeWebSocket:
     pass
 
 
-async def test_hub_despacha_so_para_assinantes(redis_cliente):
+async def test_hub_dispatches_only_to_subscribers(redis_cliente):
     hub = Hub(redis_cliente)
-    a, b = Connection(WsFalso()), Connection(WsFalso())
+    a, b = Connection(FakeWebSocket()), Connection(FakeWebSocket())
     hub.connections |= {a, b}
     await hub.subscribe(a, ["results:1:1:country:br"])
     b.user_id = "u1"
@@ -35,15 +35,15 @@ async def test_hub_despacha_so_para_assinantes(redis_cliente):
     assert "results:1:1:country:br" in await topics.active(redis_cliente)
 
 
-def test_websocket_assina_e_recebe_publicacao(redis_cliente):
-    # TestClient roda o app (com lifespan) em outra thread/loop: usa um cliente Redis próprio
+def test_websocket_subscribes_and_receives_publication(redis_cliente):
+    # TestClient roda o app (com lifespan) em outra thread/loop: usa um client Redis próprio
     redis_mod._redis = None
     url = os.environ["TEST_REDIS_URL"]
     pub = RedisSync.from_url(url)
     try:
         from app.core.main import app
 
-        with TestClient(app) as cliente, cliente.websocket_connect("/api/v1/ws") as ws:
+        with TestClient(app) as client, client.websocket_connect("/api/v1/ws") as ws:
             ws.send_text(orjson.dumps({"op": "ping"}).decode())
             assert ws.receive_json()["type"] == "pong"
             ws.send_text(orjson.dumps({"op": "auth", "token": criar_token("usuario-x")}).decode())
@@ -78,5 +78,5 @@ def test_websocket_assina_e_recebe_publicacao(redis_cliente):
         (topics.polling_places, (1, 1, "sp71072"), "polling_places:1:1:sp71072"),
     ],
 )
-def test_nomes_de_topicos(fn, args, esperado):
+def test_topic_names(fn, args, esperado):
     assert fn(*args) == esperado

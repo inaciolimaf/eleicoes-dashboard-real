@@ -5,7 +5,7 @@ import pytest_asyncio
 from sqlalchemy import func, select
 
 import tse_fake.main as fake
-from app.collector.collector import Coletor
+from app.collector.collector import Collector
 from app.collector.fetcher import Fetcher
 from app.core.config import get_settings
 from app.core.db import get_sessionmaker, unit_of_work
@@ -35,24 +35,26 @@ async def drenar_fila(redis, proc: Processor) -> int:
         n += 1
 
 
-async def coletar_ate(coletor: Coletor, proc: Processor, redis, minutos: float, ufs=(UF_TESTE, "df")) -> None:
+async def coletar_ate(
+    coletor: Collector, proc: Processor, redis, minutos: float, ufs=(UF_TESTE, "df")
+) -> None:
     fake.estado.relogio.ajustar(ir_para=minutos * 60, pausado=True)
-    await coletor.ciclo_acompanhamento()
-    await coletor.ciclo_principal()
+    await coletor.tracking_cycle()
+    await coletor.primary_cycle()
     # processa só os municípios das UFs de teste (o Brasil inteiro deixaria o teste lento)
     pendentes = []
-    while not coletor.fila_mun.empty():
-        _, _, turno, mid = coletor.fila_mun.get_nowait()
-        coletor.pendentes_mun.discard((turno, mid))
+    while not coletor.municipality_queue.empty():
+        _, _, turno, mid = coletor.municipality_queue.get_nowait()
+        coletor.pending_municipalities.discard((turno, mid))
         if mid[:2] in ufs:
             pendentes.append((turno, mid))
     for turno, mid in pendentes:
-        coletor.ultima_coleta_mun.pop((turno, mid), None)
-        await coletor.processar_municipio(turno, mid)
-    while not coletor.fila_sec.empty():
-        _, _, turno, uf, cd_mun, zona, secao = coletor.fila_sec.get_nowait()
-        coletor.pendentes_sec.discard(f"{uf}{cd_mun:05d}-z{zona:04d}-s{secao:04d}")
-        await coletor.processar_secao(turno, uf, cd_mun, zona, secao)
+        coletor.last_municipality_collection.pop((turno, mid), None)
+        await coletor.process_municipality(turno, mid)
+    while not coletor.section_queue.empty():
+        _, _, turno, uf, cd_mun, zona, secao = coletor.section_queue.get_nowait()
+        coletor.pending_sections.discard(f"{uf}{cd_mun:05d}-z{zona:04d}-s{secao:04d}")
+        await coletor.process_section(turno, uf, cd_mun, zona, secao)
     await drenar_fila(redis, proc)
 
 
@@ -72,10 +74,10 @@ async def ambiente(engine, redis_cliente):
             "modo_secoes": "todas",
         }
     )
-    coletor = Coletor(s, get_sessionmaker(), redis_cliente, Fetcher(10000, 16, cliente=cliente))
+    coletor = Collector(s, get_sessionmaker(), redis_cliente, Fetcher(10000, 16, client=cliente))
     proc = Processor(get_sessionmaker(), redis_cliente)
-    assert await coletor.atualizar_catalogo()
-    await coletor.ciclo_principal()
+    assert await coletor.refresh_catalog()
+    await coletor.primary_cycle()
     await drenar_fila(redis_cliente, proc)
     yield coletor, proc
     await cliente.aclose()
@@ -165,26 +167,26 @@ async def test_local_de_votacao_e_secao_por_boletim(ambiente):
         assert any(sec["status"] == "tallied" for sec in detalhe["sections"])
 
 
-def _secoes_na_fila(coletor: Coletor) -> set[str]:
+def _secoes_na_fila(coletor: Collector) -> set[str]:
     itens = []
-    while not coletor.fila_sec.empty():
-        itens.append(coletor.fila_sec.get_nowait())
+    while not coletor.section_queue.empty():
+        itens.append(coletor.section_queue.get_nowait())
     for item in itens:
-        coletor.fila_sec.put_nowait(item)
+        coletor.section_queue.put_nowait(item)
     return {f"{uf}{mun:05d}-z{zona:04d}-s{sec:04d}" for _, _, _, uf, mun, zona, sec in itens}
 
 
 async def test_secoes_sob_demanda(ambiente, api, redis_cliente):
     coletor, proc = ambiente
     # A configuração é imutável: o coletor recebe uma cópia com o modo sob demanda.
-    s_original = coletor.s
-    coletor.s = get_settings().model_copy(update={"modo_secoes": "sob_demanda"})
+    s_original = coletor.settings
+    coletor.settings = get_settings().model_copy(update={"modo_secoes": "sob_demanda"})
     try:
-        while not coletor.fila_sec.empty():
-            coletor.fila_sec.get_nowait()
-        coletor.pendentes_sec.clear()
-        coletor.secoes_feitas.clear()
-        coletor.tentativa_sec.clear()
+        while not coletor.section_queue.empty():
+            coletor.section_queue.get_nowait()
+        coletor.pending_sections.clear()
+        coletor.sections_done.clear()
+        coletor.section_attempts.clear()
         async with get_sessionmaker()() as sess:
             feito = (
                 await sess.execute(
@@ -214,12 +216,12 @@ async def test_secoes_sob_demanda(ambiente, api, redis_cliente):
         await api.get(
             "/api/v1/results", params={"office": 1, "level": "municipality", "id": feito.municipality_id}
         )
-        await coletor.ciclo_sob_demanda()
-        assert coletor.fila_sec.empty()
+        await coletor.on_demand_cycle()
+        assert coletor.section_queue.empty()
 
         # abrir o local baixa só as seções dele que ainda não têm boletim no banco
         assert (await api.get(f"/api/v1/polling-places/{feito.polling_place_id}")).status_code == 200
-        await coletor.ciclo_sob_demanda()
+        await coletor.on_demand_cycle()
         assert _secoes_na_fila(coletor) == do_local - com_bu
         assert feito.polling_section_id not in _secoes_na_fila(coletor)
 
@@ -236,15 +238,15 @@ async def test_secoes_sob_demanda(ambiente, api, redis_cliente):
                 )
             ).scalar_one()
         await api.get(f"/api/v1/polling-sections/{avulsa}")
-        await coletor.ciclo_sob_demanda()
-        antes = coletor.fila_sec.qsize()
-        await coletor.ciclo_sob_demanda()
-        assert avulsa in _secoes_na_fila(coletor) and coletor.fila_sec.qsize() == antes
+        await coletor.on_demand_cycle()
+        antes = coletor.section_queue.qsize()
+        await coletor.on_demand_cycle()
+        assert avulsa in _secoes_na_fila(coletor) and coletor.section_queue.qsize() == antes
 
-        while not coletor.fila_sec.empty():
-            _, _, turno, uf, mun, zona, sec = coletor.fila_sec.get_nowait()
-            coletor.pendentes_sec.discard(f"{uf}{mun:05d}-z{zona:04d}-s{sec:04d}")
-            await coletor.processar_secao(turno, uf, mun, zona, sec)
+        while not coletor.section_queue.empty():
+            _, _, turno, uf, mun, zona, sec = coletor.section_queue.get_nowait()
+            coletor.pending_sections.discard(f"{uf}{mun:05d}-z{zona:04d}-s{sec:04d}")
+            await coletor.process_section(turno, uf, mun, zona, sec)
         await drenar_fila(redis_cliente, proc)
 
         # diagnostics of the polling place: what the collector and the worker did with each section
@@ -257,7 +259,7 @@ async def test_secoes_sob_demanda(ambiente, api, redis_cliente):
             if por_id[sid]["collector"].get("step") == "BU enviado ao worker":
                 assert por_id[sid]["worker"]["ok"] and por_id[sid]["ballot_in_db"]
     finally:
-        coletor.s = s_original
+        coletor.settings = s_original
         await redis_cliente.delete("sections:demand")
 
 

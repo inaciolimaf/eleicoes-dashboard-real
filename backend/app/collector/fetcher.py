@@ -1,4 +1,4 @@
-"""Cliente HTTP do coletor: limite de taxa, ETag/If-None-Match, memória de 404 e backoff."""
+"""HTTP client of the collector: rate limit, ETag/If-None-Match, 404 memory and backoff."""
 
 from __future__ import annotations
 
@@ -11,130 +11,141 @@ import httpx
 
 
 class TokenBucket:
-    """Limita requisições por segundo (um 304 também consome token — regra do TSE).
+    """Limits requests per second (a 304 also consumes a token, as the TSE counts it).
 
-    Pedidos de alta prioridade (high_priority) passam na frente: enquanto um esperar, os de baixa não pegam.
+    High-priority requests go first: while one waits, the low-priority ones do not take the token.
     """
 
-    def __init__(self, taxa: float, capacidade: float | None = None) -> None:
-        self.taxa = taxa
-        # Burst curto (10% da taxa): sem isso, um balde cheio + a taxa sustentada quase dobrariam
-        # o número de requisições num mesmo segundo.
-        self.capacidade = capacidade if capacidade is not None else max(1.0, taxa * 0.1)
-        self.tokens = self.capacidade
-        self.ultimo = time.monotonic()
+    def __init__(self, rate: float, capacity: float | None = None) -> None:
+        self.rate = rate
+        # Short burst (10% of the rate): without it, a full bucket plus the sustained rate would
+        # almost double the number of requests in the same second.
+        self.capacity = capacity if capacity is not None else max(1.0, rate * 0.1)
+        self.tokens = self.capacity
+        self.last = time.monotonic()
         self._lock_high = asyncio.Lock()
         self._lock_low = asyncio.Lock()
 
-    async def adquirir(self, high_priority: bool = False) -> None:
+    async def acquire(self, high_priority: bool = False) -> None:
         async with self._lock_high if high_priority else self._lock_low:
             while True:
                 if not high_priority and self._lock_high.locked():
-                    await asyncio.sleep(1 / self.taxa)
+                    await asyncio.sleep(1 / self.rate)
                     continue
-                agora = time.monotonic()
-                self.tokens = min(self.capacidade, self.tokens + (agora - self.ultimo) * self.taxa)
-                self.ultimo = agora
+                now = time.monotonic()
+                self.tokens = min(self.capacity, self.tokens + (now - self.last) * self.rate)
+                self.last = now
                 if self.tokens >= 1:
                     self.tokens -= 1
                     return
-                await asyncio.sleep((1 - self.tokens) / self.taxa)
+                await asyncio.sleep((1 - self.tokens) / self.rate)
 
 
 @dataclass
-class Resposta:
+class Response:
     status: int
-    corpo: bytes | None
+    body: bytes | None
     etag: str | None
     url: str
 
 
 @dataclass
-class Metricas:
-    por_status: dict[int, int] = field(default_factory=dict)
-    erros_rede: int = 0
-    falhas_jws: int = 0
-    _janela: deque = field(default_factory=lambda: deque(maxlen=5000))
+class Metrics:
+    by_status: dict[int, int] = field(default_factory=dict)
+    network_errors: int = 0
+    jws_failures: int = 0
+    _window: deque[float] = field(default_factory=lambda: deque(maxlen=5000))
 
-    def registrar(self, status: int) -> None:
-        self.por_status[status] = self.por_status.get(status, 0) + 1
-        self._janela.append(time.monotonic())
+    def record(self, status: int) -> None:
+        self.by_status[status] = self.by_status.get(status, 0) + 1
+        self._window.append(time.monotonic())
 
-    def req_por_seg(self, janela: float = 10.0) -> float:
-        agora = time.monotonic()
-        return round(sum(1 for t in self._janela if agora - t <= janela) / janela, 2)
+    def requests_per_second(self, window: float = 10.0) -> float:
+        now = time.monotonic()
+        return round(sum(1 for t in self._window if now - t <= window) / window, 2)
 
 
 class Fetcher:
     def __init__(
         self,
         max_rps: float,
-        concorrencia: int = 16,
-        cliente: httpx.AsyncClient | None = None,
+        concurrency: int = 16,
+        client: httpx.AsyncClient | None = None,
         ttl_404: float = 120.0,
     ) -> None:
         self.bucket = TokenBucket(max_rps)
-        self.sem = asyncio.Semaphore(concorrencia)
-        self.sem_high = asyncio.Semaphore(max(4, concorrencia // 3))
-        self.cliente = cliente or httpx.AsyncClient(
+        self.semaphore = asyncio.Semaphore(concurrency)
+        self.high_semaphore = asyncio.Semaphore(max(4, concurrency // 3))
+        self.client = client or httpx.AsyncClient(
             timeout=httpx.Timeout(20.0),
             follow_redirects=True,
             headers={"User-Agent": "eleicoes-dashboard-real/1.0"},
         )
         self.etags: dict[str, str] = {}
-        self.nao_encontrados: dict[str, float] = {}
+        self.not_found: dict[str, float] = {}
         self.ttl_404 = ttl_404
-        self.metricas = Metricas()
-        self.pausa_ate = 0.0
+        self.metrics = Metrics()
+        self.pause_until = 0.0
 
-    def limpar_404(self) -> None:
-        self.nao_encontrados.clear()
+    def clear_404(self) -> None:
+        self.not_found.clear()
 
     async def get(
-        self, url: str, usar_etag: bool = True, tentativas: int = 3, high_priority: bool = True
-    ) -> Resposta:
-        visto = self.nao_encontrados.get(url)
-        if visto is not None and time.monotonic() - visto < self.ttl_404:
-            return Resposta(404, None, None, url)
-        headers = {}
-        if usar_etag and url in self.etags:
+        self, url: str, use_etag: bool = True, attempts: int = 3, high_priority: bool = True
+    ) -> Response:
+        seen = self.not_found.get(url)
+        if seen is not None and time.monotonic() - seen < self.ttl_404:
+            return Response(404, None, None, url)
+        headers: dict[str, str] = {}
+        if use_etag and url in self.etags:
             headers["If-None-Match"] = self.etags[url]
-        atraso = 1.0
-        for tentativa in range(tentativas):
-            espera = self.pausa_ate - time.monotonic()
-            if espera > 0:
-                await asyncio.sleep(espera)
-            await self.bucket.adquirir(high_priority)
+        delay = 1.0
+        for attempt in range(attempts):
+            await self._wait_for_pause()
+            await self.bucket.acquire(high_priority)
+            last = attempt == attempts - 1
             try:
-                async with self.sem_high if high_priority else self.sem:
-                    r = await self.cliente.get(url, headers=headers)
+                r = await self._send(url, headers, high_priority)
             except httpx.HTTPError:
-                self.metricas.erros_rede += 1
-                if tentativa == tentativas - 1:
-                    return Resposta(599, None, None, url)
-                await asyncio.sleep(atraso)
-                atraso *= 2
+                self.metrics.network_errors += 1
+                if last:
+                    return Response(599, None, None, url)
+                await asyncio.sleep(delay)
+                delay *= 2
                 continue
-            self.metricas.registrar(r.status_code)
-            if r.status_code == 304:
-                return Resposta(304, None, self.etags.get(url), url)
-            if r.status_code == 404:
-                self.nao_encontrados[url] = time.monotonic()
-                return Resposta(404, None, None, url)
-            if r.status_code == 429:
-                # Excesso de requisições: segura todo o coletor por um tempo em vez de insistir.
-                self.pausa_ate = max(self.pausa_ate, time.monotonic() + 30.0)
-            if r.status_code >= 500 or r.status_code == 429:
-                if tentativa == tentativas - 1:
-                    return Resposta(r.status_code, None, None, url)
-                await asyncio.sleep(atraso)
-                atraso *= 2
-                continue
-            etag = r.headers.get("etag")
-            if etag and usar_etag:
-                self.etags[url] = etag
-            return Resposta(r.status_code, r.content, etag, url)
-        return Resposta(599, None, None, url)
+            self.metrics.record(r.status_code)
+            outcome = self._interpret(url, r, use_etag, last)
+            if outcome is not None:
+                return outcome
+            await asyncio.sleep(delay)
+            delay *= 2
+        return Response(599, None, None, url)
 
-    async def fechar(self) -> None:
-        await self.cliente.aclose()
+    async def _wait_for_pause(self) -> None:
+        wait = self.pause_until - time.monotonic()
+        if wait > 0:
+            await asyncio.sleep(wait)
+
+    async def _send(self, url: str, headers: dict[str, str], high_priority: bool) -> httpx.Response:
+        async with self.high_semaphore if high_priority else self.semaphore:
+            return await self.client.get(url, headers=headers)
+
+    def _interpret(self, url: str, r: httpx.Response, use_etag: bool, last: bool) -> Response | None:
+        """The final answer for this response, or None when the request should be retried."""
+        if r.status_code == 304:
+            return Response(304, None, self.etags.get(url), url)
+        if r.status_code == 404:
+            self.not_found[url] = time.monotonic()
+            return Response(404, None, None, url)
+        if r.status_code == 429:
+            # Too many requests: holds the whole collector for a while instead of insisting.
+            self.pause_until = max(self.pause_until, time.monotonic() + 30.0)
+        if r.status_code >= 500 or r.status_code == 429:
+            return Response(r.status_code, None, None, url) if last else None
+        etag = r.headers.get("etag")
+        if etag and use_etag:
+            self.etags[url] = etag
+        return Response(r.status_code, r.content, etag, url)
+
+    async def close(self) -> None:
+        await self.client.aclose()

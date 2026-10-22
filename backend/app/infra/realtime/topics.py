@@ -1,18 +1,19 @@
-"""Tópicos de tempo real e publicação via Redis pub/sub.
+"""Real-time topics and publication through Redis pub/sub.
 
-Formato dos tópicos (ver docs/refactoring-contract.md e `frontend/src/realtime/topics.ts`):
+Topic format (see `docs/refactoring-contract.md` and `frontend/src/realtime/topics.ts`):
 `results:{round}:{office}:{level}:{id}`, `children:{round}:{office}:{level}:{id}[:{child_level}]`,
 `polling_places:{round}:{office}:{municipality}`, `events:{round}`, `progress:{round}`, `status`,
 `user:{id}`.
 
-O hub da API registra em `ws:topics` (sorted set, score = expiração) os tópicos que têm alguém
-assistindo. O worker só monta payloads caros para tópicos ativos. Também serve de sinal para o
-coletor priorizar recortes vigiados.
+The API hub records in `ws:topics` (sorted set, score = expiry) the topics someone is watching. The
+worker builds the expensive payloads only for active topics, and the collector uses the same set to
+prioritize the watched geo areas.
 """
 
 from __future__ import annotations
 
 import time
+from typing import cast
 
 import orjson
 from redis.asyncio import Redis
@@ -22,42 +23,44 @@ PREFIX = "pub:"
 ALWAYS_ACTIVE = ("events:", "status", "progress:", "user:")
 
 
-def results(turno: int, cd: int, nivel: str, rid: str) -> str:
-    return f"results:{turno}:{cd}:{nivel}:{rid}"
+def results(round_number: int, office_code: int, level: str, geo_id: str) -> str:
+    return f"results:{round_number}:{office_code}:{level}:{geo_id}"
 
 
-def children(turno: int, cd: int, nivel: str, rid: str, child_level: str | None = None) -> str:
-    base = f"children:{turno}:{cd}:{nivel}:{rid}"
+def children(
+    round_number: int, office_code: int, level: str, geo_id: str, child_level: str | None = None
+) -> str:
+    base = f"children:{round_number}:{office_code}:{level}:{geo_id}"
     return f"{base}:{child_level}" if child_level else base
 
 
-def polling_places(turno: int, cd: int, municipio: str) -> str:
-    return f"polling_places:{turno}:{cd}:{municipio}"
+def polling_places(round_number: int, office_code: int, municipality: str) -> str:
+    return f"polling_places:{round_number}:{office_code}:{municipality}"
 
 
-def events(turno: int) -> str:
-    return f"events:{turno}"
+def events(round_number: int) -> str:
+    return f"events:{round_number}"
 
 
-def progress(turno: int) -> str:
-    return f"progress:{turno}"
+def progress(round_number: int) -> str:
+    return f"progress:{round_number}"
 
 
-def user(uid: str) -> str:
-    return f"user:{uid}"
+def user(user_id: str) -> str:
+    return f"user:{user_id}"
 
 
 async def register_active(redis: Redis, topics: list[str], ttl: float = 45.0) -> None:
     if not topics:
         return
-    expira = time.time() + ttl
-    await redis.zadd(ACTIVE_KEY, dict.fromkeys(topics, expira))
+    expires = time.time() + ttl
+    await redis.zadd(ACTIVE_KEY, dict.fromkeys(topics, expires))
 
 
 async def active(redis: Redis) -> set[str]:
-    agora = time.time()
-    await redis.zremrangebyscore(ACTIVE_KEY, 0, agora)
-    return {t.decode() if isinstance(t, bytes) else t for t in await redis.zrange(ACTIVE_KEY, 0, -1)}
+    await redis.zremrangebyscore(ACTIVE_KEY, 0, time.time())
+    members = cast("list[bytes | str]", await redis.zrange(ACTIVE_KEY, 0, -1))
+    return {member.decode() if isinstance(member, bytes) else member for member in members}
 
 
 async def is_active(redis: Redis, topic: str) -> bool:
@@ -68,5 +71,5 @@ async def is_active(redis: Redis, topic: str) -> bool:
 
 
 async def publish(redis: Redis, topic: str, type_: str, data: object) -> None:
-    """Mensagem para o hub: `{"type", "topic", "data"}` (o `seq` é por conexão, o hub acrescenta)."""
+    """Message for the hub: `{"type", "topic", "data"}` (the `seq` is per connection; the hub adds it)."""
     await redis.publish(PREFIX + topic, orjson.dumps({"type": type_, "topic": topic, "data": data}))
