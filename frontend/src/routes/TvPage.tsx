@@ -3,5 +3,5 @@ import { TvScreen } from "../modules/dashboards";
 
 export default function TvPage() {
   const [sp] = useSearchParams();
-  return <TvScreen sp={sp} />;
+  return <TvScreen searchParams={sp} />;
 }

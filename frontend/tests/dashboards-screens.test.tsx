@@ -465,7 +465,7 @@ describe("TV screen", () => {
       { id: "b", nome: "Segundo", ordem: 1 },
     ]);
     try {
-      await renderScreen("/tv?start=b");
+      await renderScreen("/tv?inicio=b");
       expect(await screen.findByRole("heading", { name: "Segundo", hidden: true })).toBeInTheDocument();
     } finally {
       vi.useRealTimers();

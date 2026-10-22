@@ -52,7 +52,7 @@ export function TvScreen({ searchParams }: { searchParams: URLSearchParams }) {
   );
   const startIndex = Math.max(
     0,
-    list.findIndex((d) => d.id === searchParams.get("start")),
+    list.findIndex((d) => d.id === searchParams.get("inicio")),
   );
   const rotation = useTvRotation(list.length, startIndex);
   const [now, setNow] = useState(Date.now());
@@ -71,7 +71,7 @@ export function TvScreen({ searchParams }: { searchParams: URLSearchParams }) {
     if (current) applyGlobalFilter(current.config);
   }, [current]);
 
-  if (repo.isLoading) return <Loading linhas={8} />;
+  if (repo.isLoading) return <Loading rows={8} />;
   return (
     <Box p="md" mih="100vh" style={{ cursor: idle ? "none" : undefined }}>
       <Group justify="space-between" mb="md" wrap="nowrap">
