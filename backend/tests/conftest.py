@@ -97,7 +97,7 @@ async def limpar_banco(engine) -> None:
 async def banco_limpo(engine, redis_cliente):
     await limpar_banco(engine)
     await redis_cliente.flushdb()
-    from app.services import ingestao
+    from app.modules.results import ingestion as ingestao
 
     ingestao._candidatos_conhecidos.clear()
     yield engine

@@ -7,8 +7,8 @@ from datetime import datetime, timedelta
 
 import numpy as np
 
-from app.tse.bu import BoletimSpec, VotoBU, codificar
-from app.tse.numeros import BRT
+from app.infra.tse.bu import BoletimSpec, VotoBU, codificar
+from app.infra.tse.numbers import BRT
 from tse_fake.cenario import CICLO, ELEICAO_ESTADUAL, ELEICAO_FEDERAL, PLEITO, CargoUF, Cenario
 from tse_fake.dados import UFS
 

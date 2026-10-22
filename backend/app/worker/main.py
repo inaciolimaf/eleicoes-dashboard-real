@@ -6,7 +6,7 @@ import os
 
 from app.core.db import get_sessionmaker
 from app.core.redis import get_redis
-from app.worker import fila
+from app.infra import queue as fila
 from app.worker.jobs import Processador
 
 log = logging.getLogger("worker")

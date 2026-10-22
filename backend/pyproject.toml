@@ -82,7 +82,7 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 # The collector/worker loops talk to the TSE and the Redis list API, which are untyped here.
-module = ["app.collector.*", "app.worker.*", "app.tse.*", "tse_fake.*"]
+module = ["app.collector.*", "app.worker.*", "app.infra.queue.*", "app.infra.tse.*", "tse_fake.*"]
 disallow_untyped_defs = false
 disallow_incomplete_defs = false
 check_untyped_defs = true
@@ -94,7 +94,7 @@ warn_return_any = false
 
 [[tool.mypy.overrides]]
 # The query layer builds large dict payloads from SQLAlchemy rows; the rows are Any by nature.
-module = ["app.services.resultados"]
+module = ["app.modules.results.queries"]
 warn_return_any = false
 
 [tool.function-size]

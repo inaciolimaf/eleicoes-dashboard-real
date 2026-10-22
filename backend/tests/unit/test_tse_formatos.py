@@ -2,16 +2,16 @@
 
 from datetime import UTC, datetime
 
-from app.tse import numeros
-from app.tse.catalogo import parse_catalogo
-from app.tse.parsers import (
+from app.infra.tse import numbers as numeros
+from app.infra.tse.catalog import parse_catalogo
+from app.infra.tse.parsers import (
     parse_acompanhamento,
     parse_auxiliar,
     parse_municipios,
     parse_resultado,
     parse_secoes,
 )
-from app.tse.urls import MontadorUrls
+from app.infra.tse.urls import MontadorUrls
 
 CATALOGO = {
     "dg": "14/09/2026",
@@ -314,7 +314,7 @@ def test_ler_csv_locais_zip_oficial_usa_o_csv_do_brasil():
     import io
     import zipfile
 
-    from app.services.ingestao import ler_csv_locais
+    from app.modules.results.ingestion import ler_csv_locais
 
     cab = "SG_UF;CD_MUNICIPIO;NR_ZONA;NR_SECAO;NR_LOCAL_VOTACAO;NM_LOCAL_VOTACAO\n"
     buf = io.BytesIO()

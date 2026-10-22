@@ -29,7 +29,7 @@ RUN chmod +x /usr/local/bin/entrypoint-api \
 USER app
 EXPOSE 8000
 ENTRYPOINT ["entrypoint-api"]
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]
+CMD ["uvicorn", "app.core.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]
 
 # Imagem de teste: mesmas dependências + as de desenvolvimento (ruff, pytest, mypy).
 FROM deps-dev AS test

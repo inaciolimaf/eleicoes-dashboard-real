@@ -61,7 +61,7 @@ services:
   # A API roda as migrações antes de subir (evita um container "migrate" parado, que o Coolify marca como unhealthy)
   api:
     <<: *backend
-    command: ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*' --workers 2"]
+    command: ["sh", "-c", "alembic upgrade head && exec uvicorn app.core.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*' --workers 2"]
     volumes: [fotos:/data/fotos]
     depends_on:
       db: {condition: service_healthy}

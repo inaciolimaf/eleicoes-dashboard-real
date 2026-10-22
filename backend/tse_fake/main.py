@@ -20,7 +20,7 @@ from fastapi import FastAPI, HTTPException, Request, Response
 from pydantic import BaseModel
 
 from app.core.config import get_settings
-from app.tse.jws import assinar
+from app.infra.tse.jws import assinar
 from tse_fake.cenario import CICLO, PLEITO, Cenario
 from tse_fake.chave import chave_privada_fake
 from tse_fake.divulgacao import INICIO, Divulgacao

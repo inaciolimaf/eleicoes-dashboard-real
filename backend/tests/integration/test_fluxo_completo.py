@@ -5,15 +5,18 @@ import pytest_asyncio
 from sqlalchemy import func, select
 
 import tse_fake.main as fake
-from app.collector.coletor import Coletor
+from app.collector.collector import Coletor
 from app.collector.fetcher import Fetcher
 from app.core.config import get_settings
 from app.core.db import get_sessionmaker
-from app.main import app
-from app.models import Boletim, Candidato, Evento, LocalVotacao, Municipio, ResultadoAtual, Secao, Snapshot
-from app.services import resultados
-from app.services.recortes import parse
-from app.worker import fila
+from app.core.main import app
+from app.infra import queue as fila
+from app.modules.ballot_reports import Boletim
+from app.modules.elections import Candidato
+from app.modules.events import Evento
+from app.modules.geography import LocalVotacao, Municipio, Secao, parse
+from app.modules.results import ResultadoAtual, Snapshot
+from app.modules.results import queries as resultados
 from app.worker.jobs import Processador
 from tests.conftest import limpar_banco
 from tse_fake.cenario import Cenario
@@ -360,8 +363,9 @@ async def test_api_zona_local_secao_e_serie(ambiente, api):
 
 
 async def test_alertas_disparam_no_worker(ambiente, redis_cliente):
-    from app.models import Alerta, Usuario
-    from app.services import alertas
+    from app.modules.accounts import Usuario
+    from app.modules.alerts import Alerta
+    from app.modules.alerts import evaluation as alertas
 
     _coletor, proc = ambiente
     async with get_sessionmaker()() as s:

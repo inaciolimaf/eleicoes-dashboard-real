@@ -23,7 +23,7 @@ def main() -> int:
     os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://x:x@localhost/x")
     os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
     os.environ.setdefault("JWT_SECRET", "x" * 32)
-    from app.main import criar_app
+    from app.core.main import criar_app
 
     target = ROOT / "openapi.json"
     target.write_text(

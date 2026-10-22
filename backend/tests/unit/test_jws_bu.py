@@ -5,9 +5,9 @@ import json
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-from app.tse import jws
-from app.tse.bu import BoletimSpec, VotoBU, codificar, decodificar
-from app.tse.chaves import chave_do_ambiente
+from app.infra.tse import jws
+from app.infra.tse.bu import BoletimSpec, VotoBU, codificar, decodificar
+from app.infra.tse.keys import chave_do_ambiente
 from tse_fake.chave import chave_privada_fake
 
 

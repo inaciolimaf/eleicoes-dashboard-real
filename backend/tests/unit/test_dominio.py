@@ -4,8 +4,10 @@ from datetime import UTC, datetime
 
 import pytest
 
-from app.services import cores, eventos, situacao
-from app.services.recortes import FILHO, RecorteInvalido, parse
+from app.modules.elections import colors as cores
+from app.modules.elections import status as situacao
+from app.modules.events import detection as eventos
+from app.modules.geography import FILHO, RecorteInvalido, parse
 
 
 @pytest.mark.parametrize(

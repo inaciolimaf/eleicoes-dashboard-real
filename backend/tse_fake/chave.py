@@ -5,7 +5,7 @@ from functools import lru_cache
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-from app.tse.jws import chave_publica_x
+from app.infra.tse.jws import chave_publica_x
 
 SEMENTE = b"eleicoes-dashboard-real/tse-fake/2026"
 

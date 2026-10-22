@@ -3,7 +3,7 @@
 import asyncio
 import logging
 
-from app.collector.coletor import Coletor
+from app.collector.collector import Coletor
 from app.core.config import get_settings
 from app.core.db import get_sessionmaker
 from app.core.redis import get_redis

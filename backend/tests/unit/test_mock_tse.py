@@ -3,8 +3,8 @@
 import numpy as np
 import pytest
 
-from app.tse.bu import decodificar
-from app.tse.parsers import parse_acompanhamento, parse_resultado
+from app.infra.tse.bu import decodificar
+from app.infra.tse.parsers import parse_acompanhamento, parse_resultado
 from tse_fake.cenario import ELEICAO_ESTADUAL, ELEICAO_FEDERAL, Cenario
 from tse_fake.divulgacao import Divulgacao
 
