@@ -18,9 +18,9 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.collector.fetcher import Fetcher
 from app.core.config import Settings
-from app.infra.tse.catalog import Catalogo
-from app.infra.tse.jws import ChaveJWS
-from app.infra.tse.urls import MontadorUrls
+from app.infra.tse.catalog import Catalog
+from app.infra.tse.jws import JwsKey
+from app.infra.tse.urls import UrlBuilder
 from app.modules.elections import Election
 
 log = logging.getLogger("collector")
@@ -62,9 +62,9 @@ SectionJob = tuple[int, int, int, str, int, int, int]
 
 
 class MunicipalityInfo(TypedDict):
-    uf: str
+    state_code: str
     code: int
-    zonas: list[int]
+    zones: list[int]
 
 
 @dataclass(frozen=True)
@@ -72,7 +72,7 @@ class SectionRef:
     """One polling section: its round and its TSE location."""
 
     round: int
-    uf: str
+    state_code: str
     municipality: int
     zone: int
     section: int
@@ -80,7 +80,7 @@ class SectionRef:
     @property
     def id(self) -> str:
         """The section id used in Redis and in the database, for example `sp71072-z0001-s0120`."""
-        return f"{self.uf}{self.municipality:05d}-z{self.zone:04d}-s{self.section:04d}"
+        return f"{self.state_code}{self.municipality:05d}-z{self.zone:04d}-s{self.section:04d}"
 
 
 def now_iso() -> str:
@@ -95,9 +95,9 @@ class CollectorBase:
     redis: Redis
     fetcher: Fetcher
     #: Public key of the signed (JWS) files; None when the signature is not checked.
-    signing_key: ChaveJWS | None
-    catalog: Catalogo | None
-    urls: MontadorUrls | None
+    signing_key: JwsKey | None
+    catalog: Catalog | None
+    urls: UrlBuilder | None
     elections: list[Election]
     municipalities: dict[str, MunicipalityInfo]
     sections_by_municipality: dict[str, list[tuple[int, int]]]
@@ -128,4 +128,4 @@ class CollectorBase:
     def _section_done(self, section_id: str) -> bool:
         """Whether the section was downloaded recently (always, in "all sections" mode)."""
         done = self.sections_done.get(section_id)
-        return done is not None and (self.settings.modo_secoes == "todas" or time.monotonic() - done < 120)
+        return done is not None and (self.settings.section_mode == "todas" or time.monotonic() - done < 120)

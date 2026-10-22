@@ -30,7 +30,7 @@ class DemandSteps(SectionSteps):
 
         A section still not tallied is tried again while someone is looking at it, with a minimum interval.
         """
-        if not self.settings.coletar_secoes or self.settings.modo_secoes != "sob_demanda":
+        if not self.settings.collect_sections or self.settings.section_mode != "sob_demanda":
             return
         rounds = set(self.rounds())
         requests = await ballot_demand.pending(self.redis)
@@ -49,7 +49,7 @@ class DemandSteps(SectionSteps):
         return sections, collected
 
     def _enqueue_demanded(self, sections: Mapping[int, set[str]], collected: set[tuple[int, str]]) -> None:
-        interval = self.settings.intervalo_min_municipio / 3
+        interval = self.settings.interval_min_municipality / 3
         now = time.monotonic()
         for round_number, ids in sections.items():
             for section_id in ids:
@@ -59,9 +59,9 @@ class DemandSteps(SectionSteps):
                 if parsed is None:
                     continue
                 self.pending_sections.add(section_id)
-                uf, municipality, zone, section = parsed
+                state_code, municipality, zone, section = parsed
                 self.section_queue.put_nowait(
-                    (0, self._next_order(), round_number, uf, municipality, zone, section)
+                    (0, self._next_order(), round_number, state_code, municipality, zone, section)
                 )
 
     def _demand_is_settled(
@@ -78,7 +78,7 @@ class DemandSteps(SectionSteps):
 
 
 async def _add_alert_requests(session: AsyncSession, requests: set[Request]) -> None:
-    for alert in await alerts.ativos(session):
+    for alert in await alerts.active_alerts(session):
         params = alert.params or {}
         if alert.type == "polling_place_tallied" and params.get("polling_place_id"):
             requests.add((int(params.get("round", 1)), "polling_place", str(params["polling_place_id"])))
@@ -143,10 +143,10 @@ def _parse_section_id(section_id: str) -> tuple[str, int, int, int] | None:
         return None
     if (
         geo.level != "section"
-        or geo.uf is None
+        or geo.state_code is None
         or geo.municipality is None
         or geo.zone is None
         or geo.section is None
     ):
         return None
-    return geo.uf, geo.municipality, geo.zone, geo.section
+    return geo.state_code, geo.municipality, geo.zone, geo.section

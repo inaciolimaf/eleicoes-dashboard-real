@@ -10,14 +10,14 @@ from sqlalchemy import func, select
 from app.collector.steps.base import log
 from app.collector.steps.request import RequestSteps
 from app.core.db import unit_of_work
-from app.infra.tse.catalog import parse_catalogo
-from app.infra.tse.parsers import parse_municipios, parse_secoes
-from app.infra.tse.urls import MontadorUrls
+from app.infra.tse.catalog import parse_catalog
+from app.infra.tse.parsers import parse_municipalities, parse_sections
+from app.infra.tse.urls import UrlBuilder
 from app.modules.elections import Election
 from app.modules.geography import PollingPlace
 from app.modules.results import ingestion
 
-MUNICIPALITIES_FILE = Path(__file__).resolve().parents[2] / "data" / "municipios.json"
+MUNICIPALITIES_FILE = Path(__file__).resolve().parents[2] / "data" / "municipalities.json"
 
 
 class CatalogSteps(RequestSteps):
@@ -27,23 +27,23 @@ class CatalogSteps(RequestSteps):
         status, body, _ = await self.fetch_file(url)
         if status == 304 or body is None:
             return False
-        catalog = parse_catalogo(orjson.loads(body))
-        event = catalog.pleito_atual()
+        catalog = parse_catalog(orjson.loads(body))
+        event = catalog.current_election_event()
         if event is None:
             return False
-        is_new = self.catalog is None or self.catalog.idg != catalog.idg
+        is_new = self.catalog is None or self.catalog.generation_id != catalog.generation_id
         self.catalog = catalog
-        self.urls = MontadorUrls(self.settings.tse_base_url, catalog.templates, event.ciclo, event.cd)
+        self.urls = UrlBuilder(self.settings.tse_base_url, catalog.templates, event.cycle, event.code)
         async with unit_of_work(self.sessionmaker) as session:
-            self.elections = await ingestion.ingerir_catalogo(session, catalog, self.settings.tse_ambiente)
+            self.elections = await ingestion.ingest_catalog(session, catalog, self.settings.tse_environment)
         if is_new:
             self.fetcher.clear_404()
             await self.load_municipalities()
             await self.load_polling_places()
         log.info(
             "catálogo: ciclo=%s pleito=%s eleições=%s",
-            event.ciclo,
-            event.cd,
+            event.cycle,
+            event.code,
             [e.election_code for e in self.elections],
         )
         return True
@@ -69,7 +69,7 @@ class CatalogSteps(RequestSteps):
         if e is None:
             return False
         office_code = 1 if any(c.office_code == 1 for c in e.offices) else e.offices[0].office_code
-        url = self.urls.resultado(e.election_code, office_code, "br" if office_code == 1 else "sp")
+        url = self.urls.result(e.election_code, office_code, "br" if office_code == 1 else "sp")
         status, _, _ = await self.fetch_file(url, archive=False)
         return status in (200, 304)
 
@@ -78,43 +78,48 @@ class CatalogSteps(RequestSteps):
         e = self.election_for_office(1, 1) or (self.elections[0] if self.elections else None)
         if e is None:
             return
-        _status, body, _ = await self.fetch_file(self.urls.municipios(e.election_code))
+        _status, body, _ = await self.fetch_file(self.urls.municipalities(e.election_code))
         if body is None:
             return
-        listed = parse_municipios(orjson.loads(body))
+        listed = parse_municipalities(orjson.loads(body))
         coords = {
             m["ibge"]: (m["lat"], m["lon"], m["nome"]) for m in orjson.loads(MUNICIPALITIES_FILE.read_bytes())
         }
         async with unit_of_work(self.sessionmaker) as session:
-            await ingestion.ingerir_municipios(session, listed, coords)
+            await ingestion.ingest_municipalities(session, listed, coords)
         self.municipalities = {
-            f"{m.uf}{m.cd:05d}": {"uf": m.uf, "code": m.cd, "zonas": m.zonas} for m in listed
+            f"{m.state_code}{m.code:05d}": {"state_code": m.state_code, "code": m.code, "zones": m.zones}
+            for m in listed
         }
         log.info("municípios carregados: %d", len(self.municipalities))
 
     async def load_polling_places(self) -> None:
         async with self.sessionmaker() as session:
             count = (await session.execute(select(func.count()).select_from(PollingPlace))).scalar_one()
-        if count > 0 or not self.settings.locais_votacao_url:
+        if count > 0 or not self.settings.polling_places_url:
             return
-        r = await self.fetcher.get(self.settings.locais_votacao_url, use_etag=False)
+        r = await self.fetcher.get(self.settings.polling_places_url, use_etag=False)
         if r.status != 200 or not r.body:
             log.warning("não foi possível baixar locais de votação (%s)", r.status)
             return
         async with unit_of_work(self.sessionmaker) as session:
-            total = await ingestion.importar_locais(session, ingestion.ler_csv_locais(r.body))
+            total = await ingestion.import_polling_places(session, ingestion.read_polling_place_csv(r.body))
         log.info("locais de votação importados: %d", total)
 
-    async def load_sections_of_state(self, uf: str) -> None:
-        if uf in self.states_with_sections or self.urls is None:
+    async def load_sections_of_state(self, state_code: str) -> None:
+        if state_code in self.states_with_sections or self.urls is None:
             return
-        self.states_with_sections.add(uf)
-        _status, body, _ = await self.fetch_file(self.urls.secoes(uf), archive=False, high_priority=False)
+        self.states_with_sections.add(state_code)
+        _status, body, _ = await self.fetch_file(
+            self.urls.sections(state_code), archive=False, high_priority=False
+        )
         if body is None:
-            self.states_with_sections.discard(uf)
+            self.states_with_sections.discard(state_code)
             return
-        listed = parse_secoes(orjson.loads(body))
+        listed = parse_sections(orjson.loads(body))
         async with unit_of_work(self.sessionmaker) as session:
-            await ingestion.ingerir_secoes(session, listed)
+            await ingestion.ingest_sections(session, listed)
         for s in listed:
-            self.sections_by_municipality.setdefault(f"{s.uf}{s.municipio:05d}", []).append((s.zona, s.secao))
+            self.sections_by_municipality.setdefault(f"{s.state_code}{s.municipality:05d}", []).append(
+                (s.zone, s.section)
+            )

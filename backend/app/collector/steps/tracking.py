@@ -10,7 +10,7 @@ import orjson
 from app.collector.steps.base import STATES, now_iso
 from app.collector.steps.catalog import CatalogSteps
 from app.infra import queue
-from app.infra.tse.parsers import AcompanhamentoTSE, parse_acompanhamento
+from app.infra.tse.parsers import TrackingTSE, parse_tracking
 from app.modules.elections import Election
 
 MUNICIPALITY_ITEM_TYPES = ("mu", "mun", "municipio")
@@ -25,11 +25,13 @@ class TrackingSteps(CatalogSteps):
             e = self.election_of_round(round_number)
             if e is None:
                 continue
-            await asyncio.gather(*(self._track_uf(round_number, e, uf) for uf in ["br", *STATES]))
+            await asyncio.gather(
+                *(self._track_state(round_number, e, state_code) for state_code in ["br", *STATES])
+            )
 
-    async def _track_uf(self, round_number: int, e: Election, uf: str) -> None:
+    async def _track_state(self, round_number: int, e: Election, state_code: str) -> None:
         assert self.urls is not None
-        _status, body, _ = await self.fetch_file(self.urls.acompanhamento(e.election_code, uf))
+        _status, body, _ = await self.fetch_file(self.urls.tracking(e.election_code, state_code))
         if body is None:
             return
         await queue.enqueue(
@@ -37,34 +39,36 @@ class TrackingSteps(CatalogSteps):
             queue.TYPE_TRACKING,
             body,
             high_priority=True,
-            key=f"tracking:{round_number}:{uf}",
+            key=f"tracking:{round_number}:{state_code}",
             round=round_number,
-            state_code=uf,
+            state_code=state_code,
             captured_at=now_iso(),
         )
-        if uf == "br":
+        if state_code == "br":
             return
-        tracking = parse_acompanhamento(orjson.loads(body))
-        if not self._track_items(round_number, uf, tracking):
+        tracking = parse_tracking(orjson.loads(body))
+        if not self._track_items(round_number, state_code, tracking):
             # TSE file without a breakdown by municipality: sweeps the state when it changes
             for municipality_id, m in self.municipalities.items():
-                if m["uf"] == uf:
+                if m["state_code"] == state_code:
                     self.schedule_municipality(round_number, municipality_id)
 
-    def _track_items(self, round_number: int, uf: str, tracking: AcompanhamentoTSE) -> bool:
+    def _track_items(self, round_number: int, state_code: str, tracking: TrackingTSE) -> bool:
         """Marks changed states and municipalities; True when the file lists municipalities."""
         has_municipalities = False
-        for item in tracking.itens:
-            signature = (item.secoes_totalizadas, item.totalizado_em)
-            if item.tipo == "uf":
-                key = (round_number, uf)
-                if self.state_signature.get(key) != signature and item.secoes_totalizadas > 0:
+        for item in tracking.items:
+            signature = (item.sections_tallied, item.tallied_at)
+            if item.kind == "uf":
+                key = (round_number, state_code)
+                if self.state_signature.get(key) != signature and item.sections_tallied > 0:
                     self.state_signature[key] = signature
-            elif item.tipo in MUNICIPALITY_ITEM_TYPES:
+            elif item.kind in MUNICIPALITY_ITEM_TYPES:
                 has_municipalities = True
-                municipality_id = item.codigo if item.codigo[:2].isalpha() else f"{uf}{int(item.codigo):05d}"
+                municipality_id = (
+                    item.code if item.code[:2].isalpha() else f"{state_code}{int(item.code):05d}"
+                )
                 if (
-                    item.secoes_totalizadas > 0
+                    item.sections_tallied > 0
                     and self.municipality_signature.get((round_number, municipality_id)) != signature
                 ):
                     self.municipality_signature[(round_number, municipality_id)] = signature
@@ -77,7 +81,7 @@ class TrackingSteps(CatalogSteps):
             return
         self.pending_municipalities.add((round_number, municipality_id))
         priority = 0 if municipality_id in self.watched else 1
-        interval = self.settings.intervalo_min_municipio / (3 if priority == 0 else 1)
+        interval = self.settings.interval_min_municipality / (3 if priority == 0 else 1)
         wait = interval - (
             time.monotonic() - self.last_municipality_collection.get((round_number, municipality_id), -1e9)
         )

@@ -58,11 +58,11 @@ async def _tse_row(
     return (await session.execute(stmt_snapshot)).scalar_one_or_none()
 
 
-async def linha_tse(
-    session: AsyncSession, turno: int, cd: int, nivel: str, rid: str, t: datetime | None
+async def tse_line(
+    session: AsyncSession, round_number: int, office_code: int, level: str, rid: str, t: datetime | None
 ) -> Line | None:
     """Line the TSE published for the area: the current one, or the snapshot at `t`."""
-    obj = await _tse_row(session, turno, cd, nivel, rid, t)
+    obj = await _tse_row(session, round_number, office_code, level, rid, t)
     if obj is None:
         return None
     return {c.key: getattr(obj, c.key) for c in obj.__table__.columns}
@@ -222,7 +222,7 @@ async def ballot_box_line(
     ).all()
     if not rows and r.level == "section":
         return None
-    sq_map = await ballot_numbers_to_sq(session, round_number, office_code, r.uf or "br")
+    sq_map = await ballot_numbers_to_sq(session, round_number, office_code, r.state_code or "br")
     electorate_value = int(electorate or sum(x[3] or 0 for x in rows))
     line = sum_ballot_boxes([x[0] for x in rows], electorate_value, sections_total, sq_map)
     return _finish_line(line, rows)
@@ -232,7 +232,7 @@ async def get_line(
     session: AsyncSession, round_number: int, office_code: int, r: GeoArea, at: datetime | None
 ) -> Line | None:
     if r.level in ("country", "state", "municipality", "zone"):
-        line = await linha_tse(session, round_number, office_code, r.level, r.id, at)
+        line = await tse_line(session, round_number, office_code, r.level, r.id, at)
         if line is not None or r.level != "zone":
             return line
     if r.level in ("zone", "polling_place", "section"):

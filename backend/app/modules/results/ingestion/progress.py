@@ -8,8 +8,8 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.infra.tse.parsers import AcompanhamentoTSE, ProgressTSE
-from app.modules.geography import municipio_id
+from app.infra.tse.parsers import ProgressTSE, TrackingTSE
+from app.modules.geography import municipality_id_of
 from app.modules.results.ingestion.common import now
 from app.modules.results.models import CurrentProgress, ProgressSnapshot
 
@@ -26,57 +26,57 @@ class _Area:
 async def ingest_progress(
     session: AsyncSession,
     round_number: int,
-    acomp: AcompanhamentoTSE,
-    file_uf: str,
+    tracking: TrackingTSE,
+    file_state: str,
     captured_at: datetime | None = None,
 ) -> list[dict[str, Any]]:
-    """Writes the progress lines that changed; each carries `anterior_secoes` (tallied before)."""
+    """Writes the progress lines that changed; each carries `previous_sections_tallied` (tallied before)."""
     changed: list[dict[str, Any]] = []
-    for item in acomp.itens:
-        area = _area_of(item, file_uf)
-        row = _progress_row(round_number, area, item, acomp, captured_at)
+    for item in tracking.items:
+        area = _area_of(item, file_state)
+        row = _progress_row(round_number, area, item, tracking, captured_at)
         current = await _current_progress(session, round_number, area)
         if _unchanged(current, item):
             continue
         if area.level != "municipality":
             await session.execute(insert(ProgressSnapshot).values(**row).on_conflict_do_nothing())
         await _upsert_current(session, row)
-        row["anterior_secoes"] = current.sections_tallied if current else 0
+        row["previous_sections_tallied"] = current.sections_tallied if current else 0
         changed.append(row)
     await session.flush()
     return changed
 
 
-def _area_of(item: ProgressTSE, file_uf: str) -> _Area:
-    if item.tipo == "br":
+def _area_of(item: ProgressTSE, file_state: str) -> _Area:
+    if item.kind == "br":
         return _Area("country", "br", "br")
-    if item.tipo == "uf":
-        return _Area("state", item.codigo, item.codigo)
-    geo_area_id = item.codigo if item.codigo[:2].isalpha() else municipio_id(file_uf, int(item.codigo))
-    return _Area("municipality", geo_area_id, file_uf)
+    if item.kind == "uf":
+        return _Area("state", item.code, item.code)
+    geo_area_id = item.code if item.code[:2].isalpha() else municipality_id_of(file_state, int(item.code))
+    return _Area("municipality", geo_area_id, file_state)
 
 
 def _progress_row(
-    round_number: int, area: _Area, item: ProgressTSE, acomp: AcompanhamentoTSE, captured_at: datetime | None
+    round_number: int, area: _Area, item: ProgressTSE, tracking: TrackingTSE, captured_at: datetime | None
 ) -> dict[str, Any]:
     return {
         "round": round_number,
         "level": area.level,
         "geo_area_id": area.geo_area_id,
         "state_code": area.state_code,
-        "generation_id": int(acomp.idg or 0),
-        "tallied_at": item.totalizado_em,
+        "generation_id": int(tracking.generation_id or 0),
+        "tallied_at": item.tallied_at,
         "captured_at": captured_at or now(),
-        "progress_code": item.andamento,
-        "sections_total": item.secoes_total,
-        "sections_tallied": item.secoes_totalizadas,
-        "pct_sections": item.pct_secoes,
-        "electorate": item.eleitorado,
-        "turnout": item.comparecimento,
-        "pct_turnout": item.pct_comparecimento,
-        "municipalities_completed": item.municipios_finalizados,
-        "municipalities_partial": item.municipios_parciais,
-        "municipalities_not_received": item.municipios_nao_recebidos,
+        "progress_code": item.progress_code,
+        "sections_total": item.sections_total,
+        "sections_tallied": item.sections_tallied,
+        "pct_sections": item.pct_sections,
+        "electorate": item.electorate,
+        "turnout": item.turnout,
+        "pct_turnout": item.pct_turnout,
+        "municipalities_completed": item.municipalities_completed,
+        "municipalities_partial": item.municipalities_partial,
+        "municipalities_not_received": item.municipalities_not_received,
     }
 
 
@@ -96,8 +96,8 @@ async def _current_progress(session: AsyncSession, round_number: int, area: _Are
 def _unchanged(current: CurrentProgress | None, item: ProgressTSE) -> bool:
     return (
         current is not None
-        and current.sections_tallied == item.secoes_totalizadas
-        and current.tallied_at == item.totalizado_em
+        and current.sections_tallied == item.sections_tallied
+        and current.tallied_at == item.tallied_at
     )
 
 

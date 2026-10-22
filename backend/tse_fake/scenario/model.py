@@ -5,7 +5,7 @@ from pathlib import Path
 
 import numpy as np
 
-MUNICIPALITIES_FILE = Path(__file__).resolve().parent.parent.parent / "app" / "data" / "municipios.json"
+MUNICIPALITIES_FILE = Path(__file__).resolve().parent.parent.parent / "app" / "data" / "municipalities.json"
 
 ELECTION_EVENT_CODE = 9001
 FEDERAL_ELECTION_CODE = 9100
@@ -18,7 +18,7 @@ class ProportionalOffice:
     """Proportional office to generate: TSE code, state, seats and digits of the candidate number."""
 
     code: int
-    uf: str
+    state_code: str
     seats: int
     digits: int
 
@@ -40,7 +40,7 @@ class Candidate:
     name: str
     ballot_name: str
     party: Party
-    vice_candidates: list[tuple[str, str]] = field(default_factory=list)  # (kind, name)
+    running_mate_candidates: list[tuple[str, str]] = field(default_factory=list)  # (kind, name)
 
 
 @dataclass
@@ -48,7 +48,7 @@ class StateOffice:
     """Votes of one office in one area (the whole country for President, one state for the others)."""
 
     office_code: int
-    uf: str  # "br" or a state acronym
+    state_code: str  # "br" or a state acronym
     election_code: int
     system: str
     seats: int
@@ -66,11 +66,11 @@ class StateOffice:
 @dataclass
 class Municipality:
     idx: int
-    uf: str
+    state_code: str
     tse_code: int
     ibge_code: int
     name: str
-    capital: bool
+    is_capital: bool
     lat: float
     lon: float
     region: str
@@ -82,7 +82,7 @@ class Municipality:
 @dataclass
 class Zone:
     idx: int
-    uf: str
+    state_code: str
     number: int
     municipality: int
     start: int = 0

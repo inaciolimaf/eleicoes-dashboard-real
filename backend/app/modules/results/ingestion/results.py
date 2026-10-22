@@ -8,7 +8,7 @@ from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.infra.tse.parsers import AllianceTSE, CandidateTSE, ResultadoTSE, TotalsTSE
+from app.infra.tse.parsers import AllianceTSE, CandidateTSE, ResultTSE, TotalsTSE
 from app.modules.geography import Municipality
 from app.modules.results.ingestion.candidates import ensure_candidates
 from app.modules.results.ingestion.common import now
@@ -21,26 +21,26 @@ _CURRENT_KEY = ("round", "office_code", "level", "geo_area_id")
 class ResultContext:
     """What the worker knows about the file of a result before it is written."""
 
-    turno: int
-    eleicao_id: int
-    cd_cargo: int
-    nivel: str
-    recorte_id: str
-    pai_id: str
-    uf: str
-    arquivo: str | None = None
-    jws_verificado: bool = False
-    capturado_em: datetime | None = None
+    round: int
+    election_id: int
+    office_code: int
+    level: str
+    geo_area_id: str
+    parent_id: str
+    state_code: str
+    source_file: str | None = None
+    jws_verified: bool = False
+    captured_at: datetime | None = None
 
     @property
-    def abrangencia_do_cargo(self) -> bool:
-        return (self.cd_cargo == 1 and self.nivel == "country") or (
-            self.cd_cargo != 1 and self.nivel == "state"
+    def has_nationwide_scope(self) -> bool:
+        return (self.office_code == 1 and self.level == "country") or (
+            self.office_code != 1 and self.level == "state"
         )
 
 
 async def ingest_result(
-    session: AsyncSession, ctx: ResultContext, res: ResultadoTSE, system: str, seats: int | None
+    session: AsyncSession, ctx: ResultContext, res: ResultTSE, system: str, seats: int | None
 ) -> tuple[dict[str, Any] | None, dict[str, Any]] | None:
     """Writes the snapshot and the current result.
 
@@ -57,97 +57,99 @@ async def ingest_result(
     await ensure_candidates(session, ctx, res, seats_effective)
     previous = await _previous_state(session, ctx)
     await _upsert_current(session, row)
-    if ctx.nivel == "municipality" and ctx.cd_cargo == 1:
+    if ctx.level == "municipality" and ctx.office_code == 1:
         await session.execute(
-            update(Municipality).where(Municipality.id == ctx.recorte_id).values(electorate=row["electorate"])
+            update(Municipality)
+            .where(Municipality.id == ctx.geo_area_id)
+            .values(electorate=row["electorate"])
         )
     await session.flush()
     return previous, row
 
 
-def _result_row(ctx: ResultContext, res: ResultadoTSE, system: str) -> dict[str, Any]:
+def _result_row(ctx: ResultContext, res: ResultTSE, system: str) -> dict[str, Any]:
     row: dict[str, Any] = {
-        "election_id": ctx.eleicao_id,
-        "round": ctx.turno,
-        "office_code": ctx.cd_cargo,
-        "level": ctx.nivel,
-        "geo_area_id": ctx.recorte_id,
-        "parent_id": ctx.pai_id,
-        "state_code": ctx.uf,
-        "generation_id": int(res.idg or 0),
-        "tallied_at": res.totalizado_em or ctx.capturado_em or now(),
-        "captured_at": ctx.capturado_em or now(),
-        "jws_verified": ctx.jws_verificado,
+        "election_id": ctx.election_id,
+        "round": ctx.round,
+        "office_code": ctx.office_code,
+        "level": ctx.level,
+        "geo_area_id": ctx.geo_area_id,
+        "parent_id": ctx.parent_id,
+        "state_code": ctx.state_code,
+        "generation_id": int(res.generation_id or 0),
+        "tallied_at": res.tallied_at or ctx.captured_at or now(),
+        "captured_at": ctx.captured_at or now(),
+        "jws_verified": ctx.jws_verified,
         "source": "tse",
-        "source_file": ctx.arquivo,
+        "source_file": ctx.source_file,
     }
-    row.update(_totals_columns(res.totais))
+    row.update(_totals_columns(res.totals))
     row.update(_ranking_columns(res, system))
     return row
 
 
 def _totals_columns(t: TotalsTSE) -> dict[str, Any]:
     return {
-        "electorate": t.eleitorado,
-        "tallied_electorate": t.eleitorado_apurado,
-        "sections_total": t.secoes_total,
-        "sections_tallied": t.secoes_totalizadas,
-        "pct_sections": t.pct_secoes,
-        "turnout": t.comparecimento,
-        "pct_turnout": t.pct_comparecimento,
-        "abstention": t.abstencao,
-        "pct_abstention": t.pct_abstencao,
-        "total_votes": t.votos_total,
-        "valid_votes": t.votos_validos,
-        "pct_valid": t.pct_validos,
-        "blank_votes": t.brancos,
-        "pct_blank": t.pct_brancos,
-        "null_votes": t.nulos,
-        "pct_null": t.pct_nulos,
+        "electorate": t.electorate,
+        "tallied_electorate": t.tallied_electorate,
+        "sections_total": t.sections_total,
+        "sections_tallied": t.sections_tallied,
+        "pct_sections": t.pct_sections,
+        "turnout": t.turnout,
+        "pct_turnout": t.pct_turnout,
+        "abstention": t.abstention,
+        "pct_abstention": t.pct_abstention,
+        "total_votes": t.total_votes,
+        "valid_votes": t.valid_votes,
+        "pct_valid": t.pct_valid,
+        "blank_votes": t.blank_votes,
+        "pct_blank": t.pct_blank,
+        "null_votes": t.null_votes,
+        "pct_null": t.pct_null,
     }
 
 
-def _ranking_columns(res: ResultadoTSE, system: str) -> dict[str, Any]:
-    ranked = sorted((c for c in res.candidatos if c.destinacao.startswith("V")), key=lambda c: -c.votos)
-    leader = ranked[0] if ranked and ranked[0].votos > 0 else None
-    second = ranked[1] if len(ranked) > 1 and ranked[1].votos > 0 else None
-    leader_pct = leader.pct_validos if leader else 0
-    second_pct = second.pct_validos if second else 0
+def _ranking_columns(res: ResultTSE, system: str) -> dict[str, Any]:
+    ranked = sorted((c for c in res.candidates if c.vote_destination.startswith("V")), key=lambda c: -c.votes)
+    leader = ranked[0] if ranked and ranked[0].votes > 0 else None
+    second = ranked[1] if len(ranked) > 1 and ranked[1].votes > 0 else None
+    leader_pct = leader.pct_valid if leader else 0
+    second_pct = second.pct_valid if second else 0
     return {
-        "mathematically_decided": res.matematicamente_definido,
+        "mathematically_decided": res.mathematically_decided,
         "final_tally": res.final,
-        "leader_candidate_id": leader.sqcand if leader else None,
-        "leader_votes": leader.votos if leader else 0,
-        "leader_pct": leader.pct_validos if leader else 0.0,
-        "second_candidate_id": second.sqcand if second else None,
-        "second_votes": second.votos if second else 0,
-        "second_pct": second.pct_validos if second else 0.0,
+        "leader_candidate_id": leader.tse_candidate_id if leader else None,
+        "leader_votes": leader.votes if leader else 0,
+        "leader_pct": leader.pct_valid if leader else 0.0,
+        "second_candidate_id": second.tse_candidate_id if second else None,
+        "second_votes": second.votes if second else 0,
+        "second_pct": second.pct_valid if second else 0.0,
         "margin_pp": round(leader_pct - second_pct, 4),
         "leader_party": _leader_party(res, system),
-        "candidates": [_candidate_line(c) for c in res.candidatos],
-        "alliances": [_alliance_line(a) for a in res.agremiacoes],
+        "candidates": [_candidate_line(c) for c in res.candidates],
+        "alliances": [_alliance_line(a) for a in res.alliances],
     }
 
 
 def _candidate_line(c: CandidateTSE) -> dict[str, Any]:
     return {
-        "sq": c.sqcand,
-        "v": c.votos,
-        "p": round(c.pct_validos, 4),
-        "e": c.eleito,
-        "st": c.situacao_tse,
-        "d": c.destinacao,
+        "sq": c.tse_candidate_id,
+        "v": c.votes,
+        "p": round(c.pct_valid, 4),
+        "e": c.elected,
+        "st": c.tse_status,
+        "d": c.vote_destination,
     }
 
 
 def _alliance_line(a: AllianceTSE) -> dict[str, Any]:
-    return {"nome": a.nome, "partidos": a.partidos, "v": a.votos, "vag": a.vagas, "n": a.numero}
+    return {"nome": a.name, "partidos": a.parties, "v": a.votes, "vag": a.seats, "n": a.number}
 
 
-def _leader_party(res: ResultadoTSE, system: str) -> str | None:
-    if not res.agremiacoes or system != "proporcional":
+def _leader_party(res: ResultTSE, system: str) -> str | None:
+    if not res.alliances or system != "proporcional":
         return None
-    return max(res.agremiacoes, key=lambda a: a.votos).nome
+    return max(res.alliances, key=lambda a: a.votes).name
 
 
 async def _insert_snapshot(session: AsyncSession, row: dict[str, Any]) -> bool:
@@ -163,15 +165,15 @@ async def _insert_snapshot(session: AsyncSession, row: dict[str, Any]) -> bool:
 
 
 async def _previous_state(session: AsyncSession, ctx: ResultContext) -> dict[str, Any] | None:
-    if ctx.nivel not in ("country", "state"):
+    if ctx.level not in ("country", "state"):
         return None
     current: CurrentResult | None = (
         await session.execute(
             select(CurrentResult).where(
-                CurrentResult.round == ctx.turno,
-                CurrentResult.office_code == ctx.cd_cargo,
-                CurrentResult.level == ctx.nivel,
-                CurrentResult.geo_area_id == ctx.recorte_id,
+                CurrentResult.round == ctx.round,
+                CurrentResult.office_code == ctx.office_code,
+                CurrentResult.level == ctx.level,
+                CurrentResult.geo_area_id == ctx.geo_area_id,
             )
         )
     ).scalar_one_or_none()

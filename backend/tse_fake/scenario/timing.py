@@ -22,7 +22,9 @@ def build_timing(scenario: Scenario) -> None:
     rng = scenario.rng
     median_by_municipality = np.array(
         [
-            MEDIAN_MINUTES_BY_REGION[m.region] * (0.75 if m.capital else 1.0) * float(rng.lognormal(0, 0.25))
+            MEDIAN_MINUTES_BY_REGION[m.region]
+            * (0.75 if m.is_capital else 1.0)
+            * float(rng.lognormal(0, 0.25))
             for m in scenario.municipalities
         ]
     )

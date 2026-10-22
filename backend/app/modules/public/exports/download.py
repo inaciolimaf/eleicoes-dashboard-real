@@ -19,10 +19,10 @@ from app.modules.results import queries as results
 async def export_data(session: AsyncSession, at: datetime | None, export_filter: ExportFilter) -> Response:
     area = _parse_area(export_filter)
     if export_filter.resource == "results":
-        data = await results.montar_resultado(session, export_filter.round, export_filter.office, area, at)
+        data = await results.build_result(session, export_filter.round, export_filter.office, area, at)
         rows, columns = results_rows(data, area.id)
     elif export_filter.resource == "children":
-        data = await results.filhos(
+        data = await results.children(
             session, export_filter.round, export_filter.office, area, at, export_filter.child_level
         )
         rows, columns = children_rows(data)

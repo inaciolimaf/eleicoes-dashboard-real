@@ -11,7 +11,7 @@ from typing import Any
 
 import numpy as np
 
-from tse_fake.data import UFS
+from tse_fake.data import STATES
 from tse_fake.scenario.geography import build_geography
 from tse_fake.scenario.model import Municipality, Party, PollingPlace, StateOffice, Zone
 from tse_fake.scenario.timing import build_timing
@@ -19,16 +19,16 @@ from tse_fake.scenario.votes import build_votes
 
 
 class Scenario:
-    def __init__(self, semente: int = 2026, escala: float = 1.0) -> None:
+    def __init__(self, seed: int = 2026, scale: float = 1.0) -> None:
         # The keyword names `semente` and `escala` are kept because tests/integration/test_fluxo_completo.py
         # calls them; rename them together with that test.
-        self.seed = semente
-        self.scale = escala
-        self.rng = np.random.default_rng(semente)
+        self.seed = seed
+        self.scale = scale
+        self.rng = np.random.default_rng(seed)
         self.municipalities: list[Municipality] = []
         self.zones: list[Zone] = []
         self.polling_places: list[PollingPlace] = []
-        self.ufs: list[str] = sorted(UFS)
+        self.states: list[str] = sorted(STATES)
         self.state_ranges: dict[str, tuple[int, int]] = {}
         self.offices: dict[tuple[int, str], StateOffice] = {}
         self.parties: list[Party] = []
@@ -36,7 +36,7 @@ class Scenario:
         self._municipality_index: dict[tuple[str, int], Municipality] | None = None
         # Per-section arrays, filled by the geography and timing builders.
         self.section_count: int = 0
-        self.section_uf: np.ndarray
+        self.section_state: np.ndarray
         self.section_municipality: np.ndarray
         self.section_zone: np.ndarray
         self.section_place: np.ndarray
@@ -50,10 +50,12 @@ class Scenario:
         build_timing(self)
         build_votes(self)
 
-    def offices_of_uf(self, uf: str) -> list[StateOffice]:
-        return [office for (_code, office_uf), office in self.offices.items() if office_uf == uf]
+    def offices_of_state(self, state_code: str) -> list[StateOffice]:
+        return [
+            office for (_code, office_state), office in self.offices.items() if office_state == state_code
+        ]
 
-    def municipality_by_code(self, uf: str, tse_code: int) -> Municipality | None:
+    def municipality_by_code(self, state_code: str, tse_code: int) -> Municipality | None:
         if self._municipality_index is None:
-            self._municipality_index = {(m.uf, m.tse_code): m for m in self.municipalities}
-        return self._municipality_index.get((uf, tse_code))
+            self._municipality_index = {(m.state_code, m.tse_code): m for m in self.municipalities}
+        return self._municipality_index.get((state_code, tse_code))

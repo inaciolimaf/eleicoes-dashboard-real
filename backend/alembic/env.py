@@ -15,7 +15,7 @@ target_metadata = Base.metadata
 
 
 def include_object(obj, name, type_, reflected, compare_to):
-    # índices de trigram (expressão) são criados à mão na migração
+    # trigram indexes (expression) are created by hand in the migration
     return not (type_ == "index" and name and name.endswith("_trgm"))
 
 
@@ -54,9 +54,9 @@ async def run_async_migrations() -> None:
 
 
 def run_migrations_online() -> None:
-    conexao = config.attributes.get("connection")
-    if conexao is not None:
-        do_run_migrations(conexao)
+    connection = config.attributes.get("connection")
+    if connection is not None:
+        do_run_migrations(connection)
     else:
         asyncio.run(run_async_migrations())
 

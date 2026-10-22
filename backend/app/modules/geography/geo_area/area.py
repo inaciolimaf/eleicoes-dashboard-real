@@ -27,7 +27,7 @@ class GeoArea:
     level: str
     id: str
     #: State code (two letters, lower case); `br` for the country has no state.
-    uf: str | None = None
+    state_code: str | None = None
     municipality: int | None = None
     zone: int | None = None
     polling_place: int | None = None
@@ -35,7 +35,7 @@ class GeoArea:
 
     @property
     def municipality_id(self) -> str | None:
-        return f"{self.uf}{self.municipality:05d}" if self.municipality is not None else None
+        return f"{self.state_code}{self.municipality:05d}" if self.municipality is not None else None
 
     @property
     def zone_id(self) -> str | None:
@@ -48,7 +48,7 @@ class GeoArea:
         if self.level == "state":
             return GeoArea("country", "br")
         if self.level == "municipality":
-            return GeoArea("state", self.uf or "", uf=self.uf)
+            return GeoArea("state", self.state_code or "", state_code=self.state_code)
         if self.level == "zone":
             return parse(self.municipality_id or "")
         if self.level in ("polling_place", "section"):
@@ -75,18 +75,25 @@ def parse(id_: str, level: str | None = None) -> GeoArea:
 
 
 def _from_match(id_: str, match: re.Match[str]) -> GeoArea:
-    uf = match["uf"]
+    state_code = match["uf"]
     if match["mun"] is None:
-        return GeoArea("state", id_, uf=uf)
+        return GeoArea("state", id_, state_code=state_code)
     municipality = int(match["mun"])
     if match["zona"] is None:
-        return GeoArea("municipality", id_, uf=uf, municipality=municipality)
+        return GeoArea("municipality", id_, state_code=state_code, municipality=municipality)
     zone = int(match["zona"])
     if match["tipo"] is None:
-        return GeoArea("zone", id_, uf=uf, municipality=municipality, zone=zone)
+        return GeoArea("zone", id_, state_code=state_code, municipality=municipality, zone=zone)
     number = int(match["num"])
     if match["tipo"] == "l":
         return GeoArea(
-            "polling_place", id_, uf=uf, municipality=municipality, zone=zone, polling_place=number
+            "polling_place",
+            id_,
+            state_code=state_code,
+            municipality=municipality,
+            zone=zone,
+            polling_place=number,
         )
-    return GeoArea("section", id_, uf=uf, municipality=municipality, zone=zone, section=number)
+    return GeoArea(
+        "section", id_, state_code=state_code, municipality=municipality, zone=zone, section=number
+    )

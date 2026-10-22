@@ -17,40 +17,22 @@ from app.infra.tse.parsers.sections import SectionTSE, parse_sections
 from app.infra.tse.parsers.tracking import ProgressTSE, TrackingTSE, parse_tracking
 
 __all__ = [
-    "AcompanhamentoTSE",
     "AllianceTSE",
     "AuxiliarySectionTSE",
     "CandidateTSE",
     "MunicipalityTSE",
-    "MunicipioTSE",
     "ProgressTSE",
     "ResultTSE",
-    "ResultadoTSE",
     "RunningMateTSE",
-    "SecaoTSE",
     "SectionTSE",
     "TotalsTSE",
     "TrackingTSE",
     "UrnFileTSE",
-    "parse_acompanhamento",
-    "parse_auxiliar",
     "parse_auxiliary",
     "parse_municipalities",
-    "parse_municipios",
     "parse_result",
-    "parse_resultado",
-    "parse_secoes",
     "parse_sections",
     "parse_tracking",
 ]
 
 # Names used before the English rename; the collector, the worker and the ingestion still import them.
-AcompanhamentoTSE = TrackingTSE
-MunicipioTSE = MunicipalityTSE
-ResultadoTSE = ResultTSE
-SecaoTSE = SectionTSE
-parse_acompanhamento = parse_tracking
-parse_auxiliar = parse_auxiliary
-parse_municipios = parse_municipalities
-parse_resultado = parse_result
-parse_secoes = parse_sections

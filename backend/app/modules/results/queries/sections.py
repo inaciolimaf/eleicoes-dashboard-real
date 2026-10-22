@@ -52,15 +52,15 @@ def _section_votes(votes: dict[str, Any], by_number: dict[int, Candidate]) -> li
 
 
 async def _section_offices(
-    session: AsyncSession, turno: int, ballot: BallotBoxReport, uf: str | None
+    session: AsyncSession, round_number: int, ballot: BallotBoxReport, state_code: str | None
 ) -> list[dict[str, Any]]:
     offices = []
-    for cd, votes in sorted((ballot.votes or {}).items(), key=lambda kv: int(kv[0])):
-        office_code = int(cd)
+    for office_key, votes in sorted((ballot.votes or {}).items(), key=lambda kv: int(kv[0])):
+        office_code = int(office_key)
         stmt = select(Candidate).where(
-            Candidate.round == turno,
+            Candidate.round == round_number,
             Candidate.office_code == office_code,
-            Candidate.state_code == ("br" if office_code == 1 else uf),
+            Candidate.state_code == ("br" if office_code == 1 else state_code),
         )
         by_number = {c.ballot_number: c for c in (await session.execute(stmt)).scalars()}
         rows = _section_votes(votes, by_number)
@@ -92,29 +92,31 @@ def _ballot_fields(ballot: BallotBoxReport | None, sec: PollingSection | None) -
     }
 
 
-async def detalhe_secao(session: AsyncSession, turno: int, sid: str) -> dict[str, Any] | None:
+async def section_detail(session: AsyncSession, round_number: int, sid: str) -> dict[str, Any] | None:
     r = parse(sid, "section")
     sec = await session.get(PollingSection, sid)
     ballot = (
         await session.execute(
             select(BallotBoxReport).where(
-                BallotBoxReport.round == turno, BallotBoxReport.polling_section_id == sid
+                BallotBoxReport.round == round_number, BallotBoxReport.polling_section_id == sid
             )
         )
     ).scalar_one_or_none()
     if sec is None and ballot is None:
         return None
     mun = await session.get(Municipality, r.municipality_id)
-    local_id = (sec.polling_place_id if sec else None) or (ballot.polling_place_id if ballot else None)
-    loc = await session.get(PollingPlace, local_id) if local_id else None
-    offices = await _section_offices(session, turno, ballot, r.uf) if ballot else []
+    polling_place_id = (sec.polling_place_id if sec else None) or (
+        ballot.polling_place_id if ballot else None
+    )
+    loc = await session.get(PollingPlace, polling_place_id) if polling_place_id else None
+    offices = await _section_offices(session, round_number, ballot, r.state_code) if ballot else []
     return {
         "id": sid,
         "number": r.section,
-        "state_code": r.uf,
+        "state_code": r.state_code,
         "municipality": {"id": r.municipality_id, "name": mun.name if mun else r.municipality_id},
         "zone": {"id": r.zone_id, "number": r.zone},
-        "polling_place": {"id": local_id, "name": loc.name if loc else None},
+        "polling_place": {"id": polling_place_id, "name": loc.name if loc else None},
         **_ballot_fields(ballot, sec),
         "offices": offices,
     }

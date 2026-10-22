@@ -39,9 +39,9 @@ def add_proportional_office(
     util = _candidate_utilities(n, len(candidates), columns, party_prob, len(scenario.parties))
     votes = distribute(rng, util, nominal)
     party_votes = rng.multinomial(party_list_total.astype(np.int64), party_prob).astype(np.int32)
-    scenario.offices[(office.code, office.uf)] = StateOffice(
+    scenario.offices[(office.code, office.state_code)] = StateOffice(
         office_code=office.code,
-        uf=office.uf,
+        state_code=office.state_code,
         election_code=STATE_ELECTION_CODE,
         system="proporcional",
         seats=office.seats,
@@ -96,7 +96,7 @@ def _candidate_pool(
             name, ballot = make_name(rng, used)
             candidates.append(
                 Candidate(
-                    tse_candidate_id(scenario.seed, office.code, office.uf, len(candidates)),
+                    tse_candidate_id(scenario.seed, office.code, office.state_code, len(candidates)),
                     number,
                     name,
                     ballot,

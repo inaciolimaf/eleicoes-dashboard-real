@@ -105,7 +105,9 @@ class CurrentResult(ResultColumns, Base):
 
 class ProgressColumns:
     round: Mapped[int] = mapped_column(SmallInteger)
-    level: Mapped[str] = mapped_column(String(16))  # br | uf | municipio
+    level: Mapped[str] = mapped_column(
+        String(16)
+    )  # country | state | municipality | zone | polling_place | section
     geo_area_id: Mapped[str] = mapped_column(String(24))
     state_code: Mapped[str] = mapped_column(String(2))
     generation_id: Mapped[int] = mapped_column(BigInteger)

@@ -12,7 +12,7 @@ from app.modules.elections import colors
 from app.modules.geography import GeoArea
 from app.modules.results.models import ResultSnapshot
 from app.modules.results.queries.common import candidate_meta, iso
-from app.modules.results.queries.events import ConsultaEventos, listar_eventos
+from app.modules.results.queries.events import EventsQuery, list_events
 
 TOP_CANDIDATES = 12
 
@@ -28,15 +28,15 @@ def _thin_out(rows: list[Any], max_points: int) -> list[Any]:
 
 async def _snapshot_rows(
     session: AsyncSession,
-    turno: int,
-    cd: int,
+    round_number: int,
+    office_code: int,
     r: GeoArea,
     since: datetime | None,
     until: datetime | None,
 ) -> list[Any]:
     filters = [
-        ResultSnapshot.round == turno,
-        ResultSnapshot.office_code == cd,
+        ResultSnapshot.round == round_number,
+        ResultSnapshot.office_code == office_code,
         ResultSnapshot.level == r.level,
         ResultSnapshot.geo_area_id == r.id,
     ]
@@ -87,21 +87,22 @@ def _series_candidates(top: list[str], meta: dict[str, Any]) -> list[dict[str, A
     ]
 
 
-async def serie(
+async def series(
     session: AsyncSession,
-    turno: int,
-    cd: int,
+    round_number: int,
+    office_code: int,
     r: GeoArea,
     de: datetime | None,
     ate: datetime | None,
     max_pontos: int = 300,
 ) -> dict[str, Any]:
-    rows = _thin_out(await _snapshot_rows(session, turno, cd, r, de, ate), max_pontos)
+    rows = _thin_out(await _snapshot_rows(session, round_number, office_code, r, de, ate), max_pontos)
     last_cands = rows[-1][3] if rows else []
     top = [c["sq"] for c in last_cands[:TOP_CANDIDATES]]
     meta = await candidate_meta(session, top)
-    events = await listar_eventos(
-        session, ConsultaEventos(turno=turno, limite=200, cargo=cd, nivel=r.level, recorte_id=r.id)
+    events = await list_events(
+        session,
+        EventsQuery(round=round_number, limit=200, office_code=office_code, level=r.level, geo_area_id=r.id),
     )
     return {
         "candidates": _series_candidates(top, meta),

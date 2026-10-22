@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.infra.tse.catalog import CatalogEvent, Catalogo, CatalogOffice
+from app.infra.tse.catalog import Catalog, CatalogEvent, CatalogOffice
 from app.modules.elections import Election, ElectionOffice
 
 SEATS_BY_MAJORITARIAN_OFFICE = {1: 1, 3: 1, 5: 2, 11: 1}
@@ -26,19 +26,19 @@ class _ElectionRecord:
 
 def _election_records(event: CatalogEvent) -> list[_ElectionRecord]:
     records: list[_ElectionRecord] = []
-    for e in event.eleicoes:
-        records.append(_ElectionRecord(e.cd, e.turno, e.tipo, e.nome, e.cargos))
-        if e.cd_t2 and e.turno == 1:
+    for e in event.elections:
+        records.append(_ElectionRecord(e.code, e.round, e.kind, e.name, e.offices))
+        if e.runoff_election_code and e.round == 1:
             # the second round holds only the majoritarian offices that run twice
-            second_round = [c for c in e.cargos if c.cd in SECOND_ROUND_OFFICES]
+            second_round = [c for c in e.offices if c.code in SECOND_ROUND_OFFICES]
             if second_round:
-                name = e.nome.replace("1º Turno", "2º Turno")
-                records.append(_ElectionRecord(e.cd_t2, 2, e.tipo, name, second_round))
+                name = e.name.replace("1º Turno", "2º Turno")
+                records.append(_ElectionRecord(e.runoff_election_code, 2, e.kind, name, second_round))
     return records
 
 
-async def ingest_catalog(session: AsyncSession, catalog: Catalogo, environment: str) -> list[Election]:
-    event = catalog.pleito_atual()
+async def ingest_catalog(session: AsyncSession, catalog: Catalog, environment: str) -> list[Election]:
+    event = catalog.current_election_event()
     if event is None:
         return []
     seen: set[int] = set()
@@ -61,8 +61,8 @@ async def _upsert_election(
         insert(Election)
         .values(
             tse_environment=environment,
-            cycle=event.ciclo,
-            election_event_code=event.cd,
+            cycle=event.cycle,
+            election_event_code=event.code,
             election_code=record.code,
             round=record.turn,
             jurisdiction=record.jurisdiction,
@@ -73,8 +73,8 @@ async def _upsert_election(
         .on_conflict_do_update(
             index_elements=["tse_environment", "election_code"],
             set_={
-                "cycle": event.ciclo,
-                "election_event_code": event.cd,
+                "cycle": event.cycle,
+                "election_event_code": event.code,
                 "round": record.turn,
                 "jurisdiction": record.jurisdiction,
                 "name": record.name,
@@ -88,19 +88,19 @@ async def _upsert_election(
 
 
 async def _upsert_office(session: AsyncSession, election_id: int, office: CatalogOffice) -> None:
-    seats = SEATS_BY_MAJORITARIAN_OFFICE.get(office.cd) if office.sistema == "majoritario" else None
+    seats = SEATS_BY_MAJORITARIAN_OFFICE.get(office.code) if office.system == "majoritario" else None
     await session.execute(
         insert(ElectionOffice)
         .values(
             election_id=election_id,
-            office_code=office.cd,
-            name=office.nome,
-            voting_system=office.sistema,
+            office_code=office.code,
+            name=office.name,
+            voting_system=office.system,
             coverage=office.abrangencia,
             seats=seats,
         )
         .on_conflict_do_update(
             index_elements=["election_id", "office_code"],
-            set_={"name": office.nome, "voting_system": office.sistema, "seats": seats},
+            set_={"name": office.name, "voting_system": office.system, "seats": seats},
         )
     )

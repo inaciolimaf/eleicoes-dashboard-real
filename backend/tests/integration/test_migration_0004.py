@@ -1,4 +1,4 @@
-"""Migração 0004: as chaves do `payload` dos eventos passam a inglês e voltam no downgrade."""
+"""Migration 0004: the keys of the events `payload` become English and come back on downgrade."""
 
 import asyncio
 import json
@@ -36,17 +36,17 @@ def _payloads() -> list[tuple]:
     )
 
 
-def test_0004_renomeia_chaves_do_payload_e_volta_no_downgrade():
+def test_0004_renames_payload_keys_and_back_on_downgrade():
     cfg = alembic_config()
     command.upgrade(cfg, "head")
     command.downgrade(cfg, "0003")
     try:
-        for tipo, payload in ANTIGOS:
+        for kind, payload in ANTIGOS:
             asyncio.run(
                 _sql(
                     "INSERT INTO events (round, type, occurred_at, office_code, level, geo_area_id, title, "
                     "description, payload) VALUES (1, :t, now(), 1, 'country', :g, 't', 'd', CAST(:p AS jsonb))",
-                    {"t": tipo, "g": GEO, "p": json.dumps(payload)},
+                    {"t": kind, "g": GEO, "p": json.dumps(payload)},
                 )
             )
         assert _payloads() == [(t, p) for t, p in ANTIGOS]

@@ -73,7 +73,7 @@ class Settings(BaseSettings):
     tse_fake_public_key: str = Field("", validation_alias="TSE_FAKE_CHAVE_PUBLICA")
     tse_fake_control_url: str = Field("http://tse-fake:8080/_fake", validation_alias="TSE_FAKE_CONTROLE_URL")
 
-    #: Open data: the "Eleitorado - local de votação" CSV (accepts .csv or .zip).
+    #: Open data: the TSE "Eleitorado - local de votação" CSV (accepts .csv or .zip).
     polling_places_url: str = Field(
         "http://tse-fake:8080/dadosabertos/eleitorado_local_votacao_2026.csv",
         validation_alias="LOCAIS_VOTACAO_URL",
@@ -99,87 +99,12 @@ class Settings(BaseSettings):
         """In production the process does not start with a missing, short or example secret."""
         if self.environment != "production":
             return self
-        segredo = self.jwt_secret.get_secret_value()
-        if len(segredo.encode()) < 32:
+        secret = self.jwt_secret.get_secret_value()
+        if len(secret.encode()) < 32:
             raise SettingsError("JWT_SECRET precisa de 32+ bytes em produção")
-        if segredo in EXAMPLE_SECRETS:
+        if secret in EXAMPLE_SECRETS:
             raise SettingsError("JWT_SECRET ainda está com o valor de exemplo de .env.example")
         return self
-
-    # TEMPORARY: removed by the main agent after integration. Old attribute names still read by the
-    # collector, the worker and the tests of other slices; each one reads the English field.
-
-    @property
-    def tse_ambiente(self) -> Literal["oficial", "simulado", "fake"]:
-        return self.tse_environment
-
-    @property
-    def tse_concorrencia(self) -> int:
-        return self.tse_concurrency
-
-    @property
-    def tse_verificar_jws(self) -> bool:
-        return self.tse_verify_jws
-
-    @property
-    def tse_usar_jws(self) -> bool:
-        return self.tse_use_jws
-
-    @property
-    def intervalo_catalogo(self) -> float:
-        return self.interval_catalog
-
-    @property
-    def intervalo_principal(self) -> float:
-        return self.interval_main
-
-    @property
-    def intervalo_acompanhamento(self) -> float:
-        return self.interval_follow_up
-
-    @property
-    def intervalo_min_municipio(self) -> float:
-        return self.interval_min_municipality
-
-    @property
-    def coletar_secoes(self) -> bool:
-        return self.collect_sections
-
-    @property
-    def modo_secoes(self) -> Literal["sob_demanda", "todas"]:
-        return self.section_mode
-
-    @property
-    def coletar_zonas(self) -> bool:
-        return self.collect_zones
-
-    @property
-    def fila_max(self) -> int:
-        return self.queue_max
-
-    @property
-    def tse_fake_chave_publica(self) -> str:
-        return self.tse_fake_public_key
-
-    @property
-    def tse_fake_controle_url(self) -> str:
-        return self.tse_fake_control_url
-
-    @property
-    def locais_votacao_url(self) -> str:
-        return self.polling_places_url
-
-    @property
-    def dir_brutos(self) -> str:
-        return self.raw_dir
-
-    @property
-    def dir_cache_fotos(self) -> str:
-        return self.photo_cache_dir
-
-    @property
-    def jwt_expira_min(self) -> int:
-        return self.jwt_expire_min
 
 
 @lru_cache

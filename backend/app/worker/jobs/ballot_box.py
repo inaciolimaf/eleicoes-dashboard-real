@@ -9,11 +9,11 @@ from typing import TYPE_CHECKING, Any
 
 from app.core.db import unit_of_work
 from app.infra.realtime import topics
-from app.infra.tse import bu as bu_mod
-from app.modules.alerts import evaluation as alertas
+from app.infra.tse import ballot_box
+from app.modules.alerts import evaluation as alerts
 from app.modules.geography import parse
-from app.modules.results import ingestion as ingestao
-from app.modules.results import queries as resultados
+from app.modules.results import ingestion as ingestion
+from app.modules.results import queries as results_queries
 from app.worker.jobs import diagnostics
 from app.worker.jobs.publishing import Outbox
 from app.worker.jobs.shared import BallotIds, ballot_ids, parse_datetime
@@ -37,21 +37,21 @@ async def process(proc: Processor, body: bytes, context: dict[str, Any]) -> None
 async def _ballot(proc: Processor, body: bytes, context: dict[str, Any]) -> None:
     round_ = int(context["round"])
     state_code = context["state_code"]
-    report = bu_mod.decodificar(body)
+    report = ballot_box.decode(body)
     out = Outbox()
     async with unit_of_work(proc.sessionmaker) as session:
         numbers = await proc.ballot_numbers(session, round_, state_code)
-        changed = await ingestao.ingerir_boletim(
+        changed = await ingestion.ingest_ballot_report(
             session,
             round_,
             state_code,
             report,
-            ingestao.BoletimContexto(
+            ingestion.BallotReportContext(
                 hash=str(context["hash"]),
                 status=str(context.get("status", "Totalizado")),
-                totalizado_em=parse_datetime(context.get("tallied_at")),
+                tallied_at=parse_datetime(context.get("tallied_at")),
                 url=context.get("url"),
-                numeros=numbers,
+                numbers=numbers,
             ),
         )
         if context.get("polling_section_id"):
@@ -86,17 +86,17 @@ async def _publish_changed_place(
 ) -> None:
     places_topic = topics.polling_places(round_, office_code, ids.municipality)
     if await topics.is_active(proc.redis, places_topic):
-        item = await resultados.item_local(session, round_, office_code, place_id)
+        item = await results_queries.polling_place_item(session, round_, office_code, place_id)
         if item:
             out.add(places_topic, "polling_place", item)
     for level, geo_id in (("polling_place", place_id), ("section", ids.section), ("zone", ids.zone)):
         results_topic = topics.results(round_, office_code, level, geo_id)
         if await topics.is_active(proc.redis, results_topic):
-            payload = await resultados.montar_resultado(session, round_, office_code, parse(geo_id))
+            payload = await results_queries.build_result(session, round_, office_code, parse(geo_id))
             out.add(results_topic, "results", payload)
     children_topic = topics.children(round_, office_code, "zone", ids.zone)
     if await topics.is_active(proc.redis, children_topic):
-        data = await resultados.filhos(session, round_, office_code, parse(ids.zone), None)
+        data = await results_queries.children(session, round_, office_code, parse(ids.zone), None)
         for item in data["items"]:
             if item["id"] == place_id:
                 out.add(children_topic, "children", item)
@@ -105,10 +105,10 @@ async def _publish_changed_place(
 async def _alerts_polling_place(
     session: AsyncSession, out: Outbox, round_: int, office_code: int, place_id: str
 ) -> None:
-    item = await resultados.item_local(session, round_, office_code, place_id)
+    item = await results_queries.polling_place_item(session, round_, office_code, place_id)
     item_status = item["status"] if item else ""
-    for alert in await alertas.ativos(session):
-        text = alertas.avaliar_local(alert, place_id, item_status)
+    for alert in await alerts.active_alerts(session):
+        text = alerts.evaluate_polling_place(alert, place_id, item_status)
         if text:
-            await alertas.marcar_disparado(session, alert)
+            await alerts.mark_triggered(session, alert)
             out.add_alert(alert, text)

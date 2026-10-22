@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from tse_fake.data import UFS, state_seats
+from tse_fake.data import STATES, state_seats
 from tse_fake.scenario.helpers import (
     blank_and_null,
     distribute,
@@ -46,25 +46,27 @@ def build_votes(scenario: Scenario) -> None:
     rng = np.random.default_rng(scenario.seed + 1)
     scenario.parties = make_parties()
     _presidency(scenario, rng)
-    for uf in scenario.ufs:
-        start, end = scenario.state_ranges[uf]
+    for state_code in scenario.states:
+        start, end = scenario.state_ranges[state_code]
         used: set[str] = set()
-        _governor(scenario, rng, uf, start, end, used)
-        _senate(scenario, rng, uf, start, end, used)
-        seats = UFS[uf][2]
-        add_proportional_office(scenario, rng, ProportionalOffice(6, uf, seats, 4), start, end, used)
-        state_code = 8 if uf == "df" else 7
-        state_seats_count = 24 if uf == "df" else state_seats(seats)
+        _governor(scenario, rng, state_code, start, end, used)
+        _senate(scenario, rng, state_code, start, end, used)
+        seats = STATES[state_code][2]
+        add_proportional_office(scenario, rng, ProportionalOffice(6, state_code, seats, 4), start, end, used)
+        office_code = 8 if state_code == "df" else 7
+        state_seats_count = state_seats(seats)
         add_proportional_office(
-            scenario, rng, ProportionalOffice(state_code, uf, state_seats_count, 5), start, end, used
+            scenario, rng, ProportionalOffice(office_code, state_code, state_seats_count, 5), start, end, used
         )
 
 
-def _draw_names(rng: np.random.Generator, used: set[str], vice_count: int) -> tuple[str, str, list[str]]:
+def _draw_names(
+    rng: np.random.Generator, used: set[str], running_mate_count: int
+) -> tuple[str, str, list[str]]:
     """Full name, ballot name and the ballot names of `vice_count` running mates or substitutes."""
     name, ballot = make_name(rng, used)
-    vices = [make_name(rng, used)[1] for _ in range(vice_count)]
-    return name, ballot, vices
+    running_mates = [make_name(rng, used)[1] for _ in range(running_mate_count)]
+    return name, ballot, running_mates
 
 
 def _presidency(scenario: Scenario, rng: np.random.Generator) -> None:
@@ -75,7 +77,7 @@ def _presidency(scenario: Scenario, rng: np.random.Generator) -> None:
     blank, null, valid = blank_and_null(rng, scenario.section_turnout[0:n], 0.018, 0.032)
     scenario.offices[(1, "br")] = StateOffice(
         office_code=1,
-        uf="br",
+        state_code="br",
         election_code=FEDERAL_ELECTION_CODE,
         system="majoritario",
         seats=1,
@@ -100,9 +102,9 @@ def _presidential_slate(
     candidates: list[Candidate] = []
     for i, (base, bonus) in enumerate(PRESIDENTIAL_PROFILE):
         party = scenario.parties[PRESIDENTIAL_PARTY_INDEXES[i]]
-        name, ballot, (vice,) = _draw_names(rng, used, 1)
+        name, ballot, (running_mate,) = _draw_names(rng, used, 1)
         candidate_id = tse_candidate_id(scenario.seed, 1, "br", i)
-        candidates.append(Candidate(candidate_id, party.number, name, ballot, party, [("v", vice)]))
+        candidates.append(Candidate(candidate_id, party.number, name, ballot, party, [("v", running_mate)]))
         noise = noise_by_municipality[scenario.section_municipality, i]
         util[:, i] = _presidential_column(scenario, rng, base, bonus, region_of_section, noise)
     return candidates, util
@@ -127,13 +129,13 @@ def _presidential_column(
 
 
 def _governor(
-    scenario: Scenario, rng: np.random.Generator, uf: str, start: int, end: int, used: set[str]
+    scenario: Scenario, rng: np.random.Generator, state_code: str, start: int, end: int, used: set[str]
 ) -> None:
-    candidates, util = _governor_slate(scenario, rng, uf, start, end, used)
+    candidates, util = _governor_slate(scenario, rng, state_code, start, end, used)
     blank, null, valid = blank_and_null(rng, scenario.section_turnout[start:end], 0.03, 0.04)
-    scenario.offices[(3, uf)] = StateOffice(
+    scenario.offices[(3, state_code)] = StateOffice(
         office_code=3,
-        uf=uf,
+        state_code=state_code,
         election_code=STATE_ELECTION_CODE,
         system="majoritario",
         seats=1,
@@ -148,7 +150,7 @@ def _governor(
 
 
 def _governor_slate(
-    scenario: Scenario, rng: np.random.Generator, uf: str, start: int, end: int, used: set[str]
+    scenario: Scenario, rng: np.random.Generator, state_code: str, start: int, end: int, used: set[str]
 ) -> tuple[list[Candidate], np.ndarray]:
     n = end - start
     lat = scenario.section_lat[start:end]
@@ -162,22 +164,22 @@ def _governor_slate(
     chosen = rng.choice(len(parties), count, replace=False)
     for i in range(count):
         party = parties[int(chosen[i])]
-        name, ballot, (vice,) = _draw_names(rng, used, 1)
-        candidate_id = tse_candidate_id(scenario.seed, 3, uf, i)
-        candidates.append(Candidate(candidate_id, party.number, name, ballot, party, [("v", vice)]))
+        name, ballot, (running_mate,) = _draw_names(rng, used, 1)
+        candidate_id = tse_candidate_id(scenario.seed, 3, state_code, i)
+        candidates.append(Candidate(candidate_id, party.number, name, ballot, party, [("v", running_mate)]))
         util[:, i] = bases[i] + spatial_field(rng, lat, lon, 3, 0.6) * 0.5 + rng.normal(0, 0.1, n)
     return unique_numbers(candidates, util)
 
 
 def _senate(
-    scenario: Scenario, rng: np.random.Generator, uf: str, start: int, end: int, used: set[str]
+    scenario: Scenario, rng: np.random.Generator, state_code: str, start: int, end: int, used: set[str]
 ) -> None:
     """Senate: two seats in 2026, so each voter votes for two candidates."""
-    candidates, util = _senate_slate(scenario, rng, uf, start, end, used)
+    candidates, util = _senate_slate(scenario, rng, state_code, start, end, used)
     blank, null, valid = blank_and_null(rng, scenario.section_turnout[start:end], 0.06, 0.07)
-    scenario.offices[(5, uf)] = StateOffice(
+    scenario.offices[(5, state_code)] = StateOffice(
         office_code=5,
-        uf=uf,
+        state_code=state_code,
         election_code=STATE_ELECTION_CODE,
         system="majoritario",
         seats=2,
@@ -192,7 +194,7 @@ def _senate(
 
 
 def _senate_slate(
-    scenario: Scenario, rng: np.random.Generator, uf: str, start: int, end: int, used: set[str]
+    scenario: Scenario, rng: np.random.Generator, state_code: str, start: int, end: int, used: set[str]
 ) -> tuple[list[Candidate], np.ndarray]:
     n = end - start
     lat = scenario.section_lat[start:end]
@@ -207,8 +209,8 @@ def _senate_slate(
         party = parties[int(chosen[i])]
         name, ballot, substitutes = _draw_names(rng, used, 2)
         number = party.number * 10 + int(rng.integers(0, 10))
-        candidate_id = tse_candidate_id(scenario.seed, 5, uf, i)
-        vices = [("s", substitute) for substitute in substitutes]
-        candidates.append(Candidate(candidate_id, number, name, ballot, party, vices))
+        candidate_id = tse_candidate_id(scenario.seed, 5, state_code, i)
+        running_mates = [("s", substitute) for substitute in substitutes]
+        candidates.append(Candidate(candidate_id, number, name, ballot, party, running_mates))
         util[:, i] = bases[i] + spatial_field(rng, lat, lon, 3, 0.6) * 0.5 + rng.normal(0, 0.1, n)
     return unique_numbers(candidates, util)

@@ -28,8 +28,3 @@ __all__ = [
     "calculate",
     "from_tse",
 ]
-
-# TEMPORARY: removed by the main agent after integration. The results and events slices still
-# call the old names.
-calcular = calculate
-da_tse = from_tse

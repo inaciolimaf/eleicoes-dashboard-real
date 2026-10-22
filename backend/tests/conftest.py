@@ -1,6 +1,6 @@
-"""Configuração dos testes do backend.
+"""Backend test configuration.
 
-Precisam de um PostgreSQL e um Redis reais (no Docker: `make test`; local: TEST_DATABASE_URL / TEST_REDIS_URL).
+Needs a real PostgreSQL and Redis (in Docker: `make test`; locally: TEST_DATABASE_URL / TEST_REDIS_URL).
 """
 
 import os
@@ -29,7 +29,7 @@ from alembic import command
 from app.core import db as db_mod
 from app.core import redis as redis_mod
 
-RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 TABELAS = [
     "alerts",
@@ -56,14 +56,14 @@ TABELAS = [
 
 
 def alembic_config() -> Config:
-    cfg = Config(os.path.join(RAIZ, "alembic.ini"))
-    cfg.set_main_option("script_location", os.path.join(RAIZ, "alembic"))
+    cfg = Config(os.path.join(ROOT, "alembic.ini"))
+    cfg.set_main_option("script_location", os.path.join(ROOT, "alembic"))
     cfg.attributes["database_url"] = os.environ["TEST_DATABASE_URL"]
     return cfg
 
 
 @pytest.fixture(scope="session", autouse=True)
-def banco_migrado():
+def migrated_db():
     cfg = alembic_config()
     command.downgrade(cfg, "base")
     command.upgrade(cfg, "head")
@@ -71,39 +71,39 @@ def banco_migrado():
 
 
 @pytest_asyncio.fixture(scope="session")
-async def engine(banco_migrado):
+async def engine(migrated_db):
     eng = create_async_engine(os.environ["TEST_DATABASE_URL"], pool_size=5, max_overflow=10)
-    db_mod.configurar_engine(eng)
+    db_mod.configure_engine(eng)
     yield eng
     await eng.dispose()
 
 
 @pytest_asyncio.fixture(scope="session")
 async def redis_cliente():
-    cli = redis_mod.criar_redis(os.environ["TEST_REDIS_URL"])
-    redis_mod.configurar_redis(cli)
+    cli = redis_mod.create_redis(os.environ["TEST_REDIS_URL"])
+    redis_mod.configure_redis(cli)
     await cli.flushdb()
     yield cli
     await cli.flushdb()
     await cli.aclose()
 
 
-async def limpar_banco(engine) -> None:
+async def clean_database(engine) -> None:
     async with engine.begin() as conn:
         await conn.execute(text("TRUNCATE " + ", ".join(TABELAS) + " RESTART IDENTITY CASCADE"))
 
 
 @pytest_asyncio.fixture
-async def banco_limpo(engine, redis_cliente):
-    await limpar_banco(engine)
+async def clean_db(engine, redis_cliente):
+    await clean_database(engine)
     await redis_cliente.flushdb()
-    from app.modules.results import ingestion as ingestao
+    from app.modules.results import ingestion as ingestion
 
-    ingestao._candidatos_conhecidos.clear()
+    ingestion.known_candidate_ids.clear()
     yield engine
 
 
 @pytest_asyncio.fixture
-async def session(banco_limpo):
+async def session(clean_db):
     async with db_mod.get_sessionmaker()() as s:
         yield s

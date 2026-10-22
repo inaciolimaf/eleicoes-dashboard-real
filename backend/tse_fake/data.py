@@ -1,6 +1,6 @@
 """Fixed data of the mock: states, regions, capitals, fictitious parties and name lists."""
 
-UFS = {
+STATES = {
     "ac": ("Acre", "Norte", 8),
     "al": ("Alagoas", "Nordeste", 9),
     "am": ("Amazonas", "Norte", 8),

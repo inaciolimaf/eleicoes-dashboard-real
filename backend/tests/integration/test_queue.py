@@ -25,9 +25,9 @@ async def test_queue_prioritizes_high_and_coalesces_versions(redis_cliente):
 
 
 async def test_queue_compresses_and_reads_uncompressed_message(redis_cliente):
-    corpo = b'{"cand": [' + b'{"n": 1, "v": 12345},' * 2000 + b"{}]}"
-    msg = queue.message("result", corpo, x=1)
-    assert len(msg) < len(corpo) / 5
-    assert queue.read(msg) == ("result", corpo, {"x": 1})
+    body = b'{"cand": [' + b'{"n": 1, "v": 12345},' * 2000 + b"{}]}"
+    msg = queue.message("result", body, x=1)
+    assert len(msg) < len(body) / 5
+    assert queue.read(msg) == ("result", body, {"x": 1})
     antigo = orjson.dumps({"type": "ballot", "body": base64.b64encode(b"bu").decode(), "context": {}})
     assert queue.read(antigo) == ("ballot", b"bu", {})

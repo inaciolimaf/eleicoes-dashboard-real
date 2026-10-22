@@ -19,15 +19,17 @@ from app.modules.results.queries.common import (
 )
 
 
-async def item_local(session: AsyncSession, turno: int, cd: int, lid: str) -> dict[str, Any] | None:
+async def polling_place_item(
+    session: AsyncSession, round_number: int, office_code: int, lid: str
+) -> dict[str, Any] | None:
     loc = await session.get(PollingPlace, lid)
     if loc is None:
         return None
     r = (
         await session.execute(
             select(PollingPlaceResult).where(
-                PollingPlaceResult.round == turno,
-                PollingPlaceResult.office_code == cd,
+                PollingPlaceResult.round == round_number,
+                PollingPlaceResult.office_code == office_code,
                 PollingPlaceResult.polling_place_id == lid,
             )
         )
@@ -68,7 +70,7 @@ def _section_rows(
     ]
 
 
-async def detalhe_local(session: AsyncSession, turno: int, lid: str) -> dict[str, Any] | None:
+async def polling_place_detail(session: AsyncSession, round_number: int, lid: str) -> dict[str, Any] | None:
     loc = await session.get(PollingPlace, lid)
     if loc is None:
         return None
@@ -90,7 +92,7 @@ async def detalhe_local(session: AsyncSession, turno: int, lid: str) -> dict[str
         for b in (
             await session.execute(
                 select(BallotBoxReport).where(
-                    BallotBoxReport.round == turno, BallotBoxReport.polling_place_id == lid
+                    BallotBoxReport.round == round_number, BallotBoxReport.polling_place_id == lid
                 )
             )
         ).scalars()

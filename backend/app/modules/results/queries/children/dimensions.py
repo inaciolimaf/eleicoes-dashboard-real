@@ -30,8 +30,8 @@ Dimension = list[dict[str, Any]]
 
 async def _level_lines(
     session: AsyncSession,
-    turno: int,
-    cd: int,
+    round_number: int,
+    office_code: int,
     level: str,
     parent_id: str | None,
     at: datetime | None,
@@ -44,7 +44,7 @@ async def _level_lines(
         for c in table.__table__.columns
         if c.key not in ("alliances", "id") and (with_candidates or c.key != "candidates")
     ]
-    filters: list[Any] = [table.round == turno, table.office_code == cd, table.level == level]
+    filters: list[Any] = [table.round == round_number, table.office_code == office_code, table.level == level]
     if parent_id:
         filters.append(table.parent_id == parent_id)
     if at is None:
@@ -62,10 +62,10 @@ async def _level_lines(
 
 
 async def state_dimension(
-    session: AsyncSession, turno: int, cd: int, at: datetime | None, with_candidates: bool
+    session: AsyncSession, round_number: int, office_code: int, at: datetime | None, with_candidates: bool
 ) -> tuple[Lines, Dimension]:
     states = (await session.execute(select(State).order_by(State.code))).scalars().all()
-    lines = await _level_lines(session, turno, cd, "state", None, at, with_candidates)
+    lines = await _level_lines(session, round_number, office_code, "state", None, at, with_candidates)
     dimension = [
         {"id": u.code, "name": u.name, "state_code": u.code, "region": u.region}
         for u in states
@@ -76,8 +76,8 @@ async def state_dimension(
 
 async def municipality_dimension(
     session: AsyncSession,
-    turno: int,
-    cd: int,
+    round_number: int,
+    office_code: int,
     r: GeoArea,
     at: datetime | None,
     with_candidates: bool,
@@ -85,10 +85,12 @@ async def municipality_dimension(
 ) -> tuple[Lines, Dimension]:
     query = select(Municipality)
     if r.level == "state":
-        query = query.where(Municipality.state_code == r.uf)
+        query = query.where(Municipality.state_code == r.state_code)
     municipalities = (await session.execute(query.order_by(Municipality.name))).scalars().all()
-    parent = r.uf if r.level == "state" else None
-    lines = await _level_lines(session, turno, cd, "municipality", parent, at, with_candidates)
+    parent = r.state_code if r.level == "state" else None
+    lines = await _level_lines(
+        session, round_number, office_code, "municipality", parent, at, with_candidates
+    )
     dimension = [
         {
             "id": m.id,
@@ -108,8 +110,8 @@ async def municipality_dimension(
 
 async def zone_dimension(
     session: AsyncSession,
-    turno: int,
-    cd: int,
+    round_number: int,
+    office_code: int,
     r: GeoArea,
     at: datetime | None,
     with_candidates: bool,
@@ -126,10 +128,10 @@ async def zone_dimension(
         .scalars()
         .all()
     )
-    lines = await _level_lines(session, turno, cd, "zone", r.id, at, with_candidates)
+    lines = await _level_lines(session, round_number, office_code, "zone", r.id, at, with_candidates)
     for z in zones:
         if z.id not in lines:
-            line = await ballot_box_line(session, turno, cd, parse(z.id), at)
+            line = await ballot_box_line(session, round_number, office_code, parse(z.id), at)
             if line and line["sections_tallied"]:
                 lines[z.id] = line
     dimension = [
@@ -146,8 +148,8 @@ async def zone_dimension(
 
 async def polling_place_dimension(
     session: AsyncSession,
-    turno: int,
-    cd: int,
+    round_number: int,
+    office_code: int,
     r: GeoArea,
     at: datetime | None,
     regions: dict[str, str | None],
@@ -165,7 +167,7 @@ async def polling_place_dimension(
     )
     lines: Lines = {}
     for loc in places:
-        line = await ballot_box_line(session, turno, cd, parse(loc.id), at)
+        line = await ballot_box_line(session, round_number, office_code, parse(loc.id), at)
         if line and line["sections_tallied"]:
             lines[loc.id] = line
     dimension = [
@@ -185,8 +187,8 @@ async def polling_place_dimension(
 
 async def section_dimension(
     session: AsyncSession,
-    turno: int,
-    cd: int,
+    round_number: int,
+    office_code: int,
     r: GeoArea,
     at: datetime | None,
     regions: dict[str, str | None],
@@ -204,7 +206,7 @@ async def section_dimension(
     )
     lines: Lines = {}
     for s in sections:
-        line = await ballot_box_line(session, turno, cd, parse(s.id), at)
+        line = await ballot_box_line(session, round_number, office_code, parse(s.id), at)
         if line:
             lines[s.id] = line
     dimension = [

@@ -48,13 +48,13 @@ def date_time(date: object, time: object) -> datetime | None:
     day = str(date).strip()
     clock = str(time).strip() if time else "00:00:00"
     try:
-        local = datetime.strptime(f"{day} {clock}", "%d/%m/%Y %H:%M:%S")
+        polling_place = datetime.strptime(f"{day} {clock}", "%d/%m/%Y %H:%M:%S")
     except ValueError:
         try:
-            local = datetime.strptime(f"{day} {clock}", "%d/%m/%Y %H:%M")
+            polling_place = datetime.strptime(f"{day} {clock}", "%d/%m/%Y %H:%M")
         except ValueError:
             return None
-    return local.replace(tzinfo=BRT).astimezone(UTC)
+    return polling_place.replace(tzinfo=BRT).astimezone(UTC)
 
 
 def date_time_je(value: object) -> datetime | None:
@@ -62,15 +62,15 @@ def date_time_je(value: object) -> datetime | None:
     if not value:
         return None
     try:
-        local = datetime.strptime(str(value), "%Y%m%dT%H%M%S")
+        polling_place = datetime.strptime(str(value), "%Y%m%dT%H%M%S")
     except ValueError:
         return None
-    return local.replace(tzinfo=BRT).astimezone(UTC)
+    return polling_place.replace(tzinfo=BRT).astimezone(UTC)
 
 
 def format_date(moment: datetime) -> tuple[str, str]:
-    local = moment.astimezone(BRT)
-    return local.strftime("%d/%m/%Y"), local.strftime("%H:%M:%S")
+    polling_place = moment.astimezone(BRT)
+    return polling_place.strftime("%d/%m/%Y"), polling_place.strftime("%H:%M:%S")
 
 
 def yes_no(value: object) -> bool:

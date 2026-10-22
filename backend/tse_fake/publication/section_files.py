@@ -6,7 +6,7 @@ import hashlib
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
-from app.infra.tse.bu import BallotBoxSpec, BallotVote, encode
+from app.infra.tse.ballot_box import BallotBoxSpec, BallotVote, encode
 from tse_fake.publication.formatting import START, format_datetime, round_of
 from tse_fake.scenario.model import (
     ELECTION_EVENT_CODE,
@@ -61,7 +61,7 @@ def ballot_box_bytes(scenario: Scenario, i: int) -> bytes:
     return encode(
         BallotBoxSpec(
             event=ELECTION_EVENT_CODE,
-            elections=_elections(scenario, i, municipality.uf, turnout),
+            elections=_elections(scenario, i, municipality.state_code, turnout),
             municipality=municipality.tse_code,
             zone=zone.number,
             place=place.number,
@@ -74,11 +74,11 @@ def ballot_box_bytes(scenario: Scenario, i: int) -> bytes:
 
 
 def _elections(
-    scenario: Scenario, i: int, uf: str, turnout: int
+    scenario: Scenario, i: int, state_code: str, turnout: int
 ) -> list[tuple[int, int, list[tuple[int, int, list[BallotVote]]]]]:
     """The three elections of the report: President, then the majoritarian and proportional state offices."""
     presidency = scenario.offices[(1, "br")]
-    state_offices = [scenario.offices[key] for key in _state_keys(uf) if key in scenario.offices]
+    state_offices = [scenario.offices[key] for key in _state_keys(state_code) if key in scenario.offices]
     majoritarian = [
         (office.office_code, turnout, _office_votes(office, i))
         for office in state_offices
@@ -99,8 +99,8 @@ def _elections(
 def _office_votes(office: StateOffice, i: int) -> list[BallotVote]:
     row = i - office.start
     votes = [
-        BallotVote("nominal", int(v), cand.ballot_number, cand.party.number)
-        for cand, v in zip(office.candidates, office.votes[row], strict=True)
+        BallotVote("nominal", int(v), candidate.ballot_number, candidate.party.number)
+        for candidate, v in zip(office.candidates, office.votes[row], strict=True)
         if v > 0
     ]
     if office.party_votes is not None:
@@ -116,6 +116,6 @@ def _office_votes(office: StateOffice, i: int) -> list[BallotVote]:
     return votes
 
 
-def _state_keys(uf: str) -> list[tuple[int, str]]:
+def _state_keys(state_code: str) -> list[tuple[int, str]]:
     """Keys of the state offices elected in `uf`: governor, senator, and the two proportional offices."""
-    return [(3, uf), (5, uf), (6, uf), (8 if uf == "df" else 7, uf)]
+    return [(3, state_code), (5, state_code), (6, state_code), (8 if state_code == "df" else 7, state_code)]

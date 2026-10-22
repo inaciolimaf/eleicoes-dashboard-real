@@ -10,61 +10,61 @@ from app.infra.tse.parsers.common import generation_id
 
 @dataclass
 class ProgressTSE:
-    tipo: str  # br | uf | mu
-    codigo: str  # br, sp, 71072
-    totalizado_em: datetime | None
-    andamento: str
-    secoes_total: int
-    secoes_totalizadas: int
-    pct_secoes: float
-    eleitorado: int
-    eleitorado_apurado: int
-    comparecimento: int
-    pct_comparecimento: float
-    abstencao: int
-    pct_abstencao: float
-    municipios_finalizados: int
-    municipios_parciais: int
-    municipios_nao_recebidos: int
+    kind: str  # br | uf | mu
+    code: str  # br, sp, 71072
+    tallied_at: datetime | None
+    progress_code: str
+    sections_total: int
+    sections_tallied: int
+    pct_sections: float
+    electorate: int
+    tallied_electorate: int
+    turnout: int
+    pct_turnout: float
+    abstention: int
+    pct_abstention: float
+    municipalities_completed: int
+    municipalities_partial: int
+    municipalities_not_received: int
 
 
 @dataclass
 class TrackingTSE:
-    cd_eleicao: int
-    turno: int
-    idg: str
-    gerado_em: datetime | None
-    itens: list[ProgressTSE]
+    election_code: int
+    round: int
+    generation_id: str
+    generated_at: datetime | None
+    items: list[ProgressTSE]
 
 
 def _progress(area: dict[str, Any]) -> ProgressTSE:
     sections = area.get("s") or {}
     electorate = area.get("e") or {}
     return ProgressTSE(
-        tipo=str(area.get("tpabr") or "").lower(),
-        codigo=str(area.get("cdabr") or "").lower(),
-        totalizado_em=date_time(area.get("dt"), area.get("ht")),
-        andamento=str(area.get("and") or ""),
-        secoes_total=integer(sections.get("ts")),
-        secoes_totalizadas=integer(sections.get("st")),
-        pct_secoes=decimal(sections.get("pstn", sections.get("pst"))),
-        eleitorado=integer(electorate.get("te")),
-        eleitorado_apurado=integer(electorate.get("est")),
-        comparecimento=integer(electorate.get("c")),
-        pct_comparecimento=decimal(electorate.get("pcn", electorate.get("pc"))),
-        abstencao=integer(electorate.get("a")),
-        pct_abstencao=decimal(electorate.get("pan", electorate.get("pa"))),
-        municipios_finalizados=integer(area.get("munf")),
-        municipios_parciais=integer(area.get("munpt")),
-        municipios_nao_recebidos=integer(area.get("munnr")),
+        kind=str(area.get("tpabr") or "").lower(),
+        code=str(area.get("cdabr") or "").lower(),
+        tallied_at=date_time(area.get("dt"), area.get("ht")),
+        progress_code=str(area.get("and") or ""),
+        sections_total=integer(sections.get("ts")),
+        sections_tallied=integer(sections.get("st")),
+        pct_sections=decimal(sections.get("pstn", sections.get("pst"))),
+        electorate=integer(electorate.get("te")),
+        tallied_electorate=integer(electorate.get("est")),
+        turnout=integer(electorate.get("c")),
+        pct_turnout=decimal(electorate.get("pcn", electorate.get("pc"))),
+        abstention=integer(electorate.get("a")),
+        pct_abstention=decimal(electorate.get("pan", electorate.get("pa"))),
+        municipalities_completed=integer(area.get("munf")),
+        municipalities_partial=integer(area.get("munpt")),
+        municipalities_not_received=integer(area.get("munnr")),
     )
 
 
 def parse_tracking(data: dict[str, Any]) -> TrackingTSE:
     return TrackingTSE(
-        cd_eleicao=integer(data.get("ele")),
-        turno=integer(data.get("t"), 1),
-        idg=generation_id(data),
-        gerado_em=date_time(data.get("dg"), data.get("hg")),
-        itens=[_progress(area) for area in data.get("abr", []) or []],
+        election_code=integer(data.get("ele")),
+        round=integer(data.get("t"), 1),
+        generation_id=generation_id(data),
+        generated_at=date_time(data.get("dg"), data.get("hg")),
+        items=[_progress(area) for area in data.get("abr", []) or []],
     )

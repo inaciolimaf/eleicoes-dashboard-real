@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from app.infra.tse.bu import decode
+from app.infra.tse.ballot_box import decode
 from app.infra.tse.parsers import parse_result, parse_tracking
 from tse_fake.publication import Publication
 from tse_fake.scenario import FEDERAL_ELECTION_CODE, STATE_ELECTION_CODE, Scenario
@@ -11,31 +11,31 @@ from tse_fake.scenario import FEDERAL_ELECTION_CODE, STATE_ELECTION_CODE, Scenar
 
 @pytest.fixture(scope="module")
 def div():
-    return Publication(Scenario(semente=11, escala=0.05))
+    return Publication(Scenario(seed=11, scale=0.05))
 
 
-def test_cenario_deterministico(div):
-    other = Scenario(semente=11, escala=0.05)
+def test_scenario_is_deterministic(div):
+    other = Scenario(seed=11, scale=0.05)
     assert other.section_count == div.scenario.section_count
     assert np.array_equal(other.offices[(1, "br")].votes, div.scenario.offices[(1, "br")].votes)
 
 
-def test_soma_dos_municipios_bate_com_o_brasil(div):
+def test_municipality_sum_matches_brazil(div):
     t = 3600.0
     _, national = div.result(FEDERAL_ELECTION_CODE, 1, "br", None, None, t)
     total = 0
-    for uf in div.scenario.ufs:
-        _, document = div.result(FEDERAL_ELECTION_CODE, 1, uf, None, None, t)
-        total += parse_result(document, 1).totais.votos_validos
-    assert total == parse_result(national, 1).totais.votos_validos
+    for state_code in div.scenario.states:
+        _, document = div.result(FEDERAL_ELECTION_CODE, 1, state_code, None, None, t)
+        total += parse_result(document, 1).totals.valid_votes
+    assert total == parse_result(national, 1).totals.valid_votes
 
 
 def test_idg_so_muda_quando_o_conteudo_muda(div):
     m = div.scenario.municipalities[0]
     times = sorted(div.scenario.section_time[m.start : m.end])
-    before, _ = div.result(FEDERAL_ELECTION_CODE, 1, m.uf, m.tse_code, None, times[0] - 60)
-    same, _ = div.result(FEDERAL_ELECTION_CODE, 1, m.uf, m.tse_code, None, times[0] - 31)
-    after, _ = div.result(FEDERAL_ELECTION_CODE, 1, m.uf, m.tse_code, None, times[-1] + 60)
+    before, _ = div.result(FEDERAL_ELECTION_CODE, 1, m.state_code, m.tse_code, None, times[0] - 60)
+    same, _ = div.result(FEDERAL_ELECTION_CODE, 1, m.state_code, m.tse_code, None, times[0] - 31)
+    after, _ = div.result(FEDERAL_ELECTION_CODE, 1, m.state_code, m.tse_code, None, times[-1] + 60)
     assert before == same != after
 
 
@@ -43,30 +43,30 @@ def test_final_presidente_e_proporcional(div):
     end = float(div.scenario.section_time.max()) + 60
     _, national = div.result(FEDERAL_ELECTION_CODE, 1, "br", None, None, end)
     result = parse_result(national, 1)
-    assert result.final and result.totais.pct_secoes == 100
-    leader = result.candidatos[0]
-    if leader.pct_validos > 50:
-        assert leader.eleito and leader.situacao_tse == "Eleito"
+    assert result.final and result.totals.pct_sections == 100
+    leader = result.candidates[0]
+    if leader.pct_valid > 50:
+        assert leader.elected and leader.tse_status == "Eleito"
     else:
-        assert [c.situacao_tse for c in result.candidatos[:2]] == ["2º turno", "2º turno"]
+        assert [c.tse_status for c in result.candidates[:2]] == ["2º turno", "2º turno"]
     _, deputies = div.result(STATE_ELECTION_CODE, 6, "sp", None, None, end)
     rd = parse_result(deputies, 6)
-    assert sum(a.vagas or 0 for a in rd.agremiacoes) == 70
-    assert sum(1 for c in rd.candidatos if c.eleito) == 70
+    assert sum(a.seats or 0 for a in rd.alliances) == 70
+    assert sum(1 for c in rd.candidates if c.elected) == 70
     _, senators = div.result(STATE_ELECTION_CODE, 5, "rj", None, None, end)
-    assert sum(1 for c in parse_result(senators, 5).candidatos if c.eleito) == 2
+    assert sum(1 for c in parse_result(senators, 5).candidates if c.elected) == 2
 
 
-def test_acompanhamento_e_boletim(div):
+def test_tracking_and_ballot_report(div):
     t = float(np.median(div.scenario.section_time))
     _, tracking = div.tracking(FEDERAL_ELECTION_CODE, "br", t)
     a = parse_tracking(tracking)
-    assert a.itens[0].tipo == "br" and 45 <= a.itens[0].pct_secoes <= 55
-    assert len([i for i in a.itens if i.tipo == "uf"]) == 27
+    assert a.items[0].kind == "br" and 45 <= a.items[0].pct_sections <= 55
+    assert len([i for i in a.items if i.kind == "uf"]) == 27
     i = int(np.argmin(div.scenario.section_time))
     _, aux = div.auxiliary(i, float(div.scenario.section_time[i]) + 1)
     assert aux["st"] == "Totalizada" and aux["hashes"][0]["nmarq"][2].endswith(".bu")
     bu = decode(div.ballot_box(i))
-    pres = next(c for c in bu.cargos if c.cd_cargo == 1)
+    pres = next(c for c in bu.offices if c.office_code == 1)
     assert pres.validos == int(div.scenario.offices[(1, "br")].votes[i].sum())
-    assert bu.comparecimento == int(div.scenario.section_turnout[i])
+    assert bu.turnout == int(div.scenario.section_turnout[i])

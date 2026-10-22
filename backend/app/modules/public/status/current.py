@@ -17,8 +17,8 @@ async def current_status(session: AsyncSession) -> StatusDto:
     redis = get_redis()
     metrics = await read_metrics(redis)
     raw_last_collection = await redis.get("collector:last_collection")
-    last_tally = await results.ultima_totalizacao(session)
-    elections = await results.listar_eleicoes(session)
+    last_tally = await results.last_tally(session)
+    elections = await results.list_elections(session)
     live = bool(metrics) and not metrics.get("paused")
     return StatusDto(
         tse_environment=settings.tse_environment,
@@ -29,7 +29,7 @@ async def current_status(session: AsyncSession) -> StatusDto:
             raw_last_collection.decode() if isinstance(raw_last_collection, bytes) else raw_last_collection
         ),
         release_start=await _release_start(session, elections),
-        pct_sections_br=await results.pct_br(session),
+        pct_sections_br=await results.pct_country(session),
         collector=CollectorStatusDto(
             paused=bool(metrics.get("paused")), requests_per_second=metrics.get("requests_per_second", 0.0)
         ),

@@ -18,7 +18,7 @@ from typing import Any
 
 import orjson
 from fastapi import FastAPI, HTTPException, Request, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.core.config import get_settings
 from app.infra.tse.jws import sign
@@ -29,52 +29,52 @@ from tse_fake.scenario import CYCLE, ELECTION_EVENT_CODE, Scenario
 MAX_CACHE_ENTRIES = 60000
 
 
-class Relogio:
+class Clock:
     """Simulated clock: `agora` gives the seconds since 17h; `ajustar` sets speed, pause and position."""
 
-    def __init__(self, velocidade: float, inicio_seg: float) -> None:
-        self.velocidade = velocidade
-        self.pausado = False
+    def __init__(self, speed: float, start_seconds: float) -> None:
+        self.speed = speed
+        self.paused = False
         self._ref_real = time.monotonic()
-        self._ref_sim = inicio_seg
+        self._ref_sim = start_seconds
 
-    def agora(self) -> float:
-        if self.pausado:
+    def now(self) -> float:
+        if self.paused:
             return self._ref_sim
-        return self._ref_sim + (time.monotonic() - self._ref_real) * self.velocidade
+        return self._ref_sim + (time.monotonic() - self._ref_real) * self.speed
 
-    def ajustar(
-        self, velocidade: float | None = None, pausado: bool | None = None, ir_para: float | None = None
+    def adjust(
+        self, speed: float | None = None, paused: bool | None = None, go_to: float | None = None
     ) -> None:
-        current = self.agora()
-        self._ref_sim = current if ir_para is None else ir_para
+        current = self.now()
+        self._ref_sim = current if go_to is None else go_to
         self._ref_real = time.monotonic()
-        if velocidade is not None:
-            self.velocidade = max(0.1, velocidade)
-        if pausado is not None:
-            self.pausado = pausado
+        if speed is not None:
+            self.speed = max(0.1, speed)
+        if paused is not None:
+            self.paused = paused
 
 
-class Estado:
-    cenario: Scenario
-    div: Publication
-    relogio: Relogio
+class FakeState:
+    scenario: Scenario
+    publication: Publication
+    clock: Clock
     cache: OrderedDict[str, tuple[str, bytes]]
 
 
-estado = Estado()
+state = FakeState()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     seed = int(os.getenv("FAKE_SEMENTE", "2026"))
     scale = float(os.getenv("FAKE_ESCALA", "1.0"))
-    estado.cenario = Scenario(semente=seed, escala=scale)
-    estado.div = Publication(estado.cenario)
-    estado.relogio = Relogio(
+    state.scenario = Scenario(seed=seed, scale=scale)
+    state.publication = Publication(state.scenario)
+    state.clock = Clock(
         float(os.getenv("FAKE_VELOCIDADE", "10")), float(os.getenv("FAKE_INICIO_MIN", "-2")) * 60
     )
-    estado.cache = OrderedDict()
+    state.cache = OrderedDict()
     yield
 
 
@@ -83,7 +83,7 @@ app = FastAPI(title="TSE fake (mock da divulgação de resultados)", lifespan=li
 
 def current_round() -> float:
     """Files reflect the last tally round (the TSE rewrites them in batches)."""
-    return round_of(estado.relogio.agora())
+    return round_of(state.clock.now())
 
 
 RE_RESULT = re.compile(
@@ -96,17 +96,17 @@ RE_MUNICIPALITIES = re.compile(r"^mun-e(?P<ele>\d{6})-cm\.(?P<ext>json|jws)$")
 def _response(
     request: Request,
     key: str,
-    idg: str,
+    generation_id: str,
     doc: dict[str, Any] | None,
     ext: str,
     generate: Callable[[], dict[str, Any]] | None = None,
 ) -> Response:
-    etag = f'"{idg}"'
-    if request.headers.get("if-none-match") in (etag, idg):
+    etag = f'"{generation_id}"'
+    if request.headers.get("if-none-match") in (etag, generation_id):
         return Response(status_code=304, headers={"ETag": etag})
     cache_key = f"{key}|{ext}"
-    hit = estado.cache.get(cache_key)
-    if hit and hit[0] == idg:
+    hit = state.cache.get(cache_key)
+    if hit and hit[0] == generation_id:
         body = hit[1]
     else:
         if doc is None and generate is not None:
@@ -117,9 +117,9 @@ def _response(
             if ext == "jws"
             else payload
         )
-        estado.cache[cache_key] = (idg, body)
-        if len(estado.cache) > MAX_CACHE_ENTRIES:
-            estado.cache.popitem(last=False)
+        state.cache[cache_key] = (generation_id, body)
+        if len(state.cache) > MAX_CACHE_ENTRIES:
+            state.cache.popitem(last=False)
     return Response(
         content=body, media_type="application/json", headers={"ETag": etag, "Cache-Control": "no-cache"}
     )
@@ -129,115 +129,155 @@ def _response(
 async def catalog(ext: str, request: Request) -> Response:
     if ext not in ("json", "jws"):
         raise HTTPException(404)
-    doc = estado.div.catalog()
+    doc = state.publication.catalog()
     return _response(request, "catalogo", doc["idg"], doc, ext)
 
 
-@app.get("/oficial/" + CYCLE + "/{ele}/config/{arquivo}")
-async def config_municipalities(ele: int, arquivo: str, request: Request) -> Response:
-    m = RE_MUNICIPALITIES.match(arquivo)
-    if not m or int(m["ele"]) != ele:
+@app.get("/oficial/" + CYCLE + "/{election}/config/{file_name}")
+async def config_municipalities(election: int, file_name: str, request: Request) -> Response:
+    m = RE_MUNICIPALITIES.match(file_name)
+    if not m or int(m["ele"]) != election:
         raise HTTPException(404)
-    doc = estado.div.municipalities(ele)
-    return _response(request, f"cm{ele}", doc["idg"], doc, m["ext"])
+    doc = state.publication.municipalities(election)
+    return _response(request, f"cm{election}", doc["idg"], doc, m["ext"])
 
 
-@app.get("/oficial/" + CYCLE + "/{ele}/dados/{uf}/{arquivo}")
-async def data_file(ele: int, uf: str, arquivo: str, request: Request) -> Response:
+@app.get("/oficial/" + CYCLE + "/{election}/dados/{state_code}/{file_name}")
+async def data_file(election: int, state_code: str, file_name: str, request: Request) -> Response:
     t = current_round()
-    m = RE_TRACKING.match(arquivo)
+    m = RE_TRACKING.match(file_name)
     if m:
-        if m["uf"] != uf or int(m["ele"]) != ele or (uf != "br" and uf not in estado.cenario.state_ranges):
+        if (
+            m["uf"] != state_code
+            or int(m["ele"]) != election
+            or (state_code != "br" and state_code not in state.scenario.state_ranges)
+        ):
             raise HTTPException(404)
-        idg, doc = estado.div.tracking(ele, uf, t)
-        return _response(request, f"ab{ele}{uf}", idg, doc, m["ext"])
-    m = RE_RESULT.match(arquivo)
-    if not m or m["uf"] != uf or int(m["ele"]) != ele:
+        generation_id, doc = state.publication.tracking(election, state_code, t)
+        return _response(request, f"ab{election}{state_code}", generation_id, doc, m["ext"])
+    m = RE_RESULT.match(file_name)
+    if not m or m["uf"] != state_code or int(m["ele"]) != election:
         raise HTTPException(404)
     municipality = int(m["mun"]) if m["mun"] else None
     zone = int(m["zona"]) if m["zona"] else None
     try:
-        r = estado.div.result(ele, int(m["cargo"]), uf, municipality, zone, t, only_elected=m["tp"] == "e")
+        r = state.publication.result(
+            election, int(m["cargo"]), state_code, municipality, zone, t, only_elected=m["tp"] == "e"
+        )
     except KeyError:
         r = None
     if r is None:
         raise HTTPException(404)
-    idg, doc = r
-    return _response(request, arquivo.rsplit(".", 1)[0], idg, doc, m["ext"])
+    generation_id, doc = r
+    return _response(request, file_name.rsplit(".", 1)[0], generation_id, doc, m["ext"])
 
 
-@app.get("/oficial/" + CYCLE + "/{ele}/fotos/{uf}/{arquivo}")
-async def photo(ele: int, uf: str, arquivo: str) -> Response:
-    sq = arquivo.split(".")[0]
-    svg = estado.div.photo_svg(sq)
+@app.get("/oficial/" + CYCLE + "/{election}/fotos/{state_code}/{file_name}")
+async def photo(election: int, state_code: str, file_name: str) -> Response:
+    sq = file_name.split(".")[0]
+    svg = state.publication.photo_svg(sq)
     if svg is None:
         raise HTTPException(404)
     return Response(content=svg, media_type="image/svg+xml", headers={"Cache-Control": "max-age=86400"})
 
 
-@app.get("/oficial/" + CYCLE + "/arquivo-urna/{pleito}/config/{uf}/{arquivo}")
-async def config_sections(pleito: int, uf: str, arquivo: str, request: Request) -> Response:
-    expected = f"{uf}-p{ELECTION_EVENT_CODE:06d}-cs.json"
-    if pleito != ELECTION_EVENT_CODE or arquivo != expected or uf not in estado.cenario.state_ranges:
+@app.get("/oficial/" + CYCLE + "/arquivo-urna/{election_event}/config/{state_code}/{file_name}")
+async def config_sections(election_event: int, state_code: str, file_name: str, request: Request) -> Response:
+    expected = f"{state_code}-p{ELECTION_EVENT_CODE:06d}-cs.json"
+    if (
+        election_event != ELECTION_EVENT_CODE
+        or file_name != expected
+        or state_code not in state.scenario.state_ranges
+    ):
         raise HTTPException(404)
     return _response(
-        request, f"cs{uf}", "100000003", None, "json", generate=lambda: estado.div.uf_sections(uf)
+        request,
+        f"cs{state_code}",
+        "100000003",
+        None,
+        "json",
+        generate=lambda: state.publication.state_sections(state_code),
     )
 
 
-@app.get("/oficial/" + CYCLE + "/arquivo-urna/{pleito}/dados/{uf}/{mun}/{zona}/{secao}/{arquivo}")
+@app.get(
+    "/oficial/"
+    + CYCLE
+    + "/arquivo-urna/{election_event}/dados/{state_code}/{municipality}/{zone}/{section}/{file_name}"
+)
 async def auxiliary(
-    pleito: int, uf: str, mun: int, zona: int, secao: int, arquivo: str, request: Request
+    election_event: int,
+    state_code: str,
+    municipality: int,
+    zone: int,
+    section: int,
+    file_name: str,
+    request: Request,
 ) -> Response:
-    i = estado.div.section_index(uf, mun, zona, secao)
-    expected = f"p{ELECTION_EVENT_CODE:06d}-{uf}-m{mun:05d}-z{zona:04d}-s{secao:04d}-aux.json"
-    if pleito != ELECTION_EVENT_CODE or i is None or arquivo != expected:
+    i = state.publication.section_index(state_code, municipality, zone, section)
+    expected = (
+        f"p{ELECTION_EVENT_CODE:06d}-{state_code}-m{municipality:05d}-z{zone:04d}-s{section:04d}-aux.json"
+    )
+    if election_event != ELECTION_EVENT_CODE or i is None or file_name != expected:
         raise HTTPException(404)
-    idg, doc = estado.div.auxiliary(i, current_round())
-    return _response(request, f"aux{i}", idg, doc, "json")
+    generation_id, doc = state.publication.auxiliary(i, current_round())
+    return _response(request, f"aux{i}", generation_id, doc, "json")
 
 
-@app.get("/oficial/" + CYCLE + "/arquivo-urna/{pleito}/dados/{uf}/{mun}/{zona}/{secao}/{hash_}/{arquivo}")
+@app.get(
+    "/oficial/"
+    + CYCLE
+    + "/arquivo-urna/{election_event}/dados/{state_code}/{municipality}/{zone}/{section}/{hash_}/{file_name}"
+)
 async def ballot_file(
-    pleito: int, uf: str, mun: int, zona: int, secao: int, hash_: str, arquivo: str
+    election_event: int,
+    state_code: str,
+    municipality: int,
+    zone: int,
+    section: int,
+    hash_: str,
+    file_name: str,
 ) -> Response:
-    i = estado.div.section_index(uf, mun, zona, secao)
+    i = state.publication.section_index(state_code, municipality, zone, section)
     if (
         i is None
-        or hash_ != estado.div.section_hash(i)
-        or float(estado.cenario.section_time[i]) > current_round()
+        or hash_ != state.publication.section_hash(i)
+        or float(state.scenario.section_time[i]) > current_round()
     ):
         raise HTTPException(404)
-    name = estado.div.bu_name(i)
-    if arquivo == f"{name}.bu":
-        return Response(content=estado.div.ballot_box(i), media_type="application/octet-stream")
-    if arquivo.startswith(name):
+    name = state.publication.bu_name(i)
+    if file_name == f"{name}.bu":
+        return Response(content=state.publication.ballot_box(i), media_type="application/octet-stream")
+    if file_name.startswith(name):
         return Response(content=b"MOCK", media_type="application/octet-stream")
     raise HTTPException(404)
 
 
 @app.get("/dadosabertos/eleitorado_local_votacao_2026.csv")
 async def places_csv() -> Response:
-    return Response(content=estado.div.places_csv(), media_type="text/csv; charset=latin-1")
+    return Response(content=state.publication.places_csv(), media_type="text/csv; charset=latin-1")
 
 
 class Control(BaseModel):
-    velocidade: float | None = None
-    pausado: bool | None = None
-    reiniciar: bool = False
-    ir_para: str | None = None  # "HH:MM" (Brasilia time) or minutes after 17h
+    """Body of `POST /_fake/controle`; the JSON keys are the ones the Makefile and the admin send."""
+
+    speed: float | None = Field(None, alias="velocidade")
+    paused: bool | None = Field(None, alias="pausado")
+    restart: bool = Field(False, alias="reiniciar")
+    #: "HH:MM" (Brasilia time) or minutes after 17h.
+    go_to: str | None = Field(None, alias="ir_para")
 
 
 def _state_json() -> dict[str, Any]:
-    clock = estado.relogio
-    now = clock.agora()
-    scenario = estado.cenario
+    clock = state.clock
+    now = clock.now()
+    scenario = state.scenario
     pct = float((scenario.section_time <= now).mean() * 100)
     return {
         "agora": (START + timedelta(seconds=now)).isoformat(),
         "minutos_apos_17h": round(now / 60, 2),
-        "velocidade": clock.velocidade,
-        "pausado": clock.pausado,
+        "velocidade": clock.speed,
+        "pausado": clock.paused,
         "pct_secoes": round(pct, 3),
         "fim_previsto": (START + timedelta(seconds=float(scenario.section_time.max()))).isoformat(),
         "secoes": int(scenario.section_count),
@@ -253,16 +293,16 @@ async def read_state() -> dict[str, Any]:
 
 @app.post("/_fake/controle")
 async def control(ctrl: Control) -> dict[str, Any]:
-    ir_para: float | None = None
-    if ctrl.reiniciar:
-        ir_para = float(os.getenv("FAKE_INICIO_MIN", "-2")) * 60
-    elif ctrl.ir_para:
-        if ":" in ctrl.ir_para:
-            hours, minutes = ctrl.ir_para.split(":")[:2]
-            ir_para = (int(hours) - 17) * 3600 + int(minutes) * 60
+    go_to: float | None = None
+    if ctrl.restart:
+        go_to = float(os.getenv("FAKE_INICIO_MIN", "-2")) * 60
+    elif ctrl.go_to:
+        if ":" in ctrl.go_to:
+            hours, minutes = ctrl.go_to.split(":")[:2]
+            go_to = (int(hours) - 17) * 3600 + int(minutes) * 60
         else:
-            ir_para = float(ctrl.ir_para) * 60
-    estado.relogio.ajustar(velocidade=ctrl.velocidade, pausado=ctrl.pausado, ir_para=ir_para)
+            go_to = float(ctrl.go_to) * 60
+    state.clock.adjust(speed=ctrl.speed, paused=ctrl.paused, go_to=go_to)
     return _state_json()
 
 

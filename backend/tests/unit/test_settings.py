@@ -17,13 +17,6 @@ def test_fields_read_the_server_variables(monkeypatch):
     assert s.section_mode == "todas"
 
 
-def test_old_attribute_names_still_read_the_new_fields(monkeypatch):
-    monkeypatch.setenv("JWT_SECRET", "x" * 32)
-    s = Settings(_env_file=None)
-    assert s.fila_max == s.queue_max
-    assert s.tse_ambiente == s.tse_environment
-
-
 @pytest.mark.parametrize(
     "secret",
     [None, "x" * 31, next(iter(EXAMPLE_SECRETS))],

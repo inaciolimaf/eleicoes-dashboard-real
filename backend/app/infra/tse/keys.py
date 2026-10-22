@@ -18,7 +18,7 @@ KEYS: dict[str, JwsKey] = {
 def key_for_environment(environment: str) -> JwsKey:
     if environment == "fake":
         settings = get_settings()
-        public_x = settings.tse_fake_chave_publica
+        public_x = settings.tse_fake_public_key
         if not public_x:
             from tse_fake.key import public_key_fake
 
@@ -28,4 +28,3 @@ def key_for_environment(environment: str) -> JwsKey:
 
 
 # Name used before the English rename; the collector still imports it.
-chave_do_ambiente = key_for_environment
