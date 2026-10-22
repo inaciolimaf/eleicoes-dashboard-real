@@ -86,8 +86,22 @@ max-file-lines = 300
 paths = ["app", "tse_fake", "tools"]
 
 [tool.docs-coverage]
+# Paths are relative to the repository root (one level above this file).
+root = ".."
 docs = "docs/system"
-roots = ["app", "frontend/src", "tests", "tools", "docs", "specs"]
+roots = ["backend", "frontend", "docs", "specs", ".github"]
+require = [
+  "backend/app/core/*.py",
+  "backend/app/core/*/",
+  "backend/app/infra/*/",
+  "backend/app/modules/*/",
+  "backend/app/collector/",
+  "backend/app/worker/",
+  "backend/tse_fake/",
+  "backend/alembic/versions/*.py",
+  "frontend/src/routes/*.tsx",
+  "frontend/src/modules/*/",
+]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
