@@ -1,2 +1,1 @@
-export * from "./components/AdminScreen";
-export * from "./hooks";
+export { AdminScreen } from "./components/AdminScreen";

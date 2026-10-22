@@ -12,37 +12,98 @@ import {
   IconShieldLock,
   IconStarFilled,
   IconUsers,
+  type Icon,
 } from "@tabler/icons-react";
+import type { ReactNode } from "react";
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../../../lib/auth-store";
 import { useFilter } from "../../../lib/filter-store";
 import { useUi } from "../../../lib/ui-store";
 import { geoAreaLink } from "../../../lib/geo-areas";
-import { useDashboards } from "../../dashboards";
-import { NewDashboardModal } from "../../dashboards";
-import { OfficeSelector, ElectionSelector } from "./Header";
+import type { Level } from "../../../api/models";
+import { useDashboards, NewDashboardModal } from "../../dashboards";
+import { ElectionSelector, OfficeSelector } from "./Selectors";
 
-export function Navbar() {
-  const loc = useLocation();
-  const { paineis } = useDashboards();
-  const user = useAuth((s) => s.user);
-  const f = useFilter();
-  const fechar = useUi((s) => s.setNavbar);
-  const [novo, setNovo] = useState(false);
-  const ativo = (p: string) => loc.pathname === p || loc.pathname.startsWith(p + "/");
-  const item = (to: string, label: string, Icone: typeof IconMap2, extra?: React.ReactNode) => (
+const NAV_RADIUS = { borderRadius: 8 };
+
+/** A navigation entry; a click on it closes the navbar on small screens. */
+function NavItem({
+  to,
+  label,
+  icon: Icone,
+  extra,
+}: {
+  to: string;
+  label: string;
+  icon: Icon;
+  extra?: ReactNode;
+}) {
+  const { pathname } = useLocation();
+  const closeNavbar = useUi((s) => s.setNavbar);
+  const path = to.split("?")[0];
+  const active = pathname === path || pathname.startsWith(path + "/");
+  return (
     <NavLink
       component={Link}
       to={to}
       label={label}
       leftSection={<Icone size={18} stroke={1.6} />}
       rightSection={extra}
-      active={ativo(to.split("?")[0])}
-      onClick={() => fechar(false)}
-      style={{ borderRadius: 8 }}
+      active={active}
+      onClick={() => closeNavbar(false)}
+      style={NAV_RADIUS}
     />
   );
+}
+
+/** One link per dashboard the user has; the default one also answers the home screen. */
+function DashboardLinks() {
+  const { pathname } = useLocation();
+  const { paineis: dashboards } = useDashboards();
+  const closeNavbar = useUi((s) => s.setNavbar);
+  if (dashboards.length === 0)
+    return (
+      <NavLink
+        component={Link}
+        to="/"
+        label="Noite da eleição"
+        description="template"
+        leftSection={<IconLayoutDashboard size={18} stroke={1.6} />}
+        active={pathname === "/"}
+      />
+    );
+  return (
+    <>
+      {dashboards.map((dashboard) => (
+        <NavLink
+          key={dashboard.id}
+          component={Link}
+          to={`/paineis/${dashboard.id}`}
+          label={dashboard.nome}
+          leftSection={<IconLayoutDashboard size={18} stroke={1.6} />}
+          rightSection={
+            dashboard.padrao ? <IconStarFilled size={12} color="var(--mantine-color-yellow-5)" /> : undefined
+          }
+          active={pathname === `/paineis/${dashboard.id}` || (pathname === "/" && dashboard.padrao)}
+          onClick={() => closeNavbar(false)}
+          style={NAV_RADIUS}
+        />
+      ))}
+    </>
+  );
+}
+
+/** Explore goes to the current geo area; polling places and sections explore from Brazil. */
+function exploreTarget(level: Level, id: string): string {
+  const local = level === "polling_place" || level === "section";
+  return geoAreaLink(local ? "country" : level, local ? "br" : id);
+}
+
+export function Navbar() {
+  const user = useAuth((s) => s.user);
+  const filter = useFilter();
+  const [creating, setCreating] = useState(false);
   return (
     <>
       <ScrollArea h="100%" type="scroll" className="scroll-fino">
@@ -54,8 +115,8 @@ export function Navbar() {
             mb={4}
             style={{ borderBottom: "1px solid var(--mantine-color-default-border)" }}
           >
-            <ElectionSelector largura="100%" />
-            <OfficeSelector soSelect />
+            <ElectionSelector width="100%" />
+            <OfficeSelector onlySelect />
           </Stack>
           <Group justify="space-between" px={6} pt={4}>
             <Text size="xs" fw={700} c="dimmed" tt="uppercase">
@@ -66,65 +127,36 @@ export function Navbar() {
                 size="compact-xs"
                 variant="subtle"
                 leftSection={<IconPlus size={12} />}
-                onClick={() => setNovo(true)}
+                onClick={() => setCreating(true)}
               >
                 Criar
               </Button>
             </Tooltip>
           </Group>
-          {paineis.length === 0 && (
-            <NavLink
-              component={Link}
-              to="/"
-              label="Noite da eleição"
-              description="template"
-              leftSection={<IconLayoutDashboard size={18} stroke={1.6} />}
-              active={loc.pathname === "/"}
-            />
-          )}
-          {paineis.map((p) => (
-            <NavLink
-              key={p.id}
-              component={Link}
-              to={`/paineis/${p.id}`}
-              label={p.nome}
-              leftSection={<IconLayoutDashboard size={18} stroke={1.6} />}
-              rightSection={
-                p.padrao ? <IconStarFilled size={12} color="var(--mantine-color-yellow-5)" /> : undefined
-              }
-              active={loc.pathname === `/paineis/${p.id}` || (loc.pathname === "/" && p.padrao)}
-              onClick={() => fechar(false)}
-              style={{ borderRadius: 8 }}
-            />
-          ))}
-          {item("/paineis", "Gerenciar painéis", IconLayoutGrid)}
-          {item("/tv", "Modo TV", IconDeviceTv)}
+          <DashboardLinks />
+          <NavItem to="/paineis" label="Gerenciar painéis" icon={IconLayoutGrid} />
+          <NavItem to="/tv" label="Modo TV" icon={IconDeviceTv} />
           <Divider my={6} />
-          {item(
-            geoAreaLink(
-              f.nivel === "polling_place" || f.nivel === "section" ? "country" : f.nivel,
-              f.nivel === "polling_place" || f.nivel === "section" ? "br" : f.id,
-            ),
-            "Explorar",
-            IconCompass,
-          )}
-          {item("/mapas", "Mapas", IconMap2)}
-          {item("/candidatos", "Candidatos", IconUsers)}
-          {item(
-            "/eventos",
-            "Eventos",
-            IconCalendarEvent,
-            <Badge size="xs" variant="dot" color="red">
-              ao vivo
-            </Badge>,
-          )}
-          {item("/alertas", "Alertas", IconBell)}
+          <NavItem to={exploreTarget(filter.nivel, filter.id)} label="Explorar" icon={IconCompass} />
+          <NavItem to="/mapas" label="Mapas" icon={IconMap2} />
+          <NavItem to="/candidatos" label="Candidatos" icon={IconUsers} />
+          <NavItem
+            to="/eventos"
+            label="Eventos"
+            icon={IconCalendarEvent}
+            extra={
+              <Badge size="xs" variant="dot" color="red">
+                ao vivo
+              </Badge>
+            }
+          />
+          <NavItem to="/alertas" label="Alertas" icon={IconBell} />
           <Divider my={6} />
-          {item("/conta", "Preferências", IconSettings)}
-          {user?.is_admin && item("/admin", "Admin", IconShieldLock)}
+          <NavItem to="/conta" label="Preferências" icon={IconSettings} />
+          {user?.is_admin && <NavItem to="/admin" label="Admin" icon={IconShieldLock} />}
         </Stack>
       </ScrollArea>
-      <NewDashboardModal aberto={novo} onClose={() => setNovo(false)} />
+      <NewDashboardModal aberto={creating} onClose={() => setCreating(false)} />
     </>
   );
 }

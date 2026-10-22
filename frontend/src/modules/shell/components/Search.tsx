@@ -2,78 +2,84 @@ import { Spotlight, spotlight, type SpotlightActionGroupData } from "@mantine/sp
 import { Button, Kbd, Loader, Text } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
 import {
+  IconBox,
   IconBuildingCommunity,
   IconMap,
   IconMapPin,
   IconSchool,
   IconSearch,
   IconUser,
-  IconBox,
   type Icon,
 } from "@tabler/icons-react";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSearch } from "../hooks";
-import type { SearchItemDto, Level, SearchType } from "../../../api/models";
+import type { Level, SearchItemDto, SearchType } from "../../../api/models";
 import { geoAreaLink } from "../../../lib/geo-areas";
 import { officeForState } from "../../../lib/offices";
 import { useFilter } from "../../../lib/filter-store";
 
-const GRUPO: Record<SearchType, { rotulo: string; icone: Icon }> = {
-  candidate: { rotulo: "Candidatos", icone: IconUser },
-  state: { rotulo: "UFs", icone: IconMap },
-  municipality: { rotulo: "Municípios", icone: IconBuildingCommunity },
-  zone: { rotulo: "Zonas", icone: IconMapPin },
-  polling_place: { rotulo: "Locais de votação", icone: IconSchool },
-  section: { rotulo: "Seções", icone: IconBox },
+/** Search results are grouped in this order, each group with its label and icon. */
+const GROUPS: Record<SearchType, { label: string; icon: Icon }> = {
+  candidate: { label: "Candidatos", icon: IconUser },
+  state: { label: "UFs", icon: IconMap },
+  municipality: { label: "Municípios", icon: IconBuildingCommunity },
+  zone: { label: "Zonas", icon: IconMapPin },
+  polling_place: { label: "Locais de votação", icon: IconSchool },
+  section: { label: "Seções", icon: IconBox },
 };
+const DEBOUNCE_MS = 220;
+const MIN_QUERY_LENGTH = 2;
 
-/** Busca global (Ctrl+K) sobre /busca. */
+/** Global search (Ctrl+K) over the search API. */
 export function Search() {
-  const [q, setQ] = useState("");
-  const [deb] = useDebouncedValue(q, 220);
-  const r = useSearch(deb);
+  const [query, setQuery] = useState("");
+  const [debouncedQuery] = useDebouncedValue(query, DEBOUNCE_MS);
+  const results = useSearch(debouncedQuery);
   const navigate = useNavigate();
 
-  const abrir = (it: SearchItemDto) => {
-    if (it.type === "candidato") {
-      if (it.office_code)
-        useFilter
-          .getState()
-          .setFiltro({ cargo: officeForState(Number(it.office_code), it.state_code ?? null) });
-      navigate(`/candidatos/${encodeURIComponent(it.id)}`);
-      return;
-    }
-    const nivel = (it.level ?? it.type) as Level;
-    if (nivel !== "polling_place" && nivel !== "section")
-      useFilter.getState().setRecorte(nivel, it.id, it.title);
-    navigate(geoAreaLink(nivel, it.id));
-  };
+  const openHit = useCallback(
+    (hit: SearchItemDto) => {
+      // the API marks candidate hits as "candidato" here, as it always did
+      if (hit.type === "candidato") {
+        if (hit.office_code)
+          useFilter
+            .getState()
+            .setFiltro({ cargo: officeForState(Number(hit.office_code), hit.state_code ?? null) });
+        navigate(`/candidatos/${encodeURIComponent(hit.id)}`);
+        return;
+      }
+      const level = (hit.level ?? hit.type) as Level;
+      if (level !== "polling_place" && level !== "section")
+        useFilter.getState().setRecorte(level, hit.id, hit.title);
+      navigate(geoAreaLink(level, hit.id));
+    },
+    [navigate],
+  );
 
   const actions = useMemo<SpotlightActionGroupData[]>(() => {
-    const grupos = new Map<SearchType, SearchItemDto[]>();
-    for (const it of r.data?.items ?? []) {
-      const l = grupos.get(it.type as SearchType);
-      if (l) l.push(it);
-      else grupos.set(it.type as SearchType, [it]);
+    const hitsByType = new Map<SearchType, SearchItemDto[]>();
+    for (const hit of results.data?.items ?? []) {
+      const list = hitsByType.get(hit.type as SearchType);
+      if (list) list.push(hit);
+      else hitsByType.set(hit.type as SearchType, [hit]);
     }
-    return (Object.keys(GRUPO) as SearchType[])
-      .filter((t) => grupos.has(t))
-      .map((t) => {
-        const G = GRUPO[t];
+    return (Object.keys(GROUPS) as SearchType[])
+      .filter((type) => hitsByType.has(type))
+      .map((type) => {
+        const group = GROUPS[type];
         return {
-          group: G.rotulo,
-          actions: grupos.get(t)!.map((it) => ({
-            id: `${it.type}:${it.id}`,
-            label: it.title,
-            description: it.subtitle ?? undefined,
-            leftSection: <G.icone size={20} stroke={1.6} />,
-            onClick: () => abrir(it),
+          group: group.label,
+          actions: hitsByType.get(type)!.map((hit) => ({
+            id: `${hit.type}:${hit.id}`,
+            label: hit.title,
+            description: hit.subtitle ?? undefined,
+            leftSection: <group.icon size={20} stroke={1.6} />,
+            onClick: () => openHit(hit),
           })),
         };
       });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [r.data]);
+  }, [results.data, openHit]);
 
   return (
     <>
@@ -97,16 +103,16 @@ export function Search() {
       </Button>
       <Spotlight
         actions={actions}
-        query={q}
-        onQueryChange={setQ}
-        filter={(_q, a) => a}
+        query={query}
+        onQueryChange={setQuery}
+        filter={(_q, items) => items}
         shortcut={["mod + K", "/"]}
         nothingFound={
-          deb.trim().length < 2 ? (
+          debouncedQuery.trim().length < MIN_QUERY_LENGTH ? (
             <Text size="sm" c="dimmed">
               Município, zona (“zona 1 SP”), seção, escola, bairro, candidato (nome ou número) ou partido
             </Text>
-          ) : r.isFetching ? (
+          ) : results.isFetching ? (
             <Loader size="sm" />
           ) : (
             "Nada encontrado"
@@ -116,7 +122,7 @@ export function Search() {
         scrollable
         maxHeight={460}
         searchProps={{
-          leftSection: r.isFetching ? <Loader size={16} /> : <IconSearch size={18} />,
+          leftSection: results.isFetching ? <Loader size={16} /> : <IconSearch size={18} />,
           placeholder: "Buscar município, escola, candidato…",
         }}
       />

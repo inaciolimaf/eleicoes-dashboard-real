@@ -5,50 +5,53 @@ import { useState } from "react";
 import { useLogin, useRegister } from "../hooks";
 import { useUi } from "../../../lib/ui-store";
 
+type AuthTab = "login" | "register";
+
+/** Sign-in and account-creation modal, opened from the user menu or from any screen that needs an account. */
 export function AuthModal() {
-  const aberto = useUi((s) => s.authAberto);
-  const setAberto = useUi((s) => s.setAuthAberto);
-  const [aba, setAba] = useState<string | null>("entrar");
+  const isOpen = useUi((s) => s.authAberto);
+  const setOpen = useUi((s) => s.setAuthAberto);
+  const [tab, setTab] = useState<AuthTab>("login");
   const login = useLogin();
-  const registro = useRegister();
+  const register = useRegister();
   const form = useForm({
-    initialValues: { nome: "", email: "", senha: "" },
+    initialValues: { name: "", email: "", password: "" },
     validate: {
       email: (v) => (/^\S+@\S+\.\S+$/.test(v) ? null : "E-mail inválido"),
-      senha: (v) => (v.length >= 6 ? null : "Mínimo de 6 caracteres"),
-      nome: (v, vals) => (aba === "registro" && !v.trim() && vals ? "Informe seu nome" : null),
+      password: (v) => (v.length >= 6 ? null : "Mínimo de 6 caracteres"),
+      name: (v, values) => (tab === "register" && !v.trim() && values ? "Informe seu nome" : null),
     },
   });
-  const erro = (aba === "entrar" ? login.error : registro.error) as Error | null;
-  const enviar = form.onSubmit(async (v) => {
+  const error = (tab === "login" ? login.error : register.error) as Error | null;
+  const submit = form.onSubmit(async (values) => {
     try {
-      const r =
-        aba === "entrar"
-          ? await login.mutateAsync({ email: v.email, senha: v.senha })
-          : await registro.mutateAsync(v);
+      const result =
+        tab === "login"
+          ? await login.mutateAsync({ email: values.email, password: values.password })
+          : await register.mutateAsync(values);
       notifications.show({
         color: "teal",
-        title: `Olá, ${r.user.name.split(" ")[0]}!`,
-        message: r.user.is_admin ? "Você é administrador." : "Sessão iniciada.",
+        title: `Olá, ${result.user.name.split(" ")[0]}!`,
+        message: result.user.is_admin ? "Você é administrador." : "Sessão iniciada.",
       });
       form.reset();
-      setAberto(false);
+      setOpen(false);
     } catch {
-      /* exibido no Alert */
+      /* shown in the Alert below the form */
     }
   });
   return (
-    <Modal opened={aberto} onClose={() => setAberto(false)} title={<Text fw={700}>Sua conta</Text>} size="sm">
-      <Tabs value={aba} onChange={setAba}>
+    <Modal opened={isOpen} onClose={() => setOpen(false)} title={<Text fw={700}>Sua conta</Text>} size="sm">
+      <Tabs value={tab} onChange={(value) => setTab((value as AuthTab) ?? "login")}>
         <Tabs.List grow mb="md">
-          <Tabs.Tab value="entrar">Entrar</Tabs.Tab>
-          <Tabs.Tab value="registro">Criar conta</Tabs.Tab>
+          <Tabs.Tab value="login">Entrar</Tabs.Tab>
+          <Tabs.Tab value="register">Criar conta</Tabs.Tab>
         </Tabs.List>
       </Tabs>
-      <form onSubmit={enviar}>
+      <form onSubmit={submit}>
         <Stack>
-          {aba === "registro" && (
-            <TextInput label="Nome" autoComplete="name" {...form.getInputProps("nome")} />
+          {tab === "register" && (
+            <TextInput label="Nome" autoComplete="name" {...form.getInputProps("name")} />
           )}
           <TextInput
             label="E-mail"
@@ -59,16 +62,16 @@ export function AuthModal() {
           />
           <PasswordInput
             label="Senha"
-            autoComplete={aba === "entrar" ? "current-password" : "new-password"}
-            {...form.getInputProps("senha")}
+            autoComplete={tab === "login" ? "current-password" : "new-password"}
+            {...form.getInputProps("password")}
           />
-          {erro && (
+          {error && (
             <Alert color="red" variant="light">
-              {erro.message}
+              {error.message}
             </Alert>
           )}
-          <Button type="submit" loading={login.isPending || registro.isPending}>
-            {aba === "entrar" ? "Entrar" : "Criar conta"}
+          <Button type="submit" loading={login.isPending || register.isPending}>
+            {tab === "login" ? "Entrar" : "Criar conta"}
           </Button>
           <Text size="xs" c="dimmed">
             Sem conta, seus painéis ficam salvos neste navegador. Com conta, ficam disponíveis em qualquer

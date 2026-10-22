@@ -1,242 +1,148 @@
-import {
-  ActionIcon,
-  Badge,
-  Box,
-  Button,
-  Group,
-  SegmentedControl,
-  Slider,
-  Text,
-  Tooltip,
-} from "@mantine/core";
+import { Badge, Button, Group, SegmentedControl, Text } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
-import {
-  IconPlayerPauseFilled,
-  IconPlayerPlayFilled,
-  IconPlayerTrackNext,
-  IconPlayerTrackPrev,
-  IconBroadcast,
-} from "@tabler/icons-react";
-import { useEffect, useMemo, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { IconBroadcast } from "@tabler/icons-react";
+import { useState } from "react";
 import { useTimeline } from "../../events";
 import { useFilter } from "../../../lib/filter-store";
 import { useTime, SPEEDS, type Speed } from "../../../lib/time-store";
-import { brt, fmtTime } from "../../../lib/time";
-import { EVENT_COLORS, EVENT_LABELS } from "../../events";
+import { brt } from "../../../lib/time";
+import { LIVE_DOT_HEX } from "../../../lib/palettes/shell";
+import { findAdjacentEvent, useBackToLive, useReplayClock, useTimelineEvents } from "../hooks";
+import { TimeTransport } from "./TimeTransport";
+import { TimelineTrack } from "./TimelineTrack";
 
-const COR_HEX: Record<string, string> = {
-  orange: "#F97316",
-  blue: "#3D7BFF",
-  green: "#22C55E",
-  yellow: "#EAB308",
-  teal: "#14B8A6",
-  grape: "#A855F7",
-  cyan: "#06B6D4",
-};
-const PASSO_MS = 2000;
+/** Keeps the scrubbed position from snapping back to live when the user releases the slider this close to the end. */
+const LIVE_SNAP_MS = 30_000;
+
+function EmptyTimeline({ loading, failed }: { loading: boolean; failed: boolean }) {
+  return (
+    <Group h="100%" px="md" gap="sm" justify="space-between">
+      <Text size="sm" c="dimmed">
+        {loading
+          ? "Carregando linha do tempo…"
+          : failed
+            ? "Linha do tempo indisponível"
+            : "A linha do tempo aparece com os primeiros snapshots da apuração."}
+      </Text>
+      <Badge
+        variant="light"
+        color="red"
+        leftSection={<span className="ao-vivo-dot" style={{ width: 6, height: 6 }} />}
+      >
+        Ao vivo
+      </Badge>
+    </Group>
+  );
+}
+
+function LiveButton({
+  isLive,
+  isMobile,
+  onClick,
+}: {
+  isLive: boolean;
+  isMobile: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <Button
+      size="xs"
+      color="red"
+      variant={isLive ? "filled" : "outline"}
+      leftSection={
+        isLive ? (
+          <span className="ao-vivo-dot" style={{ background: LIVE_DOT_HEX, width: 7, height: 7 }} />
+        ) : (
+          <IconBroadcast size={14} />
+        )
+      }
+      onClick={onClick}
+      px={isMobile ? 8 : undefined}
+    >
+      {isMobile ? "VIVO" : "AO VIVO"}
+    </Button>
+  );
+}
 
 /** Slider global de tempo ("máquina do tempo") com replay e marcadores de eventos. */
 export function TimeSlider() {
-  const turno = useFilter((s) => s.turno);
-  const q = useTimeline(turno);
-  const { t, tocando, velocidade, novidades, setT, aoVivo, setTocando, setVelocidade } = useTime();
-  const qc = useQueryClient();
-  const celular = useMediaQuery("(max-width: 48em)");
-  const inicio = q.data?.start ? new Date(q.data.start).getTime() : null;
-  const fim = q.data?.end ? new Date(q.data.end).getTime() : null;
-  const valorAtual = t ? new Date(t).getTime() : (fim ?? 0);
-  const [arrastando, setArrastando] = useState<number | null>(null);
+  const round = useFilter((s) => s.turno);
+  const timeline = useTimeline(round);
+  const {
+    t,
+    tocando: playing,
+    velocidade: speed,
+    novidades: newUpdates,
+    setT,
+    setTocando: setPlaying,
+    setVelocidade: setSpeed,
+  } = useTime();
+  const isMobile = useMediaQuery("(max-width: 48em)");
+  const start = timeline.data?.start ? new Date(timeline.data.start).getTime() : null;
+  const end = timeline.data?.end ? new Date(timeline.data.end).getTime() : null;
+  const currentValue = t ? new Date(t).getTime() : (end ?? 0);
+  const [dragging, setDragging] = useState<number | null>(null);
+  const backToLive = useBackToLive();
+  const events = useTimelineEvents(timeline.data, start, end);
+  useReplayClock(playing, start, end, backToLive);
 
-  // replay
-  useEffect(() => {
-    if (!tocando || !inicio || !fim) return;
-    const id = setInterval(() => {
-      const atual = useTime.getState().t;
-      const base = atual ? new Date(atual).getTime() : inicio;
-      const prox = base + useTime.getState().velocidade * PASSO_MS;
-      if (prox >= fim) {
-        voltarAoVivo();
-        return;
-      }
-      useTime.getState().setT(new Date(Math.floor(prox / 1000) * 1000).toISOString());
-    }, PASSO_MS);
-    return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tocando, inicio, fim]);
+  if (!start || !end || end <= start)
+    return <EmptyTimeline loading={timeline.isLoading} failed={!!timeline.error} />;
 
-  const voltarAoVivo = () => {
-    aoVivo();
-    // recupera o estado ao vivo (diffs não foram aplicados enquanto T ≠ agora)
-    qc.invalidateQueries({
-      predicate: (qq) => {
-        const k = qq.queryKey;
-        return (
-          ["resultados", "filhos", "locais", "progresso"].includes(String(k[0])) && k[k.length - 1] === null
-        );
-      },
-    });
+  const shown = dragging ?? currentValue;
+  const isLive = !t;
+  const jump = (direction: 1 | -1) => {
+    const target = findAdjacentEvent(events, currentValue, direction);
+    if (target) setT(new Date(target.ms).toISOString());
   };
-
-  const eventos = useMemo(() => {
-    if (!q.data || !inicio || !fim || fim <= inicio) return [];
-    return q.data.events
-      .map((e) => ({ e, ms: new Date(e.occurred_at ?? "").getTime() }))
-      .filter((x) => x.ms >= inicio && x.ms <= fim)
-      .sort((a, b) => a.ms - b.ms);
-  }, [q.data, inicio, fim]);
-
-  const saltar = (dir: 1 | -1) => {
-    const ref = valorAtual;
-    const alvo =
-      dir === 1
-        ? eventos.find((x) => x.ms > ref + 1000)
-        : [...eventos].reverse().find((x) => x.ms < ref - 1000);
-    if (alvo) setT(new Date(alvo.ms).toISOString());
+  const handleScrubEnd = (value: number) => {
+    setDragging(null);
+    if (value >= end - LIVE_SNAP_MS) backToLive();
+    else setT(new Date(value).toISOString());
   };
-
-  if (!inicio || !fim || fim <= inicio) {
-    return (
-      <Group h="100%" px="md" gap="sm" justify="space-between">
-        <Text size="sm" c="dimmed">
-          {q.isLoading
-            ? "Carregando linha do tempo…"
-            : q.error
-              ? "Linha do tempo indisponível"
-              : "A linha do tempo aparece com os primeiros snapshots da apuração."}
-        </Text>
-        <Badge
-          variant="light"
-          color="red"
-          leftSection={<span className="ao-vivo-dot" style={{ width: 6, height: 6 }} />}
-        >
-          Ao vivo
-        </Badge>
-      </Group>
-    );
-  }
-
-  const exibido = arrastando ?? valorAtual;
-  const aoVivoAgora = !t;
 
   return (
     <Group h="100%" px={{ base: "xs", sm: "md" }} gap="sm" wrap="nowrap">
-      <Group gap={4} wrap="nowrap">
-        <Tooltip label="EventDto anterior">
-          <ActionIcon
-            variant="subtle"
-            onClick={() => saltar(-1)}
-            aria-label="EventDto anterior"
-            visibleFrom="sm"
-          >
-            <IconPlayerTrackPrev size={16} />
-          </ActionIcon>
-        </Tooltip>
-        <Tooltip label={tocando ? "Pausar replay" : "Reproduzir a apuração (replay)"}>
-          <ActionIcon
-            variant="filled"
-            radius="xl"
-            size="lg"
-            onClick={() => setTocando(!tocando)}
-            aria-label={tocando ? "Pausar" : "Reproduzir"}
-          >
-            {tocando ? <IconPlayerPauseFilled size={16} /> : <IconPlayerPlayFilled size={16} />}
-          </ActionIcon>
-        </Tooltip>
-        <Tooltip label="Próximo evento">
-          <ActionIcon variant="subtle" onClick={() => saltar(1)} aria-label="Próximo evento" visibleFrom="sm">
-            <IconPlayerTrackNext size={16} />
-          </ActionIcon>
-        </Tooltip>
-      </Group>
+      <TimeTransport playing={playing} onTogglePlay={() => setPlaying(!playing)} onJump={jump} />
       <SegmentedControl
         size="xs"
-        value={String(velocidade)}
-        onChange={(v) => setVelocidade(Number(v) as Speed)}
+        value={String(speed)}
+        onChange={(v) => setSpeed(Number(v) as Speed)}
         data={SPEEDS.map((v) => ({ value: String(v), label: `${v}×` }))}
         visibleFrom="md"
         aria-label="Velocidade do replay"
       />
-      <Box style={{ flex: 1, minWidth: 80 }} pt={14} pos="relative">
-        <Box pos="absolute" top={0} left={8} right={8} h={12} style={{ pointerEvents: "none" }}>
-          {eventos.map(({ e, ms }) => (
-            <Tooltip
-              key={e.id}
-              label={`${fmtTime(e.occurred_at, false)} · ${EVENT_LABELS[e.type] ?? e.type}: ${e.title}`}
-            >
-              <Box
-                className="marcador-evento"
-                style={{
-                  left: `${((ms - inicio) / (fim - inicio)) * 100}%`,
-                  background: COR_HEX[EVENT_COLORS[e.type] ?? "blue"],
-                  pointerEvents: "auto",
-                }}
-                onClick={() => setT(new Date(ms).toISOString())}
-              />
-            </Tooltip>
-          ))}
-        </Box>
-        <Slider
-          min={inicio}
-          max={fim}
-          step={1000}
-          value={Math.min(fim, Math.max(inicio, exibido))}
-          onChange={setArrastando}
-          onChangeEnd={(v) => {
-            setArrastando(null);
-            if (v >= fim - 30_000) voltarAoVivo();
-            else setT(new Date(v).toISOString());
-          }}
-          label={(v) => brt(v).format("HH:mm:ss")}
-          size="sm"
-          color={aoVivoAgora ? "red" : "yellow"}
-          aria-label="Linha do tempo"
-        />
-        <Group justify="space-between" mt={2} visibleFrom="sm">
-          <Text fz={10} c="dimmed" className="num">
-            {brt(inicio).format("DD/MM HH:mm")}
-          </Text>
-          <Text fz={10} c="dimmed" className="num">
-            {brt(fim).format("DD/MM HH:mm")}
-          </Text>
-        </Group>
-      </Box>
+      <TimelineTrack
+        events={events}
+        start={start}
+        end={end}
+        value={Math.min(end, Math.max(start, shown))}
+        isLive={isLive}
+        onChange={setDragging}
+        onChangeEnd={handleScrubEnd}
+        onMarkerPick={(ms) => setT(new Date(ms).toISOString())}
+      />
       <Text
         size="sm"
         fw={700}
         className="num"
         style={{ whiteSpace: "nowrap" }}
-        c={aoVivoAgora ? undefined : "yellow.5"}
+        c={isLive ? undefined : "yellow.5"}
       >
-        {brt(exibido).format(celular ? "HH:mm" : "HH:mm:ss")}
+        {brt(shown).format(isMobile ? "HH:mm" : "HH:mm:ss")}
       </Text>
-      {!aoVivoAgora && novidades > 0 && (
+      {!isLive && newUpdates > 0 && (
         <Badge
           color="red"
           variant="light"
           style={{ cursor: "pointer" }}
-          onClick={voltarAoVivo}
+          onClick={backToLive}
           visibleFrom="sm"
         >
-          {novidades} novidade{novidades > 1 ? "s" : ""} — voltar ao vivo
+          {newUpdates} novidade{newUpdates > 1 ? "s" : ""} — voltar ao vivo
         </Badge>
       )}
-      <Button
-        size="xs"
-        color="red"
-        variant={aoVivoAgora ? "filled" : "outline"}
-        leftSection={
-          aoVivoAgora ? (
-            <span className="ao-vivo-dot" style={{ background: "#fff", width: 7, height: 7 }} />
-          ) : (
-            <IconBroadcast size={14} />
-          )
-        }
-        onClick={voltarAoVivo}
-        px={celular ? 8 : undefined}
-      >
-        {celular ? "VIVO" : "AO VIVO"}
-      </Button>
+      <LiveButton isLive={isLive} isMobile={!!isMobile} onClick={backToLive} />
     </Group>
   );
 }

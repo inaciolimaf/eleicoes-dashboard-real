@@ -6,35 +6,33 @@ import { useAuth } from "../../../lib/auth-store";
 import { useUi } from "../../../lib/ui-store";
 import { initials } from "../../../lib/formatting";
 
+/** Sign-in buttons for a visitor: a labelled one on wide screens, an icon one on narrow ones. */
+function SignInButtons() {
+  const openAuth = () => useUi.getState().setAuthAberto(true);
+  return (
+    <>
+      <Button
+        size="sm"
+        variant="light"
+        leftSection={<IconLogin size={16} />}
+        onClick={openAuth}
+        visibleFrom="sm"
+      >
+        Entrar
+      </Button>
+      <Button size="sm" variant="light" px={8} onClick={openAuth} hiddenFrom="sm" aria-label="Entrar">
+        <IconUser size={16} />
+      </Button>
+    </>
+  );
+}
+
+/** Account avatar that opens the user's menu. */
 export function UserMenu() {
-  const { user, sair } = useAuth();
-  const setAuth = useUi((s) => s.setAuthAberto);
+  const { user, sair: signOut } = useAuth();
   const navigate = useNavigate();
-  const qc = useQueryClient();
-  if (!user)
-    return (
-      <>
-        <Button
-          size="sm"
-          variant="light"
-          leftSection={<IconLogin size={16} />}
-          onClick={() => setAuth(true)}
-          visibleFrom="sm"
-        >
-          Entrar
-        </Button>
-        <Button
-          size="sm"
-          variant="light"
-          px={8}
-          onClick={() => setAuth(true)}
-          hiddenFrom="sm"
-          aria-label="Entrar"
-        >
-          <IconUser size={16} />
-        </Button>
-      </>
-    );
+  const queryClient = useQueryClient();
+  if (!user) return <SignInButtons />;
   return (
     <Menu position="bottom-end" width={220} shadow="md">
       <Menu.Target>
@@ -72,10 +70,11 @@ export function UserMenu() {
           color="red"
           leftSection={<IconLogout size={14} />}
           onClick={() => {
-            sair();
-            qc.removeQueries({ queryKey: ["paineis"] });
-            qc.removeQueries({ queryKey: ["favoritos"] });
-            qc.removeQueries({ queryKey: ["alertas"] });
+            signOut();
+            // the account's data must not outlive the session
+            queryClient.removeQueries({ queryKey: ["paineis"] });
+            queryClient.removeQueries({ queryKey: ["favoritos"] });
+            queryClient.removeQueries({ queryKey: ["alertas"] });
             navigate("/");
           }}
         >

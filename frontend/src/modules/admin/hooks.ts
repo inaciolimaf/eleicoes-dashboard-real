@@ -1,7 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { notifications } from "@mantine/notifications";
 import { api } from "../../api/client";
 import type { AdminHealthDto, FakeTseControlCreate, FakeTseStateDto } from "../../api/models";
 import { qk } from "../../api/query-keys";
+
+/** An action of the admin screen: pause or resume the collector, or send a command to the fake TSE clock. */
+export type AdminCommand =
+  { kind: "pause" } | { kind: "resume" } | { kind: "fake"; body: FakeTseControlCreate };
 
 export function useAdminHealth(enabled: boolean) {
   return useQuery({
@@ -22,17 +27,30 @@ export function useAdminFake(enabled: boolean) {
   });
 }
 
-export function useAdminAction() {
-  const qc = useQueryClient();
+function useAdminMutation() {
+  const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (a: { tipo: "pausar" | "retomar" } | { tipo: "fake"; body: FakeTseControlCreate }) =>
-      a.tipo === "fake"
-        ? api<FakeTseStateDto>("/admin/fake-tse", { method: "POST", body: a.body })
-        : api<unknown>(`/admin/collector/${a.tipo === "pausar" ? "pause" : "resume"}`, { method: "POST" }),
+    mutationFn: (command: AdminCommand) =>
+      command.kind === "fake"
+        ? api<FakeTseStateDto>("/admin/fake-tse", { method: "POST", body: command.body })
+        : api<unknown>(`/admin/collector/${command.kind}`, { method: "POST" }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["admin"] });
-      qc.invalidateQueries({ queryKey: qk.status() });
-      qc.invalidateQueries({ queryKey: qk.linha(1) });
+      queryClient.invalidateQueries({ queryKey: ["admin"] });
+      queryClient.invalidateQueries({ queryKey: qk.status() });
+      queryClient.invalidateQueries({ queryKey: qk.linha(1) });
     },
   });
+}
+
+/** Runs an admin command and tells the user the outcome with a notification. */
+export function useRunAdminCommand() {
+  const mutation = useAdminMutation();
+  return async (command: AdminCommand, successMessage: string) => {
+    try {
+      await mutation.mutateAsync(command);
+      notifications.show({ color: "teal", message: successMessage });
+    } catch (error) {
+      notifications.show({ color: "red", title: "Falha", message: (error as Error).message });
+    }
+  };
 }

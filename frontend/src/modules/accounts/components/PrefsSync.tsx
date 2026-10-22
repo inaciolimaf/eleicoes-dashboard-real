@@ -1,72 +1,74 @@
-import type { Density, Theme } from "../../../lib/prefs-store";
-import { useMantineColorScheme } from "@mantine/core";
 import { useEffect, useRef } from "react";
+import { useMantineColorScheme } from "@mantine/core";
 import { api } from "../../../api/client";
-import { usePreferencesApi } from "../hooks";
 import type { PreferencesDto } from "../../../api/models";
 import { useAuth } from "../../../lib/auth-store";
-import { usePrefs } from "../../../lib/prefs-store";
+import { usePrefs, type Density, type Theme } from "../../../lib/prefs-store";
+import { usePreferencesApi } from "../hooks";
 
-/** Aplica tema/animações e sincroniza preferências com o backend quando logado. */
+/** Waits this long after the last local change before saving the preferences to the API. */
+const SAVE_DEBOUNCE_MS = 1200;
+
+/** Applies the theme and the animations switch, and keeps the preferences in step with the API when logged in. */
 export function PrefsSync() {
   const { setColorScheme } = useMantineColorScheme();
-  const tema = usePrefs((s) => s.tema);
-  const animacoes = usePrefs((s) => s.animacoes);
+  const theme = usePrefs((s) => s.tema);
+  const animations = usePrefs((s) => s.animacoes);
   const token = useAuth((s) => s.token);
-  const remoto = usePreferencesApi();
-  const carregado = useRef(false);
+  const remote = usePreferencesApi();
+  const loadedFromApi = useRef(false);
 
   useEffect(() => {
-    setColorScheme(tema === "escuro" ? "dark" : tema === "claro" ? "light" : "auto");
-  }, [tema, setColorScheme]);
+    setColorScheme(theme === "escuro" ? "dark" : theme === "claro" ? "light" : "auto");
+  }, [theme, setColorScheme]);
 
   useEffect(() => {
-    document.documentElement.classList.toggle("sem-animacoes", !animacoes);
-  }, [animacoes]);
+    document.documentElement.classList.toggle("sem-animacoes", !animations);
+  }, [animations]);
 
-  // backend → local (uma vez por login)
+  // API -> local, once per login
   useEffect(() => {
     if (!token) {
-      carregado.current = false;
+      loadedFromApi.current = false;
       return;
     }
-    if (!remoto.data || carregado.current) return;
-    carregado.current = true;
-    const r = remoto.data;
-    const n = (r.notifications ?? {}) as { toasts?: string[]; push?: boolean };
+    if (!remote.data || loadedFromApi.current) return;
+    loadedFromApi.current = true;
+    const saved = remote.data;
+    const notifications = (saved.notifications ?? {}) as { toasts?: string[]; push?: boolean };
     usePrefs.getState().carregar({
-      ...(r.theme ? { tema: r.theme as Theme } : {}),
-      ...(r.density ? { densidade: r.density as Density } : {}),
-      ...(typeof r.animations === "boolean" ? { animacoes: r.animations } : {}),
-      ...(r.candidate_colors ? { coresCandidatos: r.candidate_colors } : {}),
-      ...(Array.isArray(n.toasts) ? { toasts: n.toasts } : {}),
-      ...(typeof n.push === "boolean" ? { push: n.push } : {}),
+      ...(saved.theme ? { tema: saved.theme as Theme } : {}),
+      ...(saved.density ? { densidade: saved.density as Density } : {}),
+      ...(typeof saved.animations === "boolean" ? { animacoes: saved.animations } : {}),
+      ...(saved.candidate_colors ? { coresCandidatos: saved.candidate_colors } : {}),
+      ...(Array.isArray(notifications.toasts) ? { toasts: notifications.toasts } : {}),
+      ...(typeof notifications.push === "boolean" ? { push: notifications.push } : {}),
     });
-  }, [token, remoto.data]);
+  }, [token, remote.data]);
 
-  // local → backend (debounce)
+  // local -> API, debounced
   useEffect(() => {
     if (!token) return;
     let timer: ReturnType<typeof setTimeout> | null = null;
-    const unsub = usePrefs.subscribe((s) => {
-      if (!carregado.current && remoto.isLoading) return;
+    const unsubscribe = usePrefs.subscribe((state) => {
+      if (!loadedFromApi.current && remote.isLoading) return;
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => {
         const body: PreferencesDto = {
-          theme: s.tema,
-          density: s.densidade,
-          animations: s.animacoes,
-          candidate_colors: s.coresCandidatos,
-          notifications: { toasts: s.toasts, push: s.push },
+          theme: state.tema,
+          density: state.densidade,
+          animations: state.animacoes,
+          candidate_colors: state.coresCandidatos,
+          notifications: { toasts: state.toasts, push: state.push },
         };
         api("/preferences", { method: "PUT", body }).catch(() => undefined);
-      }, 1200);
+      }, SAVE_DEBOUNCE_MS);
     });
     return () => {
-      unsub();
+      unsubscribe();
       if (timer) clearTimeout(timer);
     };
-  }, [token, remoto.isLoading]);
+  }, [token, remote.isLoading]);
 
   return null;
 }

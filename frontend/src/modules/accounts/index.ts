@@ -1,6 +1,5 @@
-export * from "./components/AccountScreen";
-export * from "./components/AuthModal";
-export * from "./components/PrefsSync";
-export * from "./components/UserMenu";
-export * from "./hooks";
-export * from "./store";
+export { AccountScreen } from "./components/AccountScreen";
+export { AuthModal } from "./components/AuthModal";
+export { PrefsSync } from "./components/PrefsSync";
+export { UserMenu } from "./components/UserMenu";
+export { useFavorites } from "./store";
