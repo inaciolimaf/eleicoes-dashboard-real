@@ -1,91 +1,105 @@
-# Eleições Dashboard Real
+# Election dashboard
 
-Dashboard para acompanhar em tempo real a apuração das eleições brasileiras com
-dados oficiais do TSE. Dá para filtrar por cargo (Presidente, Governador,
-Senador, Deputados), por recorte geográfico (Brasil → UF → município → zona →
-local de votação/"colégio" → seção) e por momento da apuração (replay /
-"máquina do tempo"). Os painéis são montados pelo próprio usuário.
+Real-time dashboard of the Brazilian election count with the TSE's official data. It filters by
+office (President, Governor, Senator, Deputies), by geographic area (Brazil → state → municipality
+→ zone → polling place → section) and by moment of the count (replay, a "time machine"), and users
+build their own dashboards. The interface is in Portuguese; the code and its documentation are in
+English.
 
-## Como rodar
+How the system works today: [`docs/system/`](docs/system/README.md). Terms: [`docs/glossary.md`](docs/glossary.md).
+Working on the code: [`CLAUDE.md`](CLAUDE.md).
 
-Pré-requisito: Docker com Docker Compose.
+## Where things are
 
-```bash
-make up            # sobe tudo contra o MOCK do TSE (primeira vez: copia .env.example para .env)
+```
+backend/         FastAPI API, collector and worker (Python 3.12, uv), the fake TSE, Alembic, tests
+frontend/        React 18 + TypeScript + Vite + Mantine; Vitest and Playwright
+docs/system/     how the system works, one file per domain
+docs/            glossary.md, deploy-coolify.md
+specs/           what was asked and why (in Portuguese), in reading order
+docker-compose*.yml  local (+ override with alternative ports), dev, test, Coolify
+Makefile         every command (`make` lists them)
 ```
 
-| O quê | Onde |
+## How to run
+
+Requirement: Docker with Docker Compose.
+
+```bash
+make up            # the whole system against the FAKE TSE (first time: copies .env.example to .env)
+make dev           # development: backend reload + Vite with HMR at http://localhost:5173
+make up-oficial    # the real TSE (election day) — review .env first
+make reset         # delete the database, queues and collected files
+```
+
+With the versioned `docker-compose.override.yml` (loaded automatically), the ports are:
+
+| What | Where |
 |---|---|
-| Dashboard | http://localhost:8080 |
-| API (Swagger) | http://localhost:8000/api/docs |
-| Mock do TSE (estado do relógio) | http://localhost:8089/_fake/estado |
+| Dashboard | http://localhost:28080 |
+| API (Swagger) | http://localhost:28000/api/docs |
+| Fake TSE (clock state) | http://localhost:28089/_fake/estado |
 
-O mock simula a noite da eleição: começa às 16:58 e a divulgação abre às 17h (horário de Brasília). Por
-padrão o relógio anda 5× mais rápido. Para controlar:
+Without the override (`docker compose -f docker-compose.yml up`): 8080, 8000 and 8089.
 
-```bash
-make fake-velocidade v=20   # acelera
-make fake-ir h=19:30        # pula para 19h30
-make fake-reiniciar         # volta para 16:58
-```
-
-O relógio também pode ser controlado pela página **Admin** do dashboard. O primeiro usuário cadastrado vira
-admin.
-
-Outros comandos:
+The fake TSE simulates the election night: it starts at 16:58 and results open at 17:00 (Brasília
+time), with the clock 5× faster by default:
 
 ```bash
-make test          # testes do backend em containers (ruff + pytest com cobertura >= 85%)
-make dev           # desenvolvimento: reload no backend + Vite com HMR em http://localhost:5173
-make up-oficial    # TSE real (dia da eleição) — revise o .env antes (doc 10, seção 10.7)
-make reset         # apaga banco, filas e arquivos coletados
+make fake-velocidade v=20   # faster
+make fake-ir h=19:30        # jump to 19:30
+make fake-reiniciar         # back to 16:58
 ```
 
-Os dados do mock são **fictícios** (candidatos, partidos e votos), sobre a geografia real dos 5.563
-municípios.
+The clock can also be driven from the **Admin** page. The first registered user becomes admin. The
+fake data (candidates, parties and votes) is **fictitious**, over the real geography of the 5,563
+municipalities.
 
-## Stack
+Quality (the same as CI, `.github/workflows/ci.yml`):
 
-- **Backend:** Python 3.12, FastAPI, SQLAlchemy 2.0 (async), Alembic,
-  PostgreSQL 16, Redis. Testes com pytest
-  (testes automatizados **só no backend**).
-- **Frontend:** React 18, TypeScript, Vite, Mantine (componentes prontos),
-  Apache ECharts (gráficos), MapLibre GL + deck.gl (mapas),
-  react-grid-layout (dashboard personalizável), TanStack Query, Zustand.
-- **Execução:** tudo via **Docker Compose** (`make up`).
+```bash
+make lint types docs        # ruff, size caps, import boundaries, compose files; strict mypy; docs coverage
+make test                   # backend suite in containers (Postgres + Redis, coverage >= 85%)
+make test-unit              # backend unit tests, no infrastructure
+make web-test web-coverage  # eslint, prettier, tsc, vitest (coverage >= 60%)
+make e2e mobile e2e-flows   # Playwright against a running API
+```
 
-## Documentos
+## Deploy
 
-| # | Documento | Conteúdo |
-|---|-----------|----------|
-| 1 | [Como funciona a eleição no Brasil](docs/01-sistema-eleitoral.md) | Cargos, turnos, regras majoritária e proporcional, hierarquia geográfica, fluxo da urna até a totalização, calendário de 2026 |
-| 2 | [Fontes de dados do TSE](docs/02-fontes-de-dados-tse.md) | Existe API? Arquivos JSON/JWS de divulgação, catálogo, padrões de URL, dicionário de campos, limites, assinatura, Dados Abertos |
-| 3 | [Dados por zona, local de votação e seção](docs/03-granularidade-secao.md) | Como chegar ao nível de seção em tempo real (boletins de urna) e como montar a visão por "colégio" |
-| 4 | [Requisitos do produto](docs/04-requisitos.md) | Votos válidos e situação de eleito, granularidade, mapas, tempo real, linha do tempo, personalização, critérios de aceite |
-| 5 | [Arquitetura](docs/05-arquitetura.md) | Stack, coletor, worker, API REST e WebSocket, geodados |
-| 6 | [Modelo de dados](docs/06-modelo-de-dados.md) | Entidades, tabelas, snapshots e agregações |
-| 7 | [Plano de entrega e riscos](docs/07-roadmap-riscos.md) | Ordem de construção do sistema completo, validações pendentes, riscos |
-| 8 | [Backend](docs/08-backend.md) | FastAPI, modelos SQLAlchemy, migrações Alembic, regras de domínio, **testes** |
-| 9 | [Frontend](docs/09-frontend.md) | Bibliotecas, visual, telas, placar com votos válidos e eleito, **mapas**, personalização, tempo real |
-| 10 | [Docker](docs/10-docker.md) | Serviços do Compose, Dockerfiles, Makefile, testes e produção |
+Coolify with `docker-compose.coolify.yml`, step by step in
+[`docs/deploy-coolify.md`](docs/deploy-coolify.md). The file needs no hand-configured variable:
+secrets are generated by Coolify.
 
-## Resumo da pesquisa
+## Specs
 
-- O TSE **não tem uma API REST** com consultas e filtros. O que existe é a
-  publicação de **arquivos estáticos JSON** (e, desde 2026, também **JWS**,
-  que é JSON assinado com Ed25519) em `resultados.tse.jus.br`, atualizados à
-  medida que os boletins de urna chegam. Todo sistema "em tempo real",
-  inclusive o app oficial Resultados e os portais de notícia, consome esses
-  arquivos.
-- O ponto de entrada é o **catálogo** `comum/config/ele-c.json`. Ele lista
-  pleitos, eleições, cargos e os **templates de diretório** de cada tipo de
-  arquivo.
-- Os resultados oficiais em tempo real vão até **município** e **zona**. O
-  nível de **seção** sai dos **boletins de urna (BU)**, publicados por seção
-  durante a totalização (arquivo binário ASN.1). O **local de votação**
-  ("colégio") vem dentro do próprio BU e o nome/endereço de cada local está no
-  Portal de Dados Abertos.
-- O TSE **não guarda histórico das parciais**. Para o filtro "por tempo",
-  nosso sistema precisa gravar um snapshot a cada nova geração dos arquivos.
-- 1º turno: **04/10/2026**. Divulgação a partir das **17h (horário de
-  Brasília)** em todo o país. 2º turno: **25/10/2026**.
+| # | Spec | What it decides |
+|---|---|---|
+| 1 | [Electoral system](specs/01-electoral-system.md) | Offices, rounds, majoritarian and proportional rules, geographic hierarchy, from the ballot box to the tally, 2026 calendar |
+| 2 | [TSE data sources](specs/02-tse-data-sources.md) | No REST API: static JSON/JWS files, catalog, URL patterns, field dictionary, limits, signature, open data |
+| 3 | [Section granularity](specs/03-section-granularity.md) | Reaching the section level in real time (ballot box reports) and the polling place view |
+| 4 | [Requirements](specs/04-requirements.md) | Valid votes and elected status, granularity, maps, real time, timeline, personalization, acceptance criteria |
+| 5 | [Architecture](specs/05-architecture.md) | Stack, collector, worker, REST API and WebSocket, geodata |
+| 6 | [Data model](specs/06-data-model.md) | Entities, tables, snapshots and aggregations |
+| 7 | [Roadmap and risks](specs/07-roadmap-and-risks.md) | Build order, pending validations, risks |
+| 8 | [Backend](specs/08-backend.md) | FastAPI, SQLAlchemy models, Alembic migrations, domain rules, tests |
+| 9 | [Frontend](specs/09-frontend.md) | Libraries, look, screens, scoreboard, maps, personalization, real time |
+| 10 | [Docker](specs/10-docker.md) | Compose services, Dockerfiles, Makefile, tests and production |
+| 11 | [API contract](specs/11-api-contract.md) | The original v1 contract (the code now uses the English names in `docs/system/public-api.md`) |
+| 12 | [Backend num container só](specs/12-single-backend.md) | API, coletor e worker no mesmo serviço; liderança do coletor com compare-and-set |
+
+## Research summary
+
+- The TSE has **no REST API** with queries and filters. It publishes **static JSON files** (and,
+  since 2026, **JWS** — JSON signed with Ed25519) at `resultados.tse.jus.br`, updated as the ballot
+  box reports arrive. Every "real-time" system, the official app and news portals included, reads
+  those files.
+- The entry point is the **catalog** `comum/config/ele-c.json`: election events, elections, offices
+  and the directory templates of each file type.
+- Official real-time results go down to **municipality** and **zone**. The **section** level comes
+  from the **ballot box reports** (BU, binary ASN.1), published per section during the tally. The
+  **polling place** comes inside the BU, and each place's name/address is in the open data portal.
+- The TSE **keeps no history of partial results**: for the "by time" filter, the system stores a
+  snapshot at every new generation of the files.
+- First round: **2026-10-04**. Results from **17:00 (Brasília time)** nationwide. Second round:
+  **2026-10-25**.
