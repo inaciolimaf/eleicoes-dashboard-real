@@ -1,0 +1,9 @@
+src/api/types.ts
+dist
+node_modules
+captures
+playwright-report
+test-results
+coverage
+package-lock.json
+public
