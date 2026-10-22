@@ -77,27 +77,27 @@ def test_liderando_e_calculado_so_quando_tse_nao_definiu():
 
 def _linha(pct, lider, segundo="x", nivel="br", cd=1):
     return {
-        "nivel": nivel,
-        "cd_cargo": cd,
-        "recorte_id": "br" if nivel == "br" else "mg",
-        "turno": 1,
-        "totalizado_em": datetime(2026, 10, 4, 22, tzinfo=UTC),
-        "pct_secoes": pct,
-        "lider_sqcand": lider,
-        "segundo_sqcand": segundo,
-        "lider_pct": 49.0,
-        "segundo_pct": 48.0,
+        "level": nivel,
+        "office_code": cd,
+        "geo_area_id": "br" if nivel == "br" else "mg",
+        "round": 1,
+        "tallied_at": datetime(2026, 10, 4, 22, tzinfo=UTC),
+        "pct_sections": pct,
+        "leader_candidate_id": lider,
+        "second_candidate_id": segundo,
+        "leader_pct": 49.0,
+        "second_pct": 48.0,
     }
 
 
 def test_eventos_inicio_marcos_e_virada():
     nomes = {"a": "ANA", "b": "BIA"}
     evs = eventos.detectar(_linha(0, None), _linha(26, "a"), nomes, "Brasil", "majoritario")
-    tipos = [e["tipo"] for e in evs]
+    tipos = [e["type"] for e in evs]
     assert tipos.count("marco") == 2 and "inicio" in tipos
     evs = eventos.detectar(_linha(60, "a", "b"), _linha(61, "b", "a"), nomes, "Brasil", "majoritario")
-    virada = next(e for e in evs if e["tipo"] == "virada")
-    assert "BIA passou ANA" in virada["descricao"]
+    virada = next(e for e in evs if e["type"] == "virada")
+    assert "BIA passou ANA" in virada["description"]
     assert eventos.detectar(_linha(60, "a"), _linha(61, "b"), nomes, "Brasil", "proporcional") == []
     assert eventos.detectar(None, _linha(50, "a", nivel="municipio"), nomes, "X", "majoritario") == []
 
@@ -112,7 +112,7 @@ def test_eventos_eleito_e_segundo_turno():
         {"a": "LIDERANDO", "b": "EM_APURACAO"},
         {"a": "SEGUNDO_TURNO", "b": "SEGUNDO_TURNO"},
     )
-    assert [e["tipo"] for e in evs].count("segundo_turno") == 2
+    assert [e["type"] for e in evs].count("segundo_turno") == 2
     evs = eventos.detectar(
         _linha(80, "a"),
         _linha(81, "a"),
@@ -122,7 +122,7 @@ def test_eventos_eleito_e_segundo_turno():
         {"a": "LIDERANDO"},
         {"a": "MATEMATICAMENTE_ELEITO"},
     )
-    assert evs[-1]["tipo"] == "matematicamente_definido"
+    assert evs[-1]["type"] == "matematicamente_definido"
 
 
 def test_cores_estaveis():

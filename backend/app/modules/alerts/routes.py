@@ -9,8 +9,8 @@ from sqlalchemy import select
 
 import app.modules.alerts.evaluation as alertas_srv
 from app.core.deps import SessaoDep
-from app.modules.accounts import Usuario, UsuarioDep
-from app.modules.alerts.models import Alerta
+from app.modules.accounts import User, UsuarioDep
+from app.modules.alerts.models import Alert
 
 router = APIRouter()
 
@@ -24,22 +24,22 @@ class AlertaEntrada(BaseModel):
     ativo: bool = True
 
 
-def alerta_json(a: Alerta) -> dict:
+def alerta_json(a: Alert) -> dict:
     return {
         "id": str(a.id),
-        "tipo": a.tipo,
+        "tipo": a.type,
         "params": a.params,
-        "ativo": a.ativo,
-        "disparado_em": a.disparado_em.isoformat() if a.disparado_em else None,
+        "ativo": a.active,
+        "disparado_em": a.triggered_at.isoformat() if a.triggered_at else None,
     }
 
 
-async def _meu_alerta(session: SessaoDep, u: Usuario, aid: str) -> Alerta:
+async def _meu_alerta(session: SessaoDep, u: User, aid: str) -> Alert:
     try:
-        a = await session.get(Alerta, uuid.UUID(aid))
+        a = await session.get(Alert, uuid.UUID(aid))
     except ValueError as exc:
         raise HTTPException(404) from exc
-    if a is None or a.usuario_id != u.id:
+    if a is None or a.user_id != u.id:
         raise HTTPException(404, "alerta não encontrado")
     return a
 
@@ -47,14 +47,14 @@ async def _meu_alerta(session: SessaoDep, u: Usuario, aid: str) -> Alerta:
 @router.get("/alertas")
 async def listar_alertas(session: SessaoDep, u: UsuarioDep) -> list[dict]:
     rows = (
-        await session.execute(select(Alerta).where(Alerta.usuario_id == u.id).order_by(Alerta.criado_em))
+        await session.execute(select(Alert).where(Alert.user_id == u.id).order_by(Alert.created_at))
     ).scalars()
     return [alerta_json(a) for a in rows]
 
 
 @router.post("/alertas", status_code=201)
 async def criar_alerta(session: SessaoDep, u: UsuarioDep, dados: AlertaEntrada) -> dict:
-    a = Alerta(usuario_id=u.id, tipo=dados.tipo, params=dados.params, ativo=dados.ativo)
+    a = Alert(user_id=u.id, type=dados.tipo, params=dados.params, active=dados.ativo)
     session.add(a)
     await session.commit()
     await session.refresh(a)
@@ -65,7 +65,7 @@ async def criar_alerta(session: SessaoDep, u: UsuarioDep, dados: AlertaEntrada) 
 @router.put("/alertas/{aid}")
 async def atualizar_alerta(session: SessaoDep, u: UsuarioDep, aid: str, dados: AlertaEntrada) -> dict:
     a = await _meu_alerta(session, u, aid)
-    a.tipo, a.params, a.ativo, a.disparado_em = dados.tipo, dados.params, dados.ativo, None
+    a.type, a.params, a.active, a.triggered_at = dados.tipo, dados.params, dados.ativo, None
     await session.commit()
     await session.refresh(a)
     alertas_srv.invalidar_cache()

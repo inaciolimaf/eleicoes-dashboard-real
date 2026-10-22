@@ -12,7 +12,7 @@ from sqlalchemy import delete, func, select, update
 from app.core.deps import SessaoDep, parse_t
 from app.core.security import criar_token, hash_senha, verificar_senha
 from app.modules.accounts.deps import UsuarioDep
-from app.modules.accounts.models import Compartilhamento, Favorito, Painel, Preferencia, Usuario
+from app.modules.accounts.models import Dashboard, Favorite, Preference, Share, User
 
 router = APIRouter()
 
@@ -30,21 +30,21 @@ class Login(BaseModel):
     senha: str
 
 
-def usuario_json(u: Usuario) -> dict:
-    return {"id": str(u.id), "email": u.email, "nome": u.nome, "is_admin": u.is_admin}
+def usuario_json(u: User) -> dict:
+    return {"id": str(u.id), "email": u.email, "nome": u.name, "is_admin": u.is_admin}
 
 
-def token_json(u: Usuario) -> dict:
+def token_json(u: User) -> dict:
     return {"access_token": criar_token(str(u.id)), "token_type": "bearer", "usuario": usuario_json(u)}
 
 
 @router.post("/auth/registro", status_code=201)
 async def registrar(session: SessaoDep, dados: Registro) -> dict:
     email = dados.email.lower()
-    if (await session.execute(select(Usuario).where(Usuario.email == email))).scalar_one_or_none():
+    if (await session.execute(select(User).where(User.email == email))).scalar_one_or_none():
         raise HTTPException(409, "e-mail já cadastrado")
-    primeiro = (await session.execute(select(func.count()).select_from(Usuario))).scalar_one() == 0
-    u = Usuario(email=email, nome=dados.nome, senha_hash=hash_senha(dados.senha), is_admin=primeiro)
+    primeiro = (await session.execute(select(func.count()).select_from(User))).scalar_one() == 0
+    u = User(email=email, name=dados.nome, password_hash=hash_senha(dados.senha), is_admin=primeiro)
     session.add(u)
     await session.commit()
     return token_json(u)
@@ -52,10 +52,8 @@ async def registrar(session: SessaoDep, dados: Registro) -> dict:
 
 @router.post("/auth/login")
 async def login(session: SessaoDep, dados: Login) -> dict:
-    u = (
-        await session.execute(select(Usuario).where(Usuario.email == dados.email.lower()))
-    ).scalar_one_or_none()
-    if u is None or not verificar_senha(dados.senha, u.senha_hash):
+    u = (await session.execute(select(User).where(User.email == dados.email.lower()))).scalar_one_or_none()
+    if u is None or not verificar_senha(dados.senha, u.password_hash):
         raise HTTPException(401, "e-mail ou senha inválidos")
     return token_json(u)
 
@@ -83,24 +81,24 @@ class PainelEntrada(BaseModel):
         return v
 
 
-def painel_json(p: Painel) -> dict:
+def painel_json(p: Dashboard) -> dict:
     return {
         "id": str(p.id),
-        "nome": p.nome,
-        "ordem": p.ordem,
-        "padrao": p.padrao,
+        "nome": p.name,
+        "ordem": p.position,
+        "padrao": p.is_default,
         "schema_version": p.schema_version,
         "config": p.config,
-        "atualizado_em": p.atualizado_em.isoformat() if p.atualizado_em else None,
+        "atualizado_em": p.updated_at.isoformat() if p.updated_at else None,
     }
 
 
-async def _meu_painel(session: SessaoDep, u: Usuario, pid: str) -> Painel:
+async def _meu_painel(session: SessaoDep, u: User, pid: str) -> Dashboard:
     try:
-        p = await session.get(Painel, uuid.UUID(pid))
+        p = await session.get(Dashboard, uuid.UUID(pid))
     except ValueError as exc:
         raise HTTPException(404) from exc
-    if p is None or p.usuario_id != u.id:
+    if p is None or p.user_id != u.id:
         raise HTTPException(404, "painel não encontrado")
     return p
 
@@ -109,7 +107,9 @@ async def _meu_painel(session: SessaoDep, u: Usuario, pid: str) -> Painel:
 async def listar_paineis(session: SessaoDep, u: UsuarioDep) -> list[dict]:
     rows = (
         await session.execute(
-            select(Painel).where(Painel.usuario_id == u.id).order_by(Painel.ordem, Painel.criado_em)
+            select(Dashboard)
+            .where(Dashboard.user_id == u.id)
+            .order_by(Dashboard.position, Dashboard.created_at)
         )
     ).scalars()
     return [painel_json(p) for p in rows]
@@ -120,16 +120,18 @@ async def criar_painel(session: SessaoDep, u: UsuarioDep, dados: PainelEntrada) 
     ordem = dados.ordem
     if ordem is None:
         ordem = (
-            await session.execute(select(func.count()).select_from(Painel).where(Painel.usuario_id == u.id))
+            await session.execute(
+                select(func.count()).select_from(Dashboard).where(Dashboard.user_id == u.id)
+            )
         ).scalar_one()
     if dados.padrao:
-        await session.execute(update(Painel).where(Painel.usuario_id == u.id).values(padrao=False))
-    p = Painel(
-        usuario_id=u.id,
-        nome=dados.nome,
+        await session.execute(update(Dashboard).where(Dashboard.user_id == u.id).values(is_default=False))
+    p = Dashboard(
+        user_id=u.id,
+        name=dados.nome,
         config=dados.config,
-        padrao=dados.padrao,
-        ordem=ordem,
+        is_default=dados.padrao,
+        position=ordem,
         schema_version=dados.schema_version,
     )
     session.add(p)
@@ -146,16 +148,16 @@ async def obter_painel(session: SessaoDep, u: UsuarioDep, pid: str) -> dict:
 @router.put("/paineis/{pid}")
 async def atualizar_painel(session: SessaoDep, u: UsuarioDep, pid: str, dados: PainelEntrada) -> dict:
     p = await _meu_painel(session, u, pid)
-    if dados.padrao and not p.padrao:
-        await session.execute(update(Painel).where(Painel.usuario_id == u.id).values(padrao=False))
-    p.nome, p.config, p.padrao, p.schema_version = (
+    if dados.padrao and not p.is_default:
+        await session.execute(update(Dashboard).where(Dashboard.user_id == u.id).values(is_default=False))
+    p.name, p.config, p.is_default, p.schema_version = (
         dados.nome,
         dados.config,
         dados.padrao,
         dados.schema_version,
     )
     if dados.ordem is not None:
-        p.ordem = dados.ordem
+        p.position = dados.ordem
     await session.commit()
     await session.refresh(p)
     return painel_json(p)
@@ -182,8 +184,8 @@ async def compartilhar(session: SessaoDep, u: UsuarioDep, pid: str, dados: Compa
         raise HTTPException(422, "modo congelado exige 'tempo'")
     token = secrets.token_urlsafe(16)
     session.add(
-        Compartilhamento(
-            token=token, painel_id=p.id, modo=dados.modo, tempo=tempo, criado_em=datetime.now(UTC)
+        Share(
+            token=token, dashboard_id=p.id, mode=dados.modo, frozen_time=tempo, created_at=datetime.now(UTC)
         )
     )
     await session.commit()
@@ -192,13 +194,17 @@ async def compartilhar(session: SessaoDep, u: UsuarioDep, pid: str, dados: Compa
 
 @router.get("/compartilhados/{token}")
 async def compartilhado(session: SessaoDep, token: str) -> dict:
-    c = await session.get(Compartilhamento, token)
+    c = await session.get(Share, token)
     if c is None:
         raise HTTPException(404, "link inválido")
-    p = await session.get(Painel, c.painel_id)
+    p = await session.get(Dashboard, c.dashboard_id)
     if p is None:
         raise HTTPException(404, "painel removido")
-    return {"painel": painel_json(p), "modo": c.modo, "tempo": c.tempo.isoformat() if c.tempo else None}
+    return {
+        "painel": painel_json(p),
+        "modo": c.mode,
+        "tempo": c.frozen_time.isoformat() if c.frozen_time else None,
+    }
 
 
 # ------------------------------------------------------------------ favoritos
@@ -212,17 +218,17 @@ class FavoritoEntrada(BaseModel):
 
 @router.get("/favoritos")
 async def listar_favoritos(session: SessaoDep, u: UsuarioDep) -> list[dict]:
-    rows = (await session.execute(select(Favorito).where(Favorito.usuario_id == u.id))).scalars()
-    return [{"tipo": f.tipo, "ref": f.ref, "rotulo": f.rotulo} for f in rows]
+    rows = (await session.execute(select(Favorite).where(Favorite.user_id == u.id))).scalars()
+    return [{"tipo": f.type, "ref": f.ref, "rotulo": f.label} for f in rows]
 
 
 @router.post("/favoritos", status_code=201)
 async def criar_favorito(session: SessaoDep, u: UsuarioDep, dados: FavoritoEntrada) -> dict:
-    existente = await session.get(Favorito, {"usuario_id": u.id, "tipo": dados.tipo, "ref": dados.ref})
+    existente = await session.get(Favorite, {"user_id": u.id, "type": dados.tipo, "ref": dados.ref})
     if existente is None:
-        session.add(Favorito(usuario_id=u.id, tipo=dados.tipo, ref=dados.ref, rotulo=dados.rotulo))
+        session.add(Favorite(user_id=u.id, type=dados.tipo, ref=dados.ref, label=dados.rotulo))
     else:
-        existente.rotulo = dados.rotulo
+        existente.label = dados.rotulo
     await session.commit()
     return dados.model_dump()
 
@@ -230,7 +236,7 @@ async def criar_favorito(session: SessaoDep, u: UsuarioDep, dados: FavoritoEntra
 @router.delete("/favoritos/{tipo}/{ref}", status_code=204)
 async def apagar_favorito(session: SessaoDep, u: UsuarioDep, tipo: str, ref: str) -> Response:
     await session.execute(
-        delete(Favorito).where(Favorito.usuario_id == u.id, Favorito.tipo == tipo, Favorito.ref == ref)
+        delete(Favorite).where(Favorite.user_id == u.id, Favorite.type == tipo, Favorite.ref == ref)
     )
     await session.commit()
     return Response(status_code=204)
@@ -250,17 +256,17 @@ PREFERENCIAS_PADRAO = {
 
 @router.get("/preferencias")
 async def obter_preferencias(session: SessaoDep, u: UsuarioDep) -> dict:
-    p = await session.get(Preferencia, u.id)
-    return {**PREFERENCIAS_PADRAO, **(p.dados if p else {})}
+    p = await session.get(Preference, u.id)
+    return {**PREFERENCIAS_PADRAO, **(p.data if p else {})}
 
 
 @router.put("/preferencias")
 async def salvar_preferencias(session: SessaoDep, u: UsuarioDep, dados: dict[str, Any]) -> dict:
     permitidas = {k: v for k, v in dados.items() if k in PREFERENCIAS_PADRAO}
-    p = await session.get(Preferencia, u.id)
+    p = await session.get(Preference, u.id)
     if p is None:
-        session.add(Preferencia(usuario_id=u.id, dados=permitidas))
+        session.add(Preference(user_id=u.id, data=permitidas))
     else:
-        p.dados = {**p.dados, **permitidas}
+        p.data = {**p.data, **permitidas}
     await session.commit()
-    return {**PREFERENCIAS_PADRAO, **permitidas} if p is None else {**PREFERENCIAS_PADRAO, **p.dados}
+    return {**PREFERENCIAS_PADRAO, **permitidas} if p is None else {**PREFERENCIAS_PADRAO, **p.data}

@@ -11,11 +11,11 @@ from app.core.config import get_settings
 from app.core.db import get_sessionmaker
 from app.core.main import app
 from app.infra import queue as fila
-from app.modules.ballot_reports import Boletim
-from app.modules.elections import Candidato
-from app.modules.events import Evento
-from app.modules.geography import LocalVotacao, Municipio, Secao, parse
-from app.modules.results import ResultadoAtual, Snapshot
+from app.modules.ballot_reports import BallotBoxReport
+from app.modules.elections import Candidate
+from app.modules.events import Event
+from app.modules.geography import Municipality, PollingPlace, PollingSection, parse
+from app.modules.results import CurrentResult, ResultSnapshot
 from app.modules.results import queries as resultados
 from app.worker.jobs import Processador
 from tests.conftest import limpar_banco
@@ -91,16 +91,16 @@ async def api():
 
 async def test_catalogo_municipios_e_locais_carregados(ambiente):
     async with get_sessionmaker()() as s:
-        assert (await s.execute(select(func.count()).select_from(Municipio))).scalar_one() > 5000
-        assert (await s.execute(select(func.count()).select_from(LocalVotacao))).scalar_one() > 1000
-        sp = (await s.execute(select(Municipio).where(Municipio.cd_ibge == 3550308))).scalar_one()
-        assert sp.capital and sp.nome == "São Paulo" and sp.lat is not None
+        assert (await s.execute(select(func.count()).select_from(Municipality))).scalar_one() > 5000
+        assert (await s.execute(select(func.count()).select_from(PollingPlace))).scalar_one() > 1000
+        sp = (await s.execute(select(Municipality).where(Municipality.ibge_code == 3550308))).scalar_one()
+        assert sp.is_capital and sp.name == "São Paulo" and sp.lat is not None
 
 
 async def test_antes_das_17h_resultados_zerados(ambiente):
     async with get_sessionmaker()() as s:
         linha = await resultados.linha_tse(s, 1, 1, "br", "br", None)
-        assert linha is not None and linha["pct_secoes"] == 0 and linha["votos_validos"] == 0
+        assert linha is not None and linha["pct_sections"] == 0 and linha["valid_votes"] == 0
 
 
 async def test_apuracao_parcial_e_snapshots(ambiente, redis_cliente):
@@ -116,20 +116,20 @@ async def test_apuracao_parcial_e_snapshots(ambiente, redis_cliente):
         n_snap = (
             await s.execute(
                 select(func.count())
-                .select_from(Snapshot)
-                .where(Snapshot.nivel == "br", Snapshot.cd_cargo == 1)
+                .select_from(ResultSnapshot)
+                .where(ResultSnapshot.level == "br", ResultSnapshot.office_code == 1)
             )
         ).scalar_one()
         assert n_snap >= 3
         muns = (
             await s.execute(
                 select(func.count())
-                .select_from(ResultadoAtual)
-                .where(ResultadoAtual.nivel == "municipio", ResultadoAtual.uf == UF_TESTE)
+                .select_from(CurrentResult)
+                .where(CurrentResult.level == "municipio", CurrentResult.state_code == UF_TESTE)
             )
         ).scalar_one()
         assert muns > 0
-        assert (await s.execute(select(func.count()).select_from(Boletim))).scalar_one() > 0
+        assert (await s.execute(select(func.count()).select_from(BallotBoxReport))).scalar_one() > 0
 
 
 async def test_maquina_do_tempo(ambiente):
@@ -151,17 +151,19 @@ async def test_maquina_do_tempo(ambiente):
 
 async def test_local_de_votacao_e_secao_por_boletim(ambiente):
     async with get_sessionmaker()() as s:
-        b = (await s.execute(select(Boletim).limit(1))).scalar_one()
-        local = await resultados.montar_resultado(s, 1, 1, parse(b.local_id))
+        b = (await s.execute(select(BallotBoxReport).limit(1))).scalar_one()
+        local = await resultados.montar_resultado(s, 1, 1, parse(b.polling_place_id))
         assert local["fonte"] == "soma_bu" and local["cobertura"]["secoes_coletadas"] >= 1
         assert local["candidatos"] and local["candidatos"][0]["nome_urna"]
-        secao = await resultados.detalhe_secao(s, 1, b.secao_id)
+        secao = await resultados.detalhe_secao(s, 1, b.polling_section_id)
         assert secao["status"] == "apurado" and secao["cargos"][0]["cd"] == 1
         pres = secao["cargos"][0]
         assert pres["votos_validos"] + pres["brancos"] + pres["nulos"] == pres["comparecimento"]
-        mapa = await resultados.locais_mapa(s, 1, 1, resultados.ConsultaMapa(municipio=b.municipio_id), None)
+        mapa = await resultados.locais_mapa(
+            s, 1, 1, resultados.ConsultaMapa(municipio=b.municipality_id), None
+        )
         assert any(i["status"] in ("parcial", "apurado") for i in mapa["itens"])
-        detalhe = await resultados.detalhe_local(s, 1, b.local_id)
+        detalhe = await resultados.detalhe_local(s, 1, b.polling_place_id)
         assert any(sec["status"] == "apurado" for sec in detalhe["secoes"])
 
 
@@ -187,35 +189,50 @@ async def test_secoes_sob_demanda(ambiente, api, redis_cliente):
         coletor.tentativa_sec.clear()
         async with get_sessionmaker()() as sess:
             feito = (
-                await sess.execute(select(Boletim).where(Boletim.local_id.is_not(None)).limit(1))
+                await sess.execute(
+                    select(BallotBoxReport).where(BallotBoxReport.polling_place_id.is_not(None)).limit(1)
+                )
             ).scalar_one()
             do_local = set(
-                (await sess.execute(select(Secao.id).where(Secao.local_id == feito.local_id))).scalars()
+                (
+                    await sess.execute(
+                        select(PollingSection.id).where(
+                            PollingSection.polling_place_id == feito.polling_place_id
+                        )
+                    )
+                ).scalars()
             )
             com_bu = set(
-                (await sess.execute(select(Boletim.secao_id).where(Boletim.secao_id.in_(do_local)))).scalars()
+                (
+                    await sess.execute(
+                        select(BallotBoxReport.polling_section_id).where(
+                            BallotBoxReport.polling_section_id.in_(do_local)
+                        )
+                    )
+                ).scalars()
             )
 
         # abrir só o município não baixa seção nenhuma
         await api.get(
-            "/api/v1/resultados", params={"cargo": 1, "nivel": "municipio", "id": feito.municipio_id}
+            "/api/v1/resultados", params={"cargo": 1, "nivel": "municipio", "id": feito.municipality_id}
         )
         await coletor.ciclo_sob_demanda()
         assert coletor.fila_sec.empty()
 
         # abrir o local baixa só as seções dele que ainda não têm boletim no banco
-        assert (await api.get(f"/api/v1/locais/{feito.local_id}")).status_code == 200
+        assert (await api.get(f"/api/v1/locais/{feito.polling_place_id}")).status_code == 200
         await coletor.ciclo_sob_demanda()
         assert _secoes_na_fila(coletor) == do_local - com_bu
-        assert feito.secao_id not in _secoes_na_fila(coletor)
+        assert feito.polling_section_id not in _secoes_na_fila(coletor)
 
         # abrir uma seção avulsa (sem boletim) também enfileira; repetir o ciclo não duplica
         async with get_sessionmaker()() as sess:
             avulsa = (
                 await sess.execute(
-                    select(Secao.id)
+                    select(PollingSection.id)
                     .where(
-                        Secao.id.not_in(select(Boletim.secao_id)), Secao.municipio_id != feito.municipio_id
+                        PollingSection.id.not_in(select(BallotBoxReport.polling_section_id)),
+                        PollingSection.municipality_id != feito.municipality_id,
                     )
                     .limit(1)
                 )
@@ -261,9 +278,9 @@ async def test_final_eleitos_e_eventos(ambiente, redis_cliente):
         eleitos = [c for c in dep["candidatos"] if c["situacao"] == "ELEITO"]
         assert len(eleitos) == 8 and sum(a["vagas"] or 0 for a in dep["agremiacoes"]) == 8
         assert (
-            await s.execute(select(func.count()).select_from(Candidato).where(Candidato.eleito.is_(True)))
+            await s.execute(select(func.count()).select_from(Candidate).where(Candidate.elected.is_(True)))
         ).scalar_one() >= 8
-        tipos = {e.tipo for e in (await s.execute(select(Evento))).scalars()}
+        tipos = {e.type for e in (await s.execute(select(Event))).scalars()}
         assert {"inicio", "marco"} <= tipos and ({"eleito", "segundo_turno"} & tipos)
 
 
@@ -314,26 +331,34 @@ async def test_api_progresso_eventos_tempo_busca_export(ambiente, api):
 
 async def test_api_zona_local_secao_e_serie(ambiente, api):
     async with get_sessionmaker()() as s:
-        b = (await s.execute(select(Boletim).limit(1))).scalar_one()
-    zona = await api.get("/api/v1/recortes/filhos", params={"cargo": 1, "nivel": "zona", "id": b.zona_id})
+        b = (await s.execute(select(BallotBoxReport).limit(1))).scalar_one()
+    zona = await api.get(
+        "/api/v1/recortes/filhos", params={"cargo": 1, "nivel": "zona", "id": b.electoral_zone_id}
+    )
     assert zona.status_code == 200 and zona.json()["nivel_filhos"] == "local"
     assert any(i["status"] != "nao_recebido" for i in zona.json()["itens"])
-    secs = await api.get("/api/v1/recortes/filhos", params={"cargo": 1, "nivel": "local", "id": b.local_id})
+    secs = await api.get(
+        "/api/v1/recortes/filhos", params={"cargo": 1, "nivel": "local", "id": b.polling_place_id}
+    )
     assert secs.json()["nivel_filhos"] == "secao" and secs.json()["itens"]
     mun = await api.get(
-        "/api/v1/recortes/filhos", params={"cargo": 1, "nivel": "municipio", "id": b.municipio_id}
+        "/api/v1/recortes/filhos", params={"cargo": 1, "nivel": "municipio", "id": b.municipality_id}
     )
     assert mun.json()["nivel_filhos"] == "zona"
-    loc = await api.get(f"/api/v1/locais/{b.local_id}")
+    loc = await api.get(f"/api/v1/locais/{b.polling_place_id}")
     assert loc.status_code == 200 and loc.json()["secoes"]
     assert (await api.get("/api/v1/locais/xx00000-z0001-l0001")).status_code == 404
-    sec = await api.get(f"/api/v1/secoes/{b.secao_id}")
+    sec = await api.get(f"/api/v1/secoes/{b.polling_section_id}")
     assert sec.status_code == 200 and sec.json()["hash"]
     assert (await api.get("/api/v1/secoes/invalido")).status_code == 422
     assert (await api.get("/api/v1/secoes/ac99999-z0001-s0001")).status_code == 404
-    res_sec = await api.get("/api/v1/resultados", params={"cargo": 1, "nivel": "secao", "id": b.secao_id})
+    res_sec = await api.get(
+        "/api/v1/resultados", params={"cargo": 1, "nivel": "secao", "id": b.polling_section_id}
+    )
     assert res_sec.json()["fonte"] == "soma_bu"
-    res_zona = await api.get("/api/v1/resultados", params={"cargo": 1, "nivel": "zona", "id": b.zona_id})
+    res_zona = await api.get(
+        "/api/v1/resultados", params={"cargo": 1, "nivel": "zona", "id": b.electoral_zone_id}
+    )
     assert not res_zona.json()["sem_dados"]
     serie = await api.get(
         "/api/v1/resultados/serie", params={"cargo": 1, "nivel": "uf", "id": UF_TESTE, "max_pontos": 10}
@@ -341,7 +366,7 @@ async def test_api_zona_local_secao_e_serie(ambiente, api):
     assert serie.status_code == 200 and len(serie.json()["pontos"]) <= 11
     lt = (await api.get("/api/v1/linha-do-tempo")).json()
     locs_t = await api.get(
-        "/api/v1/mapas/locais", params={"cargo": 1, "municipio": b.municipio_id, "t": lt["fim"]}
+        "/api/v1/mapas/locais", params={"cargo": 1, "municipio": b.municipality_id, "t": lt["fim"]}
     )
     assert any(i["status"] != "nao_recebido" for i in locs_t.json()["itens"])
     assert (await api.get("/api/v1/mapas/locais", params={"bbox": "x"})).status_code == 422
@@ -363,49 +388,59 @@ async def test_api_zona_local_secao_e_serie(ambiente, api):
 
 
 async def test_alertas_disparam_no_worker(ambiente, redis_cliente):
-    from app.modules.accounts import Usuario
-    from app.modules.alerts import Alerta
+    from app.modules.accounts import User
+    from app.modules.alerts import Alert
     from app.modules.alerts import evaluation as alertas
 
     _coletor, proc = ambiente
     async with get_sessionmaker()() as s:
-        u = Usuario(email="alerta@x.com", nome="A", senha_hash="x")
+        u = User(email="alerta@x.com", name="A", password_hash="x")
         s.add(u)
         await s.commit()
         br = await resultados.montar_resultado(s, 1, 1, parse("br"))
         sq = br["candidatos"][0]["sqcand"]
         s.add_all(
             [
-                Alerta(
-                    usuario_id=u.id,
-                    tipo="pct_candidato",
+                Alert(
+                    user_id=u.id,
+                    type="pct_candidato",
                     params={"cargo": 1, "nivel": "br", "id": "br", "sqcand": sq, "limite": 1},
                 ),
-                Alerta(usuario_id=u.id, tipo="apuracao", params={"nivel": "uf", "id": UF_TESTE, "limite": 1}),
+                Alert(user_id=u.id, type="apuracao", params={"nivel": "uf", "id": UF_TESTE, "limite": 1}),
             ]
         )
         await s.commit()
     alertas.invalidar_cache()
     linha = {
-        "cd_cargo": 1,
-        "nivel": "br",
-        "recorte_id": "br",
-        "pct_secoes": 100,
-        "candidatos": [{"sq": sq, "p": 40.0}],
+        "office_code": 1,
+        "level": "br",
+        "geo_area_id": "br",
+        "pct_sections": 100,
+        "candidates": [{"sq": sq, "p": 40.0}],
     }
     async with get_sessionmaker()() as s:
         await proc._alertas_resultado(s, linha, [])
     async with get_sessionmaker()() as s:
-        disparados = (await s.execute(select(Alerta).where(Alerta.disparado_em.is_not(None)))).scalars().all()
-        assert [a.tipo for a in disparados] == ["pct_candidato"]
-    a = Alerta(tipo="virada", params={"cargo": 1, "nivel": "uf", "id": "mg"})
-    ev = {"tipo": "virada", "cd_cargo": 1, "nivel": "uf", "recorte_id": "mg", "titulo": "t", "descricao": "d"}
-    assert alertas.avaliar_resultado(a, {"cd_cargo": 3, "nivel": "x", "recorte_id": "y"}, [ev]) == ("t", "d")
-    e = Alerta(tipo="eleito", params={"sqcand": "1"})
+        disparados = (await s.execute(select(Alert).where(Alert.triggered_at.is_not(None)))).scalars().all()
+        assert [a.type for a in disparados] == ["pct_candidato"]
+    a = Alert(type="virada", params={"cargo": 1, "nivel": "uf", "id": "mg"})
+    ev = {
+        "type": "virada",
+        "office_code": 1,
+        "level": "uf",
+        "geo_area_id": "mg",
+        "title": "t",
+        "description": "d",
+    }
+    assert alertas.avaliar_resultado(a, {"office_code": 3, "level": "x", "geo_area_id": "y"}, [ev]) == (
+        "t",
+        "d",
+    )
+    e = Alert(type="eleito", params={"sqcand": "1"})
     assert alertas.avaliar_resultado(
         e,
-        {"cd_cargo": 3, "nivel": "x", "recorte_id": "y"},
-        [{"tipo": "eleito", "payload": {"sqcand": "1"}, "titulo": "a", "descricao": "b"}],
+        {"office_code": 3, "level": "x", "geo_area_id": "y"},
+        [{"type": "eleito", "payload": {"sqcand": "1"}, "title": "a", "description": "b"}],
     )
-    loc = Alerta(tipo="local_apurado", params={"local_id": "x"})
+    loc = Alert(type="local_apurado", params={"local_id": "x"})
     assert alertas.avaliar_local(loc, "x", "apurado") and not alertas.avaliar_local(loc, "x", "parcial")

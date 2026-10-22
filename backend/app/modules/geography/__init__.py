@@ -11,18 +11,18 @@ from app.modules.geography.geo_area import (
     secao_id,
     zona_id,
 )
-from app.modules.geography.models import UF, LocalVotacao, Municipio, Secao, Zona
+from app.modules.geography.models import ElectoralZone, Municipality, PollingPlace, PollingSection, State
 
 __all__ = [
     "FILHO",
-    "UF",
-    "LocalVotacao",
-    "Municipio",
+    "ElectoralZone",
+    "Municipality",
+    "PollingPlace",
+    "PollingSection",
     "Recorte",
     "RecorteDep",
     "RecorteInvalido",
-    "Secao",
-    "Zona",
+    "State",
     "local_id",
     "municipio_id",
     "parse",

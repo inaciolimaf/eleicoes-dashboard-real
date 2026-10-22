@@ -29,10 +29,10 @@ from app.infra.tse.keys import chave_do_ambiente
 from app.infra.tse.parsers import parse_acompanhamento, parse_auxiliar, parse_municipios, parse_secoes
 from app.infra.tse.urls import MontadorUrls
 from app.modules.alerts import evaluation as alertas
-from app.modules.ballot_reports import Boletim
+from app.modules.ballot_reports import BallotBoxReport
 from app.modules.ballot_reports import demand as demanda
-from app.modules.elections import Eleicao
-from app.modules.geography import LocalVotacao, RecorteInvalido, Secao, parse
+from app.modules.elections import Election
+from app.modules.geography import PollingPlace, PollingSection, RecorteInvalido, parse
 from app.modules.results import ingestion as ingestao
 
 log = logging.getLogger("coletor")
@@ -99,7 +99,7 @@ class Coletor:
         self.chave = chave_do_ambiente(settings.tse_ambiente) if settings.tse_verificar_jws else None
         self.catalogo: Catalogo | None = None
         self.urls: MontadorUrls | None = None
-        self.eleicoes: list[Eleicao] = []
+        self.eleicoes: list[Election] = []
         self.municipios: dict[str, dict] = {}  # mid -> {"uf", "cd", "zonas": [...]}
         self.secoes_mun: dict[str, list[tuple[int, int]]] = {}
         self.ufs_secoes_carregadas: set[str] = set()
@@ -179,13 +179,13 @@ class Coletor:
             "catálogo: ciclo=%s pleito=%s eleições=%s",
             pleito.ciclo,
             pleito.cd,
-            [e.cd_eleicao for e in self.eleicoes],
+            [e.election_code for e in self.eleicoes],
         )
         return True
 
-    def eleicao_do_cargo(self, turno: int, cd: int) -> Eleicao | None:
+    def eleicao_do_cargo(self, turno: int, cd: int) -> Election | None:
         for e in self.eleicoes:
-            if e.turno == turno and any(c.cd_cargo == cd for c in e.cargos):
+            if e.round == turno and any(c.office_code == cd for c in e.offices):
                 return e
         return None
 
@@ -194,7 +194,7 @@ class Coletor:
         e = self.eleicao_do_cargo(1, 1) or (self.eleicoes[0] if self.eleicoes else None)
         if e is None:
             return
-        _status, corpo, _ = await self.obter(self.urls.municipios(e.cd_eleicao))
+        _status, corpo, _ = await self.obter(self.urls.municipios(e.election_code))
         if corpo is None:
             return
         lista = parse_municipios(orjson.loads(corpo))
@@ -208,7 +208,7 @@ class Coletor:
 
     async def carregar_locais(self) -> None:
         async with self.sm() as session:
-            n = (await session.execute(select(func.count()).select_from(LocalVotacao))).scalar_one()
+            n = (await session.execute(select(func.count()).select_from(PollingPlace))).scalar_one()
         if n > 0 or not self.s.locais_votacao_url:
             return
         r = await self.fetcher.get(self.s.locais_votacao_url, usar_etag=False)
@@ -235,10 +235,10 @@ class Coletor:
 
     # ------------------------------------------------------------------ resultados
     async def buscar_resultado(
-        self, turno: int, e: Eleicao, cd: int, uf: str, mun: int | None = None, zona: int | None = None
+        self, turno: int, e: Election, cd: int, uf: str, mun: int | None = None, zona: int | None = None
     ) -> None:
         assert self.urls is not None
-        url = self.urls.resultado(e.cd_eleicao, cd, uf, mun, zona)
+        url = self.urls.resultado(e.election_code, cd, uf, mun, zona)
         status, corpo, jws_ok = await self.obter(url)
         if status != 200 or corpo is None:
             return
@@ -267,16 +267,16 @@ class Coletor:
         )
 
     def turnos(self) -> list[int]:
-        return sorted({e.turno for e in self.eleicoes})
+        return sorted({e.round for e in self.eleicoes})
 
     async def turno_publicado(self, turno: int) -> bool:
         """Evita uma enxurrada de 404 (que pode bloquear o IP): testa um arquivo sentinela antes."""
         assert self.urls is not None
-        e = self.eleicao_do_cargo(turno, 1) or next((x for x in self.eleicoes if x.turno == turno), None)
+        e = self.eleicao_do_cargo(turno, 1) or next((x for x in self.eleicoes if x.round == turno), None)
         if e is None:
             return False
-        cd = 1 if any(c.cd_cargo == 1 for c in e.cargos) else e.cargos[0].cd_cargo
-        url = self.urls.resultado(e.cd_eleicao, cd, "br" if cd == 1 else "sp")
+        cd = 1 if any(c.office_code == 1 for c in e.offices) else e.offices[0].office_code
+        url = self.urls.resultado(e.election_code, cd, "br" if cd == 1 else "sp")
         status, _, _ = await self.obter(url, arquivar=False)
         return status in (200, 304)
 
@@ -285,8 +285,8 @@ class Coletor:
         for turno in self.turnos():
             if turno > 1 and not await self.turno_publicado(turno):
                 continue
-            for e in [x for x in self.eleicoes if x.turno == turno]:
-                cds = [c.cd_cargo for c in e.cargos]
+            for e in [x for x in self.eleicoes if x.round == turno]:
+                cds = [c.office_code for c in e.offices]
                 if 1 in cds:
                     tarefas.append(self.buscar_resultado(turno, e, 1, "br"))
                     for uf in [*UFS, "zz"]:
@@ -301,14 +301,14 @@ class Coletor:
         for turno in self.turnos():
             if turno > 1 and not await self.turno_publicado(turno):
                 continue
-            e = self.eleicao_do_cargo(turno, 1) or next((x for x in self.eleicoes if x.turno == turno), None)
+            e = self.eleicao_do_cargo(turno, 1) or next((x for x in self.eleicoes if x.round == turno), None)
             if e is None:
                 continue
             await asyncio.gather(*(self._acompanhamento(turno, e, uf) for uf in ["br", *UFS]))
 
-    async def _acompanhamento(self, turno: int, e: Eleicao, uf: str) -> None:
+    async def _acompanhamento(self, turno: int, e: Election, uf: str) -> None:
         assert self.urls is not None
-        _status, corpo, _ = await self.obter(self.urls.acompanhamento(e.cd_eleicao, uf))
+        _status, corpo, _ = await self.obter(self.urls.acompanhamento(e.election_code, uf))
         if corpo is None:
             return
         await fila.enfileirar(
@@ -358,8 +358,8 @@ class Coletor:
             return
         uf, cd_mun = m["uf"], m["cd"]
         tarefas = []
-        for e in [x for x in self.eleicoes if x.turno == turno]:
-            cds = cargos_da_uf([c.cd_cargo for c in e.cargos], uf)
+        for e in [x for x in self.eleicoes if x.round == turno]:
+            cds = cargos_da_uf([c.office_code for c in e.offices], uf)
             for cd in cds:
                 tarefas.append(self.buscar_resultado(turno, e, cd, uf, cd_mun))
                 if self.s.coletar_zonas and len(m["zonas"]) > 1:
@@ -421,7 +421,7 @@ class Coletor:
         async with self.sm() as session:
             for a in await alertas.ativos(session):
                 p = a.params or {}
-                if a.tipo == "local_apurado" and p.get("local_id"):
+                if a.type == "local_apurado" and p.get("local_id"):
                     pedidos.add((int(p.get("turno", 1)), "local", str(p["local_id"])))
             secoes: dict[int, set[str]] = defaultdict(set)
             locais: dict[str, set[int]] = defaultdict(set)
@@ -434,7 +434,9 @@ class Coletor:
                     locais[rid].add(turno)
             if locais:
                 for lid, sid in await session.execute(
-                    select(Secao.local_id, Secao.id).where(Secao.local_id.in_(locais))
+                    select(PollingSection.polling_place_id, PollingSection.id).where(
+                        PollingSection.polling_place_id.in_(locais)
+                    )
                 ):
                     for turno in locais[lid]:
                         secoes[turno].add(sid)
@@ -444,7 +446,9 @@ class Coletor:
                 if ids
                 for sid in (
                     await session.execute(
-                        select(Boletim.secao_id).where(Boletim.turno == turno, Boletim.secao_id.in_(ids))
+                        select(BallotBoxReport.polling_section_id).where(
+                            BallotBoxReport.round == turno, BallotBoxReport.polling_section_id.in_(ids)
+                        )
                     )
                 ).scalars()
             }

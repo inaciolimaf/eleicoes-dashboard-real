@@ -15,21 +15,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.infra.tse.bu import BoletimUrna
 from app.infra.tse.catalog import Catalogo
 from app.infra.tse.parsers import AcompanhamentoTSE, MunicipioTSE, ResultadoTSE, SecaoTSE
-from app.modules.ballot_reports import Boletim, ResultadoLocal
-from app.modules.elections import Candidato, Eleicao, EleicaoCargo
+from app.modules.ballot_reports import BallotBoxReport, PollingPlaceResult
+from app.modules.elections import Candidate, Election, ElectionOffice
 from app.modules.elections import colors as cores
 from app.modules.elections import status as situacao
 from app.modules.geography import (
-    LocalVotacao,
-    Municipio,
-    Secao,
-    Zona,
+    ElectoralZone,
+    Municipality,
+    PollingPlace,
+    PollingSection,
     local_id,
     municipio_id,
     secao_id,
     zona_id,
 )
-from app.modules.results.models import ProgressoAtual, ProgressoSnapshot, ResultadoAtual, Snapshot
+from app.modules.results.models import CurrentProgress, CurrentResult, ProgressSnapshot, ResultSnapshot
 
 VAGAS_MAJORITARIO = {1: 1, 3: 1, 5: 2, 11: 1}
 
@@ -41,7 +41,7 @@ def agora() -> datetime:
 # ---------------------------------------------------------------- catálogo
 
 
-async def ingerir_catalogo(session: AsyncSession, catalogo: Catalogo, ambiente: str) -> list[Eleicao]:
+async def ingerir_catalogo(session: AsyncSession, catalogo: Catalogo, ambiente: str) -> list[Election]:
     pleito = catalogo.pleito_atual()
     if pleito is None:
         return []
@@ -53,57 +53,57 @@ async def ingerir_catalogo(session: AsyncSession, catalogo: Catalogo, ambiente: 
             cargos_t2 = [c for c in e.cargos if c.cd in (1, 3, 11)]
             if cargos_t2:
                 registros.append((e.cd_t2, 2, e.tipo, e.nome.replace("1º Turno", "2º Turno"), cargos_t2))
-    vistos: dict[int, Eleicao] = {}
+    vistos: dict[int, Election] = {}
     for cd, turno, tipo, nome, cargos in registros:
         if cd in vistos:
             continue
         stmt = (
-            insert(Eleicao)
+            insert(Election)
             .values(
-                ambiente=ambiente,
-                ciclo=pleito.ciclo,
-                cd_pleito=pleito.cd,
-                cd_eleicao=cd,
-                turno=turno,
-                tipo=tipo,
-                nome=nome,
-                data=pleito.data,
-                cd_eleicao_t2=None,
+                tse_environment=ambiente,
+                cycle=pleito.ciclo,
+                election_event_code=pleito.cd,
+                election_code=cd,
+                round=turno,
+                jurisdiction=tipo,
+                name=nome,
+                date=pleito.data,
+                runoff_election_code=None,
             )
             .on_conflict_do_update(
-                index_elements=["ambiente", "cd_eleicao"],
+                index_elements=["tse_environment", "election_code"],
                 set_={
-                    "ciclo": pleito.ciclo,
-                    "cd_pleito": pleito.cd,
-                    "turno": turno,
-                    "tipo": tipo,
-                    "nome": nome,
-                    "data": pleito.data,
+                    "cycle": pleito.ciclo,
+                    "election_event_code": pleito.cd,
+                    "round": turno,
+                    "jurisdiction": tipo,
+                    "name": nome,
+                    "date": pleito.data,
                 },
             )
-            .returning(Eleicao.id)
+            .returning(Election.id)
         )
         eleicao_id = (await session.execute(stmt)).scalar_one()
         for c in cargos:
             vagas = VAGAS_MAJORITARIO.get(c.cd) if c.sistema == "majoritario" else None
             await session.execute(
-                insert(EleicaoCargo)
+                insert(ElectionOffice)
                 .values(
-                    eleicao_id=eleicao_id,
-                    cd_cargo=c.cd,
-                    nome=c.nome,
-                    sistema=c.sistema,
-                    abrangencia=c.abrangencia,
-                    vagas=vagas,
+                    election_id=eleicao_id,
+                    office_code=c.cd,
+                    name=c.nome,
+                    voting_system=c.sistema,
+                    coverage=c.abrangencia,
+                    seats=vagas,
                 )
                 .on_conflict_do_update(
-                    index_elements=["eleicao_id", "cd_cargo"],
-                    set_={"nome": c.nome, "sistema": c.sistema, "vagas": vagas},
+                    index_elements=["election_id", "office_code"],
+                    set_={"name": c.nome, "voting_system": c.sistema, "seats": vagas},
                 )
             )
         vistos[cd] = eleicao_id  # type: ignore[assignment]
     await session.commit()
-    res = await session.execute(select(Eleicao).where(Eleicao.ambiente == ambiente))
+    res = await session.execute(select(Election).where(Election.tse_environment == ambiente))
     return list(res.scalars())
 
 
@@ -130,33 +130,35 @@ async def ingerir_municipios(session: AsyncSession, lista: list[MunicipioTSE], g
         linhas.append(
             {
                 "id": mid,
-                "uf": m.uf,
-                "cd_tse": m.cd,
-                "cd_ibge": m.cd_ibge,
-                "nome": nome,
-                "capital": m.capital,
+                "state_code": m.uf,
+                "tse_code": m.cd,
+                "ibge_code": m.cd_ibge,
+                "name": nome,
+                "is_capital": m.capital,
                 "lat": lat,
                 "lon": lon,
             }
         )
         for z in m.zonas:
-            zonas.append({"id": zona_id(m.uf, m.cd, z), "municipio_id": mid, "uf": m.uf, "numero": z})
+            zonas.append(
+                {"id": zona_id(m.uf, m.cd, z), "municipality_id": mid, "state_code": m.uf, "number": z}
+            )
     for i in range(0, len(linhas), 1000):
-        stmt = insert(Municipio).values(linhas[i : i + 1000])
+        stmt = insert(Municipality).values(linhas[i : i + 1000])
         await session.execute(
             stmt.on_conflict_do_update(
                 index_elements=["id"],
                 set_={
-                    "nome": stmt.excluded.nome,
-                    "cd_ibge": stmt.excluded.cd_ibge,
-                    "capital": stmt.excluded.capital,
-                    "lat": func.coalesce(stmt.excluded.lat, Municipio.lat),
-                    "lon": func.coalesce(stmt.excluded.lon, Municipio.lon),
+                    "name": stmt.excluded.name,
+                    "ibge_code": stmt.excluded.ibge_code,
+                    "is_capital": stmt.excluded.is_capital,
+                    "lat": func.coalesce(stmt.excluded.lat, Municipality.lat),
+                    "lon": func.coalesce(stmt.excluded.lon, Municipality.lon),
                 },
             )
         )
     for i in range(0, len(zonas), 2000):
-        await session.execute(insert(Zona).values(zonas[i : i + 2000]).on_conflict_do_nothing())
+        await session.execute(insert(ElectoralZone).values(zonas[i : i + 2000]).on_conflict_do_nothing())
     await session.commit()
     return len(linhas)
 
@@ -167,22 +169,22 @@ async def ingerir_secoes(session: AsyncSession, lista: list[SecaoTSE]) -> int:
     for s in lista:
         mid = municipio_id(s.uf, s.municipio)
         zid = zona_id(s.uf, s.municipio, s.zona)
-        zonas[zid] = {"id": zid, "municipio_id": mid, "uf": s.uf, "numero": s.zona}
+        zonas[zid] = {"id": zid, "municipality_id": mid, "state_code": s.uf, "number": s.zona}
         linhas.append(
             {
                 "id": secao_id(s.uf, s.municipio, s.zona, s.secao),
-                "municipio_id": mid,
-                "zona_id": zid,
-                "uf": s.uf,
-                "numero": s.secao,
-                "agregadora": s.agregadora,
+                "municipality_id": mid,
+                "electoral_zone_id": zid,
+                "state_code": s.uf,
+                "number": s.secao,
+                "aggregator_section": s.agregadora,
             }
         )
     z = list(zonas.values())
     for i in range(0, len(z), 2000):
-        await session.execute(insert(Zona).values(z[i : i + 2000]).on_conflict_do_nothing())
+        await session.execute(insert(ElectoralZone).values(z[i : i + 2000]).on_conflict_do_nothing())
     for i in range(0, len(linhas), 3000):
-        await session.execute(insert(Secao).values(linhas[i : i + 3000]).on_conflict_do_nothing())
+        await session.execute(insert(PollingSection).values(linhas[i : i + 3000]).on_conflict_do_nothing())
     await session.commit()
     return len(linhas)
 
@@ -214,17 +216,20 @@ def _coord(valor: str | None) -> float | None:
 
 
 async def _gravar_secoes(session: AsyncSession, secoes: list[dict]) -> None:
-    stmt = insert(Secao).values(secoes)
+    stmt = insert(PollingSection).values(secoes)
     await session.execute(
         stmt.on_conflict_do_update(
             index_elements=["id"],
-            set_={"local_id": stmt.excluded.local_id, "eleitores_aptos": stmt.excluded.eleitores_aptos},
+            set_={
+                "polling_place_id": stmt.excluded.polling_place_id,
+                "eligible_voters": stmt.excluded.eligible_voters,
+            },
         )
     )
 
 
 async def importar_locais(session: AsyncSession, linhas: Iterable[dict]) -> int:
-    municipios = {m.id: m for m in (await session.execute(select(Municipio))).scalars()}
+    municipios = {m.id: m for m in (await session.execute(select(Municipality))).scalars()}
     locais: dict[str, dict] = {}
     secoes: list[dict] = []
     zonas: dict[str, dict] = {}
@@ -242,7 +247,7 @@ async def importar_locais(session: AsyncSession, linhas: Iterable[dict]) -> int:
             continue
         lid = local_id(uf, cd_mun, zona, nr_local)
         zid = zona_id(uf, cd_mun, zona)
-        zonas[zid] = {"id": zid, "municipio_id": mid, "uf": uf, "numero": zona}
+        zonas[zid] = {"id": zid, "municipality_id": mid, "state_code": uf, "number": zona}
         aptos = int(ln.get("QT_ELEITOR_SECAO") or ln.get("QT_ELEITOR") or 0)
         lat, lon = _coord(ln.get("NR_LATITUDE")), _coord(ln.get("NR_LONGITUDE"))
         loc = locais.get(lid)
@@ -251,31 +256,31 @@ async def importar_locais(session: AsyncSession, linhas: Iterable[dict]) -> int:
             aprox = lat is None or lon is None
             loc = locais[lid] = {
                 "id": lid,
-                "municipio_id": mid,
-                "zona_id": zid,
-                "uf": uf,
-                "numero": nr_local,
-                "nome": str(ln.get("NM_LOCAL_VOTACAO") or f"LOCAL {nr_local}").strip(),
-                "endereco": (ln.get("DS_ENDERECO") or "").strip() or None,
-                "bairro": (ln.get("NM_BAIRRO") or "").strip() or None,
-                "cep": (ln.get("NR_CEP") or "").strip() or None,
+                "municipality_id": mid,
+                "electoral_zone_id": zid,
+                "state_code": uf,
+                "number": nr_local,
+                "name": str(ln.get("NM_LOCAL_VOTACAO") or f"LOCAL {nr_local}").strip(),
+                "address": (ln.get("DS_ENDERECO") or "").strip() or None,
+                "neighborhood": (ln.get("NM_BAIRRO") or "").strip() or None,
+                "zip_code": (ln.get("NR_CEP") or "").strip() or None,
                 "lat": lat if not aprox else mun.lat,
                 "lon": lon if not aprox else mun.lon,
-                "aproximado": aprox,
-                "eleitores_aptos": 0,
-                "qtd_secoes": 0,
+                "is_approximate": aprox,
+                "eligible_voters": 0,
+                "section_count": 0,
             }
-        loc["eleitores_aptos"] += aptos
-        loc["qtd_secoes"] += 1
+        loc["eligible_voters"] += aptos
+        loc["section_count"] += 1
         secoes.append(
             {
                 "id": secao_id(uf, cd_mun, zona, secao),
-                "municipio_id": mid,
-                "zona_id": zid,
-                "local_id": lid,
-                "uf": uf,
-                "numero": secao,
-                "eleitores_aptos": aptos,
+                "municipality_id": mid,
+                "electoral_zone_id": zid,
+                "polling_place_id": lid,
+                "state_code": uf,
+                "number": secao,
+                "eligible_voters": aptos,
             }
         )
         if len(secoes) >= 3000:  # o arquivo do Brasil tem ~500 mil seções: grava em blocos
@@ -285,25 +290,25 @@ async def importar_locais(session: AsyncSession, linhas: Iterable[dict]) -> int:
         await _gravar_secoes(session, secoes)
     zl = list(zonas.values())
     for i in range(0, len(zl), 2000):
-        await session.execute(insert(Zona).values(zl[i : i + 2000]).on_conflict_do_nothing())
+        await session.execute(insert(ElectoralZone).values(zl[i : i + 2000]).on_conflict_do_nothing())
     lista = list(locais.values())
     for i in range(0, len(lista), 1000):
-        stmt = insert(LocalVotacao).values(lista[i : i + 1000])
+        stmt = insert(PollingPlace).values(lista[i : i + 1000])
         await session.execute(
             stmt.on_conflict_do_update(
                 index_elements=["id"],
                 set_={
                     c: getattr(stmt.excluded, c)
                     for c in (
-                        "nome",
-                        "endereco",
-                        "bairro",
-                        "cep",
+                        "name",
+                        "address",
+                        "neighborhood",
+                        "zip_code",
                         "lat",
                         "lon",
-                        "aproximado",
-                        "eleitores_aptos",
-                        "qtd_secoes",
+                        "is_approximate",
+                        "eligible_voters",
+                        "section_count",
                     )
                 },
             )
@@ -361,47 +366,47 @@ def _linha_resultado(ctx: Contexto, res: ResultadoTSE, sistema: str) -> dict:
         else None
     )
     return {
-        "eleicao_id": ctx.eleicao_id,
-        "turno": ctx.turno,
-        "cd_cargo": ctx.cd_cargo,
-        "nivel": ctx.nivel,
-        "recorte_id": ctx.recorte_id,
-        "pai_id": ctx.pai_id,
-        "uf": ctx.uf,
-        "idg": int(res.idg or 0),
-        "totalizado_em": res.totalizado_em or ctx.capturado_em or agora(),
-        "capturado_em": ctx.capturado_em or agora(),
-        "jws_verificado": ctx.jws_verificado,
-        "fonte": "tse",
-        "arquivo": ctx.arquivo,
-        "eleitorado": t.eleitorado,
-        "eleitorado_apurado": t.eleitorado_apurado,
-        "secoes_total": t.secoes_total,
-        "secoes_totalizadas": t.secoes_totalizadas,
-        "pct_secoes": t.pct_secoes,
-        "comparecimento": t.comparecimento,
-        "pct_comparecimento": t.pct_comparecimento,
-        "abstencao": t.abstencao,
-        "pct_abstencao": t.pct_abstencao,
-        "votos_total": t.votos_total,
-        "votos_validos": t.votos_validos,
-        "pct_validos": t.pct_validos,
-        "brancos": t.brancos,
-        "pct_brancos": t.pct_brancos,
-        "nulos": t.nulos,
-        "pct_nulos": t.pct_nulos,
-        "matematicamente_definido": res.matematicamente_definido,
-        "totalizacao_final": res.final,
-        "lider_sqcand": lider.sqcand if lider else None,
-        "lider_votos": lider.votos if lider else 0,
-        "lider_pct": lider.pct_validos if lider else 0.0,
-        "segundo_sqcand": segundo.sqcand if segundo else None,
-        "segundo_votos": segundo.votos if segundo else 0,
-        "segundo_pct": segundo.pct_validos if segundo else 0.0,
-        "margem_pp": round((lider.pct_validos if lider else 0) - (segundo.pct_validos if segundo else 0), 4),
-        "partido_lider": partido_lider,
-        "candidatos": cands,
-        "agremiacoes": agrs,
+        "election_id": ctx.eleicao_id,
+        "round": ctx.turno,
+        "office_code": ctx.cd_cargo,
+        "level": ctx.nivel,
+        "geo_area_id": ctx.recorte_id,
+        "parent_id": ctx.pai_id,
+        "state_code": ctx.uf,
+        "generation_id": int(res.idg or 0),
+        "tallied_at": res.totalizado_em or ctx.capturado_em or agora(),
+        "captured_at": ctx.capturado_em or agora(),
+        "jws_verified": ctx.jws_verificado,
+        "source": "tse",
+        "source_file": ctx.arquivo,
+        "electorate": t.eleitorado,
+        "tallied_electorate": t.eleitorado_apurado,
+        "sections_total": t.secoes_total,
+        "sections_tallied": t.secoes_totalizadas,
+        "pct_sections": t.pct_secoes,
+        "turnout": t.comparecimento,
+        "pct_turnout": t.pct_comparecimento,
+        "abstention": t.abstencao,
+        "pct_abstention": t.pct_abstencao,
+        "total_votes": t.votos_total,
+        "valid_votes": t.votos_validos,
+        "pct_valid": t.pct_validos,
+        "blank_votes": t.brancos,
+        "pct_blank": t.pct_brancos,
+        "null_votes": t.nulos,
+        "pct_null": t.pct_nulos,
+        "mathematically_decided": res.matematicamente_definido,
+        "final_tally": res.final,
+        "leader_candidate_id": lider.sqcand if lider else None,
+        "leader_votes": lider.votos if lider else 0,
+        "leader_pct": lider.pct_validos if lider else 0.0,
+        "second_candidate_id": segundo.sqcand if segundo else None,
+        "second_votes": segundo.votos if segundo else 0,
+        "second_pct": segundo.pct_validos if segundo else 0.0,
+        "margin_pp": round((lider.pct_validos if lider else 0) - (segundo.pct_validos if segundo else 0), 4),
+        "leader_party": partido_lider,
+        "candidates": cands,
+        "alliances": agrs,
     }
 
 
@@ -421,41 +426,43 @@ async def _upsert_candidatos(session: AsyncSession, ctx: Contexto, res: Resultad
     for c in res.candidatos:
         linhas.append(
             {
-                "sqcand": c.sqcand,
-                "eleicao_id": ctx.eleicao_id,
-                "turno": ctx.turno,
-                "cd_cargo": ctx.cd_cargo,
-                "uf": "br" if ctx.cd_cargo == 1 else ctx.uf,
-                "numero": c.numero,
-                "nome": c.nome,
-                "nome_urna": c.nome_urna,
-                "partido_sigla": c.partido_sigla,
-                "partido_numero": c.partido_numero,
-                "agremiacao": c.agremiacao,
-                "cor": paleta.get(c.numero, cores.PALETA[0]),
-                "vices": [{"nome": v.nome, "tipo": "vice" if v.tipo == "v" else "suplente"} for v in c.vices],
-                "situacao_geral": sit.get(c.sqcand, situacao.EM_APURACAO),
-                "eleito": sit.get(c.sqcand) in (situacao.ELEITO, situacao.MATEMATICAMENTE_ELEITO),
+                "tse_candidate_id": c.sqcand,
+                "election_id": ctx.eleicao_id,
+                "round": ctx.turno,
+                "office_code": ctx.cd_cargo,
+                "state_code": "br" if ctx.cd_cargo == 1 else ctx.uf,
+                "ballot_number": c.numero,
+                "name": c.nome,
+                "ballot_name": c.nome_urna,
+                "party_abbreviation": c.partido_sigla,
+                "party_number": c.partido_numero,
+                "alliance": c.agremiacao,
+                "color": paleta.get(c.numero, cores.PALETA[0]),
+                "vice_and_substitutes": [
+                    {"nome": v.nome, "tipo": "vice" if v.tipo == "v" else "suplente"} for v in c.vices
+                ],
+                "overall_status": sit.get(c.sqcand, situacao.EM_APURACAO),
+                "elected": sit.get(c.sqcand) in (situacao.ELEITO, situacao.MATEMATICAMENTE_ELEITO),
             }
         )
     for i in range(0, len(linhas), 500):
-        stmt = insert(Candidato).values(linhas[i : i + 500])
+        stmt = insert(Candidate).values(linhas[i : i + 500])
         if ctx.abrangencia_do_cargo:
             stmt = stmt.on_conflict_do_update(
-                index_elements=["sqcand"],
+                index_elements=["tse_candidate_id"],
                 set_={
                     c: getattr(stmt.excluded, c)
                     for c in (
-                        "nome",
-                        "nome_urna",
-                        "partido_sigla",
-                        "partido_numero",
-                        "agremiacao",
-                        "cor",
-                        "vices",
-                        "situacao_geral",
-                        "eleito",
-                        "numero",
+                        "name",
+                        "ballot_name",
+                        "party_abbreviation",
+                        "party_number",
+                        "alliance",
+                        "color",
+                        "vice_and_substitutes",
+                        "overall_status",
+                        "elected",
+                        "ballot_number",
                     )
                 },
             )
@@ -476,10 +483,12 @@ async def ingerir_resultado(
     """
     linha = _linha_resultado(ctx, res, sistema)
     snap = await session.execute(
-        insert(Snapshot)
+        insert(ResultSnapshot)
         .values(**linha)
-        .on_conflict_do_nothing(index_elements=["turno", "cd_cargo", "nivel", "recorte_id", "idg"])
-        .returning(Snapshot.id)
+        .on_conflict_do_nothing(
+            index_elements=["round", "office_code", "level", "geo_area_id", "generation_id"]
+        )
+        .returning(ResultSnapshot.id)
     )
     if snap.scalar_one_or_none() is None:
         await session.rollback()
@@ -492,34 +501,36 @@ async def ingerir_resultado(
     if ctx.nivel in ("br", "uf"):
         anterior = (
             await session.execute(
-                select(ResultadoAtual).where(
-                    ResultadoAtual.turno == ctx.turno,
-                    ResultadoAtual.cd_cargo == ctx.cd_cargo,
-                    ResultadoAtual.nivel == ctx.nivel,
-                    ResultadoAtual.recorte_id == ctx.recorte_id,
+                select(CurrentResult).where(
+                    CurrentResult.round == ctx.turno,
+                    CurrentResult.office_code == ctx.cd_cargo,
+                    CurrentResult.level == ctx.nivel,
+                    CurrentResult.geo_area_id == ctx.recorte_id,
                 )
             )
         ).scalar_one_or_none()
         anterior_dict = _como_dict(anterior) if anterior else None
-    stmt = insert(ResultadoAtual).values(**linha)
+    stmt = insert(CurrentResult).values(**linha)
     await session.execute(
         stmt.on_conflict_do_update(
-            index_elements=["turno", "cd_cargo", "nivel", "recorte_id"],
+            index_elements=["round", "office_code", "level", "geo_area_id"],
             set_={
                 k: getattr(stmt.excluded, k)
                 for k in linha
-                if k not in ("turno", "cd_cargo", "nivel", "recorte_id")
+                if k not in ("round", "office_code", "level", "geo_area_id")
             },
-            where=(ResultadoAtual.totalizado_em < stmt.excluded.totalizado_em)
+            where=(CurrentResult.tallied_at < stmt.excluded.tallied_at)
             | (
-                (ResultadoAtual.totalizado_em == stmt.excluded.totalizado_em)
-                & (ResultadoAtual.idg <= stmt.excluded.idg)
+                (CurrentResult.tallied_at == stmt.excluded.tallied_at)
+                & (CurrentResult.generation_id <= stmt.excluded.generation_id)
             ),
         )
     )
     if ctx.nivel == "municipio" and ctx.cd_cargo == 1:
         await session.execute(
-            update(Municipio).where(Municipio.id == ctx.recorte_id).values(eleitorado=linha["eleitorado"])
+            update(Municipality)
+            .where(Municipality.id == ctx.recorte_id)
+            .values(electorate=linha["electorate"])
         )
     await session.commit()
     return anterior_dict, linha
@@ -550,51 +561,51 @@ async def ingerir_progresso(
             uf = uf_arquivo
             rid = item.codigo if item.codigo[:2].isalpha() else municipio_id(uf_arquivo, int(item.codigo))
         linha = {
-            "turno": turno,
-            "nivel": nivel,
-            "recorte_id": rid,
-            "uf": uf,
-            "idg": int(acomp.idg or 0),
-            "totalizado_em": item.totalizado_em,
-            "capturado_em": capturado_em or agora(),
-            "andamento": item.andamento,
-            "secoes_total": item.secoes_total,
-            "secoes_totalizadas": item.secoes_totalizadas,
-            "pct_secoes": item.pct_secoes,
-            "eleitorado": item.eleitorado,
-            "comparecimento": item.comparecimento,
-            "pct_comparecimento": item.pct_comparecimento,
-            "municipios_finalizados": item.municipios_finalizados,
-            "municipios_parciais": item.municipios_parciais,
-            "municipios_nao_recebidos": item.municipios_nao_recebidos,
+            "round": turno,
+            "level": nivel,
+            "geo_area_id": rid,
+            "state_code": uf,
+            "generation_id": int(acomp.idg or 0),
+            "tallied_at": item.totalizado_em,
+            "captured_at": capturado_em or agora(),
+            "progress_code": item.andamento,
+            "sections_total": item.secoes_total,
+            "sections_tallied": item.secoes_totalizadas,
+            "pct_sections": item.pct_secoes,
+            "electorate": item.eleitorado,
+            "turnout": item.comparecimento,
+            "pct_turnout": item.pct_comparecimento,
+            "municipalities_completed": item.municipios_finalizados,
+            "municipalities_partial": item.municipios_parciais,
+            "municipalities_not_received": item.municipios_nao_recebidos,
         }
         atual = (
             await session.execute(
-                select(ProgressoAtual).where(
-                    ProgressoAtual.turno == turno,
-                    ProgressoAtual.nivel == nivel,
-                    ProgressoAtual.recorte_id == rid,
+                select(CurrentProgress).where(
+                    CurrentProgress.round == turno,
+                    CurrentProgress.level == nivel,
+                    CurrentProgress.geo_area_id == rid,
                 )
             )
         ).scalar_one_or_none()
         if (
             atual is not None
-            and atual.secoes_totalizadas == item.secoes_totalizadas
-            and atual.totalizado_em == item.totalizado_em
+            and atual.sections_tallied == item.secoes_totalizadas
+            and atual.tallied_at == item.totalizado_em
         ):
             continue
         if nivel != "municipio":
-            await session.execute(insert(ProgressoSnapshot).values(**linha).on_conflict_do_nothing())
-        stmt = insert(ProgressoAtual).values(**linha)
+            await session.execute(insert(ProgressSnapshot).values(**linha).on_conflict_do_nothing())
+        stmt = insert(CurrentProgress).values(**linha)
         await session.execute(
             stmt.on_conflict_do_update(
-                index_elements=["turno", "nivel", "recorte_id"],
+                index_elements=["round", "level", "geo_area_id"],
                 set_={
-                    k: getattr(stmt.excluded, k) for k in linha if k not in ("turno", "nivel", "recorte_id")
+                    k: getattr(stmt.excluded, k) for k in linha if k not in ("round", "level", "geo_area_id")
                 },
             )
         )
-        linha["anterior_secoes"] = atual.secoes_totalizadas if atual else 0
+        linha["anterior_secoes"] = atual.sections_tallied if atual else 0
         mudou.append(linha)
     await session.commit()
     return mudou
@@ -606,8 +617,8 @@ async def ingerir_progresso(
 async def mapa_numeros(session: AsyncSession, turno: int, uf: str) -> dict[tuple[int, int], str]:
     """(cd_cargo, numero) -> sqcand, para Presidente (uf=br) e cargos estaduais da UF."""
     res = await session.execute(
-        select(Candidato.cd_cargo, Candidato.numero, Candidato.sqcand).where(
-            Candidato.turno == turno, Candidato.uf.in_(["br", uf])
+        select(Candidate.office_code, Candidate.ballot_number, Candidate.tse_candidate_id).where(
+            Candidate.round == turno, Candidate.state_code.in_(["br", uf])
         )
     )
     return {(int(c), int(n)): sq for c, n, sq in res.all()}
@@ -652,66 +663,68 @@ async def ingerir_boletim(
             "nom": nom,
             "leg": leg,
         }
-    mun = await session.get(Municipio, mid)
+    mun = await session.get(Municipality, mid)
     if mun is None:
         return []
-    if await session.get(LocalVotacao, lid) is None:
+    if await session.get(PollingPlace, lid) is None:
         await session.execute(
-            insert(LocalVotacao)
+            insert(PollingPlace)
             .values(
                 id=lid,
-                municipio_id=mid,
-                zona_id=zid,
-                uf=uf,
-                numero=bu.local,
-                nome=f"LOCAL DE VOTAÇÃO {bu.local}",
+                municipality_id=mid,
+                electoral_zone_id=zid,
+                state_code=uf,
+                number=bu.local,
+                name=f"LOCAL DE VOTAÇÃO {bu.local}",
                 lat=mun.lat,
                 lon=mun.lon,
-                aproximado=True,
-                eleitores_aptos=0,
-                qtd_secoes=0,
+                is_approximate=True,
+                eligible_voters=0,
+                section_count=0,
             )
             .on_conflict_do_nothing()
         )
         await session.execute(
-            insert(Zona).values(id=zid, municipio_id=mid, uf=uf, numero=bu.zona).on_conflict_do_nothing()
+            insert(ElectoralZone)
+            .values(id=zid, municipality_id=mid, state_code=uf, number=bu.zona)
+            .on_conflict_do_nothing()
         )
     await session.execute(
-        insert(Secao)
+        insert(PollingSection)
         .values(
             id=sid,
-            municipio_id=mid,
-            zona_id=zid,
-            local_id=lid,
-            uf=uf,
-            numero=bu.secao,
-            eleitores_aptos=bu.eleitores_aptos,
+            municipality_id=mid,
+            electoral_zone_id=zid,
+            polling_place_id=lid,
+            state_code=uf,
+            number=bu.secao,
+            eligible_voters=bu.eleitores_aptos,
         )
-        .on_conflict_do_update(index_elements=["id"], set_={"local_id": lid})
+        .on_conflict_do_update(index_elements=["id"], set_={"polling_place_id": lid})
     )
     linha = {
-        "turno": turno,
-        "secao_id": sid,
-        "local_id": lid,
-        "zona_id": zid,
-        "municipio_id": mid,
-        "uf": uf,
+        "round": turno,
+        "polling_section_id": sid,
+        "polling_place_id": lid,
+        "electoral_zone_id": zid,
+        "municipality_id": mid,
+        "state_code": uf,
         "hash": ctx.hash,
         "status": ctx.status,
-        "totalizado_em": ctx.totalizado_em,
-        "emitido_em": bu.emitido_em,
-        "capturado_em": agora(),
-        "eleitores_aptos": bu.eleitores_aptos,
-        "comparecimento": bu.comparecimento,
-        "assinatura_ok": None,
+        "tallied_at": ctx.totalizado_em,
+        "issued_at": bu.emitido_em,
+        "captured_at": agora(),
+        "eligible_voters": bu.eleitores_aptos,
+        "turnout": bu.comparecimento,
+        "signature_valid": None,
         "url": ctx.url,
-        "votos": votos,
+        "votes": votos,
     }
-    stmt = insert(Boletim).values(**linha)
+    stmt = insert(BallotBoxReport).values(**linha)
     await session.execute(
         stmt.on_conflict_do_update(
-            index_elements=["turno", "secao_id"],
-            set_={k: getattr(stmt.excluded, k) for k in linha if k not in ("turno", "secao_id")},
+            index_elements=["round", "polling_section_id"],
+            set_={k: getattr(stmt.excluded, k) for k in linha if k not in ("round", "polling_section_id")},
         )
     )
     alterados = await recalcular_local(session, turno, lid, ctx.numeros)
@@ -722,23 +735,31 @@ async def ingerir_boletim(
 async def recalcular_local(
     session: AsyncSession, turno: int, lid: str, numeros: dict[tuple[int, int], str]
 ) -> list[tuple[int, str]]:
-    local = await session.get(LocalVotacao, lid)
+    local = await session.get(PollingPlace, lid)
     if local is None:
         return []
     bols = (
-        (await session.execute(select(Boletim).where(Boletim.turno == turno, Boletim.local_id == lid)))
+        (
+            await session.execute(
+                select(BallotBoxReport).where(
+                    BallotBoxReport.round == turno, BallotBoxReport.polling_place_id == lid
+                )
+            )
+        )
         .scalars()
         .all()
     )
     total_secoes = (
-        local.qtd_secoes
+        local.section_count
         or (
-            await session.execute(select(func.count()).select_from(Secao).where(Secao.local_id == lid))
+            await session.execute(
+                select(func.count()).select_from(PollingSection).where(PollingSection.polling_place_id == lid)
+            )
         ).scalar_one()
     )
     soma: dict[str, dict] = {}
     for b in bols:
-        for cd, v in (b.votos or {}).items():
+        for cd, v in (b.votes or {}).items():
             s = soma.setdefault(cd, {"comp": 0, "b": 0, "n": 0, "nom": {}, "leg": {}, "secoes": 0})
             s["comp"] += v.get("comp", 0)
             s["b"] += v.get("b", 0)
@@ -748,7 +769,7 @@ async def recalcular_local(
                 for num, q in (v.get(k) or {}).items():
                     s[k][num] = s[k].get(num, 0) + q
     alterados = []
-    ultimo = max((b.totalizado_em for b in bols if b.totalizado_em), default=None)
+    ultimo = max((b.tallied_at for b in bols if b.tallied_at), default=None)
     for cd, s in soma.items():
         cd_cargo = int(cd)
         validos = sum(s["nom"].values()) + sum(s["leg"].values())
@@ -764,30 +785,32 @@ async def recalcular_local(
             else ("parcial" if apuradas else "nao_recebido")
         )
         linha = {
-            "turno": turno,
-            "cd_cargo": cd_cargo,
-            "local_id": lid,
-            "municipio_id": local.municipio_id,
-            "uf": local.uf,
-            "secoes_total": max(total_secoes, apuradas),
-            "secoes_apuradas": apuradas,
+            "round": turno,
+            "office_code": cd_cargo,
+            "polling_place_id": lid,
+            "municipality_id": local.municipality_id,
+            "state_code": local.state_code,
+            "sections_total": max(total_secoes, apuradas),
+            "sections_tallied": apuradas,
             "status": status,
-            "comparecimento": s["comp"],
-            "votos_validos": validos,
-            "brancos": s["b"],
-            "nulos": s["n"],
-            "lider_sqcand": numeros.get((cd_cargo, int(lider[0]))) if lider else None,
-            "lider_pct": round(lider_pct, 4),
-            "margem_pp": round(lider_pct - seg_pct, 4),
-            "votos": {"nom": s["nom"], "leg": s["leg"]},
-            "atualizado_em": ultimo,
+            "turnout": s["comp"],
+            "valid_votes": validos,
+            "blank_votes": s["b"],
+            "null_votes": s["n"],
+            "leader_candidate_id": numeros.get((cd_cargo, int(lider[0]))) if lider else None,
+            "leader_pct": round(lider_pct, 4),
+            "margin_pp": round(lider_pct - seg_pct, 4),
+            "votes": {"nom": s["nom"], "leg": s["leg"]},
+            "updated_at": ultimo,
         }
-        stmt = insert(ResultadoLocal).values(**linha)
+        stmt = insert(PollingPlaceResult).values(**linha)
         await session.execute(
             stmt.on_conflict_do_update(
-                index_elements=["turno", "cd_cargo", "local_id"],
+                index_elements=["round", "office_code", "polling_place_id"],
                 set_={
-                    k: getattr(stmt.excluded, k) for k in linha if k not in ("turno", "cd_cargo", "local_id")
+                    k: getattr(stmt.excluded, k)
+                    for k in linha
+                    if k not in ("round", "office_code", "polling_place_id")
                 },
             )
         )

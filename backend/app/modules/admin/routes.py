@@ -12,10 +12,10 @@ from app.core.deps import SessaoDep
 from app.core.redis import get_redis
 from app.infra import queue as fila
 from app.modules.accounts import AdminDep
-from app.modules.ballot_reports import Boletim
-from app.modules.events import Evento
-from app.modules.geography import LocalVotacao
-from app.modules.results import Snapshot
+from app.modules.ballot_reports import BallotBoxReport
+from app.modules.events import Event
+from app.modules.geography import PollingPlace
+from app.modules.results import ResultSnapshot
 
 router = APIRouter(prefix="/admin")
 
@@ -26,10 +26,10 @@ async def saude(session: SessaoDep, _: AdminDep) -> dict:
     m = await redis.get("coletor:metricas")
     worker = {k.decode(): int(v) for k, v in (await redis.hgetall("worker:metricas")).items()}
     contagens = {
-        "snapshots": (await session.execute(select(func.count()).select_from(Snapshot))).scalar_one(),
-        "boletins": (await session.execute(select(func.count()).select_from(Boletim))).scalar_one(),
-        "locais": (await session.execute(select(func.count()).select_from(LocalVotacao))).scalar_one(),
-        "eventos": (await session.execute(select(func.count()).select_from(Evento))).scalar_one(),
+        "snapshots": (await session.execute(select(func.count()).select_from(ResultSnapshot))).scalar_one(),
+        "boletins": (await session.execute(select(func.count()).select_from(BallotBoxReport))).scalar_one(),
+        "locais": (await session.execute(select(func.count()).select_from(PollingPlace))).scalar_one(),
+        "eventos": (await session.execute(select(func.count()).select_from(Event))).scalar_one(),
     }
     return {
         "coletor": orjson.loads(m) if m else None,

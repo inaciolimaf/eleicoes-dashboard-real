@@ -16,8 +16,8 @@ from app.infra.realtime import topics as topicos
 from app.infra.tse import bu as bu_mod
 from app.infra.tse.parsers import parse_acompanhamento, parse_resultado
 from app.modules.alerts import evaluation as alertas
-from app.modules.elections import Candidato, EleicaoCargo
-from app.modules.events import Evento
+from app.modules.elections import Candidate, ElectionOffice
+from app.modules.events import Event
 from app.modules.events import detection as eventos
 from app.modules.geography import parse
 from app.modules.results import ingestion as ingestao
@@ -50,8 +50,8 @@ class Processador:
     async def _cargo(self, session: AsyncSession, eleicao_id: int, cd: int) -> tuple[str, int | None]:
         chave = (eleicao_id, cd)
         if chave not in self._cargos:
-            c = await session.get(EleicaoCargo, {"eleicao_id": eleicao_id, "cd_cargo": cd})
-            self._cargos[chave] = (c.sistema, c.vagas) if c else ("majoritario", 1)
+            c = await session.get(ElectionOffice, {"election_id": eleicao_id, "office_code": cd})
+            self._cargos[chave] = (c.voting_system, c.seats) if c else ("majoritario", 1)
         return self._cargos[chave]
 
     # ------------------------------------------------------------------ resultado (EA20)
@@ -76,7 +76,9 @@ class Processador:
             antes: dict[str, str] = {}
             if c.abrangencia_do_cargo:
                 rows = await session.execute(
-                    select(Candidato.sqcand, Candidato.situacao_geral).where(Candidato.sqcand.in_(sqs))
+                    select(Candidate.tse_candidate_id, Candidate.overall_status).where(
+                        Candidate.tse_candidate_id.in_(sqs)
+                    )
                 )
                 antes = dict(rows.all())
             out = await ingestao.ingerir_resultado(session, c, res, sistema, vagas)
@@ -86,8 +88,8 @@ class Processador:
             evs: list[dict] = []
             if c.nivel in ("br", "uf"):
                 rows = await session.execute(
-                    select(Candidato.sqcand, Candidato.nome_urna, Candidato.situacao_geral).where(
-                        Candidato.sqcand.in_(sqs)
+                    select(Candidate.tse_candidate_id, Candidate.ballot_name, Candidate.overall_status).where(
+                        Candidate.tse_candidate_id.in_(sqs)
                     )
                 )
                 info = rows.all()
@@ -96,7 +98,7 @@ class Processador:
                 nome_recorte = await resultados.nome_recorte(session, parse(c.recorte_id))
                 evs = eventos.detectar(anterior, novo, nomes, nome_recorte, sistema, antes, depois)
                 for ev in evs:
-                    obj = (await session.execute(insert(Evento).values(**ev).returning(Evento))).scalar_one()
+                    obj = (await session.execute(insert(Event).values(**ev).returning(Event))).scalar_one()
                     ev["json"] = resultados.evento_json(obj)
                 await session.commit()
                 for ev in evs:
@@ -129,7 +131,7 @@ class Processador:
                 await alertas.marcar_disparado(session, a)
                 await topicos.publicar(
                     self.redis,
-                    topicos.usuario(str(a.usuario_id)),
+                    topicos.usuario(str(a.user_id)),
                     "alerta",
                     {"titulo": r[0], "descricao": r[1], "alerta_id": str(a.id)},
                 )
@@ -142,7 +144,7 @@ class Processador:
             mudou = await ingestao.ingerir_progresso(
                 session, turno, acomp, ctx["uf"], _dt(ctx.get("capturado_em"))
             )
-            if any(m["nivel"] in ("br", "uf") for m in mudou):
+            if any(m["level"] in ("br", "uf") for m in mudou):
                 payload = await resultados.progresso(session, turno, None)
                 await topicos.publicar(self.redis, topicos.progresso(turno), "progresso", payload)
 
@@ -201,7 +203,7 @@ class Processador:
                         await alertas.marcar_disparado(session, a)
                         await topicos.publicar(
                             self.redis,
-                            topicos.usuario(str(a.usuario_id)),
+                            topicos.usuario(str(a.user_id)),
                             "alerta",
                             {"titulo": r[0], "descricao": r[1], "alerta_id": str(a.id)},
                         )

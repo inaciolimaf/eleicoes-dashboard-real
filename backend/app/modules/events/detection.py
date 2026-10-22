@@ -32,28 +32,28 @@ def detectar(
 ) -> list[dict]:
     """Eventos para um recorte BR/UF de um cargo. `nomes`: sqcand -> nome de urna."""
     eventos: list[dict] = []
-    nivel, cd = novo["nivel"], novo["cd_cargo"]
+    nivel, cd = novo["level"], novo["office_code"]
     if nivel not in ("br", "uf"):
         return eventos
-    quando: datetime = novo["totalizado_em"]
+    quando: datetime = novo["tallied_at"]
     base = {
-        "cd_cargo": cd,
-        "nivel": nivel,
-        "recorte_id": novo["recorte_id"],
-        "ocorrido_em": quando,
-        "turno": novo["turno"],
+        "office_code": cd,
+        "level": nivel,
+        "geo_area_id": novo["geo_area_id"],
+        "occurred_at": quando,
+        "round": novo["round"],
     }
-    pct_antes = (anterior or {}).get("pct_secoes") or 0.0
-    pct_depois = novo.get("pct_secoes") or 0.0
+    pct_antes = (anterior or {}).get("pct_sections") or 0.0
+    pct_depois = novo.get("pct_sections") or 0.0
     cargo_nome = NOMES_CARGO.get(cd, str(cd))
 
     if cd == 1 and nivel == "br" and pct_antes <= 0 < pct_depois:
         eventos.append(
             {
                 **base,
-                "tipo": "inicio",
-                "titulo": "Começou a divulgação dos resultados",
-                "descricao": f"Primeiras seções totalizadas ({_fmt(pct_depois)}).",
+                "type": "inicio",
+                "title": "Começou a divulgação dos resultados",
+                "description": f"Primeiras seções totalizadas ({_fmt(pct_depois)}).",
                 "payload": {},
             }
         )
@@ -70,23 +70,23 @@ def detectar(
                 eventos.append(
                     {
                         **base,
-                        "tipo": "marco",
-                        "titulo": titulo,
-                        "descricao": f"{_fmt(pct_depois)} das seções totalizadas.",
+                        "type": "marco",
+                        "title": titulo,
+                        "description": f"{_fmt(pct_depois)} das seções totalizadas.",
                         "payload": {"marco": m},
                     }
                 )
     # virada de liderança (só majoritários; ignora ruído do comecinho)
     if sistema == "majoritario" and anterior and pct_depois >= 1.0:
-        l_antes, l_depois = anterior.get("lider_sqcand"), novo.get("lider_sqcand")
+        l_antes, l_depois = anterior.get("leader_candidate_id"), novo.get("leader_candidate_id")
         if l_antes and l_depois and l_antes != l_depois:
             eventos.append(
                 {
                     **base,
-                    "tipo": "virada",
-                    "titulo": f"Virada em {recorte_nome} ({cargo_nome})",
-                    "descricao": f"{nomes.get(l_depois, l_depois)} passou {nomes.get(l_antes, l_antes)} "
-                    f"({_fmt(novo.get('lider_pct') or 0)} × {_fmt(novo.get('segundo_pct') or 0)}) "
+                    "type": "virada",
+                    "title": f"Virada em {recorte_nome} ({cargo_nome})",
+                    "description": f"{nomes.get(l_depois, l_depois)} passou {nomes.get(l_antes, l_antes)} "
+                    f"({_fmt(novo.get('leader_pct') or 0)} × {_fmt(novo.get('second_pct') or 0)}) "
                     f"com {_fmt(pct_depois)} apurado.",
                     "payload": {"novo_lider": l_depois, "lider_anterior": l_antes},
                 }
@@ -106,9 +106,9 @@ def detectar(
                 eventos.append(
                     {
                         **base,
-                        "tipo": tipo,
-                        "titulo": f"{nome} eleito(a) — {cargo_nome} {recorte_nome}",
-                        "descricao": (
+                        "type": tipo,
+                        "title": f"{nome} eleito(a) — {cargo_nome} {recorte_nome}",
+                        "description": (
                             "Matematicamente eleito(a) antes do fim da apuração."
                             if tipo != "eleito"
                             else f"Eleição definida com {_fmt(pct_depois)} apurado."
@@ -120,9 +120,9 @@ def detectar(
                 eventos.append(
                     {
                         **base,
-                        "tipo": "segundo_turno",
-                        "titulo": f"{nome} vai ao 2º turno — {cargo_nome} {recorte_nome}",
-                        "descricao": "Nenhum candidato atingiu a maioria absoluta dos votos válidos.",
+                        "type": "segundo_turno",
+                        "title": f"{nome} vai ao 2º turno — {cargo_nome} {recorte_nome}",
+                        "description": "Nenhum candidato atingiu a maioria absoluta dos votos válidos.",
                         "payload": {"sqcand": sq},
                     }
                 )

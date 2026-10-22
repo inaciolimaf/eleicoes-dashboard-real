@@ -17,7 +17,7 @@ from app.core.deps import SessaoDep, parse_t
 from app.core.redis import get_redis
 from app.infra.tse.urls import MontadorUrls
 from app.modules.ballot_reports import demand as demanda
-from app.modules.elections import Candidato, Eleicao
+from app.modules.elections import Candidate, Election
 from app.modules.geography import RecorteDep, RecorteInvalido, parse
 from app.modules.public.deps import TempoDep
 from app.modules.public.schemas import FiltroEleicao, FiltroEventos, FiltroExport
@@ -47,9 +47,9 @@ async def status(session: SessaoDep) -> dict:
     eleicoes = await resultados.listar_eleicoes(session)
     inicio = None
     if eleicoes:
-        e = await session.get(Eleicao, eleicoes[0]["id"])
-        if e and e.data:
-            d, mth, a = e.data.split("/")
+        e = await session.get(Election, eleicoes[0]["id"])
+        if e and e.date:
+            d, mth, a = e.date.split("/")
             inicio = f"{a}-{mth}-{d}T20:00:00+00:00"
     ao_vivo = bool(m) and not m.get("pausado")
     return {
@@ -190,13 +190,15 @@ async def foto(session: SessaoDep, sqcand: str) -> Response:
         return Response(
             cache.read_bytes(), media_type=tipo, headers={"Cache-Control": "public, max-age=86400"}
         )
-    c = await session.get(Candidato, sqcand)
+    c = await session.get(Candidate, sqcand)
     if c is None:
         raise HTTPException(404)
-    e = await session.get(Eleicao, c.eleicao_id)
+    e = await session.get(Election, c.election_id)
     if e is None:
         raise HTTPException(404)
-    url = MontadorUrls(s.tse_base_url, {}, e.ciclo, e.cd_pleito).foto(e.cd_eleicao, c.uf, sqcand)
+    url = MontadorUrls(s.tse_base_url, {}, e.cycle, e.election_event_code).foto(
+        e.election_code, c.state_code, sqcand
+    )
     try:
         async with httpx.AsyncClient(timeout=10) as cli:
             r = await cli.get(url)

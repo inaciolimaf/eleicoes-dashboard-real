@@ -1,35 +1,41 @@
 """Imports the models of every module so Alembic sees the complete metadata."""
 
 from app.core.db import Base
-from app.modules.accounts import Compartilhamento, Favorito, Painel, Preferencia, Usuario
-from app.modules.alerts import Alerta
-from app.modules.ballot_reports import Boletim, ResultadoLocal
-from app.modules.elections import Candidato, Eleicao, EleicaoCargo
-from app.modules.events import Evento
-from app.modules.geography import UF, LocalVotacao, Municipio, Secao, Zona
-from app.modules.results import ProgressoAtual, ProgressoSnapshot, ResultadoAtual, Snapshot
+from app.modules.accounts import Dashboard, Favorite, Preference, Share, User
+from app.modules.alerts import Alert
+from app.modules.ballot_reports import BallotBoxReport, PollingPlaceResult
+from app.modules.elections import Candidate, Election, ElectionOffice
+from app.modules.events import Event
+from app.modules.geography import (
+    ElectoralZone,
+    Municipality,
+    PollingPlace,
+    PollingSection,
+    State,
+)
+from app.modules.results import CurrentProgress, CurrentResult, ProgressSnapshot, ResultSnapshot
 
 __all__ = [
-    "UF",
-    "Alerta",
+    "Alert",
+    "BallotBoxReport",
     "Base",
-    "Boletim",
-    "Candidato",
-    "Compartilhamento",
-    "Eleicao",
-    "EleicaoCargo",
-    "Evento",
-    "Favorito",
-    "LocalVotacao",
-    "Municipio",
-    "Painel",
-    "Preferencia",
-    "ProgressoAtual",
-    "ProgressoSnapshot",
-    "ResultadoAtual",
-    "ResultadoLocal",
-    "Secao",
-    "Snapshot",
-    "Usuario",
-    "Zona",
+    "Candidate",
+    "CurrentProgress",
+    "CurrentResult",
+    "Dashboard",
+    "Election",
+    "ElectionOffice",
+    "ElectoralZone",
+    "Event",
+    "Favorite",
+    "Municipality",
+    "PollingPlace",
+    "PollingPlaceResult",
+    "PollingSection",
+    "Preference",
+    "ProgressSnapshot",
+    "ResultSnapshot",
+    "Share",
+    "State",
+    "User",
 ]
